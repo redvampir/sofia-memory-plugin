@@ -1,0 +1,36 @@
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <title>Редактор заметок — Sofia</title>
+</head>
+<body style="font-family:sans-serif;padding:2rem;">
+  <h1>Редактор заметок</h1>
+  <form id="noteForm">
+    <input type="text" id="repo" placeholder="user/repo" required /><br><br>
+    <input type="text" id="token" placeholder="GitHub Token" required /><br><br>
+    <input type="text" id="filename" placeholder="lesson1.md" required /><br><br>
+    <textarea id="content" rows="20" cols="80" placeholder="Заметка..." required></textarea><br><br>
+    <button type="submit">Сохранить в GitHub</button>
+  </form>
+  <script>
+    const form = document.getElementById("noteForm");
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const data = {
+        repo: form.repo.value,
+        token: form.token.value,
+        filename: form.filename.value,
+        content: form.content.value
+      };
+      const res = await fetch("/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data)
+      });
+      alert(await res.text());
+    });
+  </script>
+</body>
+</html>

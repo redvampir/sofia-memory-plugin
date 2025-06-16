@@ -1,0 +1,7 @@
+
+{
+  "pluginName": "sofia-memory-plugin-v2",
+  "version": "2.0.0",
+  "description": "Stores, retrieves, and edits memory files from GitHub for custom GPT.",
+  "author": "Pavel Krovotov"
+}
