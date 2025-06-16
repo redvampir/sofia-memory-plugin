@@ -1,1 +1,1 @@
-// Placeholder for index.js
+console.log('Sofia plugin placeholder');
