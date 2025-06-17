@@ -16,6 +16,9 @@ app.post('/saveLessonPlan', memory.saveLessonPlan);
 app.post('/saveNote', memory.saveNote);
 app.post('/getContextSnapshot', memory.getContextSnapshot);
 app.post('/createUserProfile', memory.createUserProfile);
+app.post('/setToken', memory.setToken);
+app.get('/readContext', memory.readContext);
+app.post('/saveContext', memory.saveContext);
 
 app.post('/version/commit', versioning.commitInstructions);
 app.post('/version/rollback', versioning.rollbackInstructions);
@@ -51,6 +54,9 @@ app.get('/docs', (req, res) => {
       "POST /saveNote",
       "POST /getContextSnapshot",
       "POST /createUserProfile",
+      "POST /setToken",
+      "GET /readContext",
+      "POST /saveContext",
       "POST /version/commit",
       "POST /version/rollback",
       "POST /version/list",

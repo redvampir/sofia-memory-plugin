@@ -37,6 +37,43 @@ paths:
         '200':
           description: Memory read successfully
 
+  /readContext:
+    get:
+      summary: Read conversation context
+      operationId: readContext
+      responses:
+        '200':
+          description: Context read successfully
+  /saveContext:
+    post:
+      summary: Save conversation context
+      operationId: saveContext
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SaveContextRequest"
+      responses:
+        '200':
+          description: Context saved successfully
+  /setToken:
+    post:
+      summary: Store GitHub token for future requests
+      operationId: setToken
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                token:
+                  type: string
+      responses:
+        '200':
+          description: Token stored
+
 components:
   schemas:
     SaveMemoryRequest:
@@ -64,3 +101,13 @@ components:
         filename:
           type: string
           example: memory/test.md
+
+    SaveContextRequest:
+      type: object
+      properties:
+        repo:
+          type: string
+        content:
+          type: string
+
+
