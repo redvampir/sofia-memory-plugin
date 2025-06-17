@@ -28,6 +28,7 @@ function getToken(req) {
 exports.saveMemory = async (req, res) => {
   const { repo, filename, content } = req.body;
   const token = getToken(req);
+  console.log('[TokenCheck]', token);
   console.log('[saveMemory]', new Date().toISOString(), repo, filename);
 
   if (!filename || !content) {
