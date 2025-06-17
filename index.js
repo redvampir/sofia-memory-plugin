@@ -4,6 +4,7 @@ const memory = require('./memory');
 const versioning = require('./versioning');
 
 const app = express();
+app.use(express.static(path.join(__dirname, 'public')));
 app.use(bodyParser.json());
 
 app.post('/saveMemory', memory.saveMemory);

@@ -1,0 +1,18 @@
+{
+  "schema_version": "v1",
+  "name_for_model": "sofia_memory_plugin",
+  "name_for_human": "Sofia Memory Plugin",
+  "description_for_model": "Save and retrieve training memory files (lessons, context, plans) using GitHub.",
+  "description_for_human": "Store and load memory files for the Sofia tutor.",
+  "auth": {
+    "type": "none"
+  },
+  "api": {
+    "type": "openapi",
+    "url": "https://sofia-memory.onrender.com/openapi.yaml",
+    "is_user_authenticated": false
+  },
+  "logo_url": "https://sofia-memory.onrender.com/logo.png",
+  "contact_email": "dev@example.com",
+  "legal_info_url": "https://example.com/privacy"
+}
