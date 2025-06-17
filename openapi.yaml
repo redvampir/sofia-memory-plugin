@@ -1,0 +1,66 @@
+openapi: 3.1.0
+info:
+  title: Sofia Memory Plugin
+  description: |
+    Save and retrieve memory for the Sofia tutor using GitHub.
+    Provides endpoints to save and load memory files such as lessons, training plans, and student context.
+  version: "1.0.0"
+servers:
+  - url: https://sofia-memory.onrender.com
+
+paths:
+  /save:
+    post:
+      summary: Save memory content to GitHub
+      operationId: saveMemory
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SaveMemoryRequest"
+      responses:
+        '200':
+          description: Memory saved successfully
+
+  /read:
+    post:
+      summary: Read memory content from GitHub
+      operationId: readMemory
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReadMemoryRequest"
+      responses:
+        '200':
+          description: Memory read successfully
+
+components:
+  schemas:
+    SaveMemoryRequest:
+      type: object
+      properties:
+        repo:
+          type: string
+          example: redvampir/sofia-memory-plugin
+        token:
+          type: string
+        filename:
+          type: string
+          example: memory/test.md
+        content:
+          type: string
+          example: Тестовый контент
+
+    ReadMemoryRequest:
+      type: object
+      properties:
+        repo:
+          type: string
+        token:
+          type: string
+        filename:
+          type: string
+          example: memory/test.md
