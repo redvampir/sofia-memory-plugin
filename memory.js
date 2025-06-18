@@ -1,171 +1,102 @@
-
-const fs = require('fs');
-const path = require('path');
-const github = require('./githubClient');
-const tokenStore = require('./tokenStore');
-
-function ensureDir(filePath) {
-  const dir = path.dirname(filePath);
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-}
-
-const contextFilename = path.join(__dirname, 'memory', 'context.md');
-
-function ensureContext() {
-  if (!fs.existsSync(contextFilename)) {
-    ensureDir(contextFilename);
-    fs.writeFileSync(contextFilename, '# Context\n', 'utf-8');
-  }
-}
-
-function getToken(req) {
-  if (req.body && req.body.token) return req.body.token;
-  const auth = req.headers['authorization'];
-  if (auth && auth.startsWith('token ')) return auth.slice(6);
-  return tokenStore.getToken();
-}
+// memory.js
+const { Octokit } = require("@octokit/rest");
 
 exports.saveMemory = async (req, res) => {
-  const { repo, filename, content } = req.body;
-  const token = getToken(req);
-  console.log('[TokenCheck]', token);
-  console.log('[saveMemory]', new Date().toISOString(), repo, filename);
+  const { token, repo, filename, content } = req.body;
 
-  if (!filename || !content) {
-    return res.status(400).json({ status: 'error', message: 'Missing required fields.' });
+  if (!token || !repo || !filename || !content) {
+    console.warn("[SaveMemory] Missing fields:", { repo, filename });
+    return res.status(400).json({ error: "Missing required fields" });
   }
 
-  const filePath = path.join(__dirname, 'memory', filename);
-  ensureDir(filePath);
-  fs.writeFileSync(filePath, content, 'utf-8');
+  const octokit = new Octokit({ auth: token });
+  const [owner, repository] = repo.split("/");
 
-  if (repo && token) {
-    try {
-      await github.writeFile(token, repo, path.posix.join('memory', filename), content, `update ${filename}`);
-    } catch (e) {
-      console.error('GitHub write error', e.message);
-    }
+  console.log("[SaveMemory] Saving to", { owner, repository, filename });
+
+  try {
+    const response = await octokit.repos.createOrUpdateFileContents({
+      owner,
+      repo: repository,
+      path: filename,
+      message: "Save memory file",
+      content: Buffer.from(content).toString("base64"),
+      committer: {
+        name: "Sofia Memory Plugin",
+        email: "sofia@example.com",
+      },
+      author: {
+        name: "Sofia Memory Plugin",
+        email: "sofia@example.com",
+      },
+    });
+
+    console.log("[SaveMemory] Success", {
+      status: response.status,
+      sha: response.data.content.sha,
+    });
+
+    res.status(200).json({
+      success: true,
+      status: response.status,
+      sha: response.data.content.sha,
+    });
+  } catch (error) {
+    const status = error?.response?.status || 500;
+    const message = error?.response?.data?.message || error.message;
+
+    console.error("[SaveMemory] GitHub error", {
+      status,
+      message,
+      details: error?.response?.data,
+    });
+
+    res.status(status).json({
+      success: false,
+      error: message,
+      details: error?.response?.data,
+    });
   }
-
-  res.json({ status: 'success', action: 'saveMemory', filePath });
 };
 
 exports.readMemory = async (req, res) => {
-  const { repo, filename } = req.body;
-  const token = getToken(req);
-  console.log('[readMemory]', new Date().toISOString(), repo, filename);
+  const { token, repo, filename } = req.body;
 
-  const filePath = path.join(__dirname, 'memory', filename);
-  if (repo && token) {
-    try {
-      const content = await github.readFile(token, repo, path.posix.join('memory', filename));
-      return res.json({ status: 'success', action: 'readMemory', content });
-    } catch (e) {
-      console.error('GitHub read error', e.message);
-      // fallback to local
-    }
-  }
-  if (!fs.existsSync(filePath)) {
-    return res.status(404).json({ status: 'error', message: 'File not found.' });
+  if (!token || !repo || !filename) {
+    console.warn("[ReadMemory] Missing fields:", { repo, filename });
+    return res.status(400).json({ error: "Missing required fields" });
   }
 
-  const content = fs.readFileSync(filePath, 'utf-8');
-  res.json({ status: 'success', action: 'readMemory', content });
-};
+  const octokit = new Octokit({ auth: token });
+  const [owner, repository] = repo.split("/");
 
-exports.getMemoryList = (req, res) => {
-  const base = path.join(__dirname, 'memory');
-  const files = [];
+  console.log("[ReadMemory] Reading from", { owner, repository, filename });
 
-  function scan(dir) {
-    const entries = fs.readdirSync(dir, { withFileTypes: true });
-    for (const entry of entries) {
-      const fullPath = path.join(dir, entry.name);
-      if (entry.isDirectory()) scan(fullPath);
-      else files.push(path.relative(base, fullPath));
-    }
+  try {
+    const response = await octokit.repos.getContent({
+      owner,
+      repo: repository,
+      path: filename,
+    });
+
+    const content = Buffer.from(response.data.content, "base64").toString("utf-8");
+
+    console.log("[ReadMemory] File read successfully");
+
+    res.status(200).json({ content });
+  } catch (error) {
+    const status = error?.response?.status || 500;
+    const message = error?.response?.data?.message || error.message;
+
+    console.error("[ReadMemory] GitHub error", {
+      status,
+      message,
+      details: error?.response?.data,
+    });
+
+    res.status(status).json({
+      error: message,
+      details: error?.response?.data,
+    });
   }
-
-  scan(base);
-  res.json({ status: 'success', files });
 };
-
-exports.setMemoryRepo = (req, res) => {
-  const { userId, repoUrl } = req.body;
-  console.log('[setMemoryRepo]', userId, repoUrl);
-  res.json({ status: 'success', repo: repoUrl });
-};
-
-exports.saveLessonPlan = (req, res) => {
-  const { planData } = req.body;
-  console.log('[saveLessonPlan]', new Date().toISOString());
-  res.json({ status: 'success', action: 'saveLessonPlan' });
-};
-
-exports.saveNote = (req, res) => {
-  const { note } = req.body;
-  console.log('[saveNote]', new Date().toISOString());
-  res.json({ status: 'success', action: 'saveNote' });
-};
-
-exports.getContextSnapshot = (req, res) => {
-  console.log('[getContextSnapshot]', new Date().toISOString());
-  res.json({ status: 'success', context: {} });
-};
-
-exports.createUserProfile = (req, res) => {
-  const { user } = req.body;
-  console.log('[createUserProfile]', user);
-  res.json({ status: 'success', action: 'createUserProfile' });
-};
-
-exports.setToken = (req, res) => {
-  const { token } = req.body;
-  if (!token) {
-    return res.status(400).json({ status: 'error', message: 'Token required' });
-  }
-  tokenStore.setToken(token);
-  res.json({ status: 'success', action: 'setToken' });
-};
-
-exports.saveContext = async (req, res) => {
-  const { repo, content } = req.body;
-  const token = getToken(req);
-  console.log('[saveContext]', new Date().toISOString(), repo);
-
-  ensureContext();
-  const data = content || '';
-  fs.writeFileSync(contextFilename, data, 'utf-8');
-
-  if (repo && token) {
-    try {
-      await github.writeFile(token, repo, 'memory/context.md', data, 'update context');
-    } catch (e) {
-      console.error('GitHub write context error', e.message);
-    }
-  }
-
-  res.json({ status: 'success', action: 'saveContext' });
-};
-
-exports.readContext = async (req, res) => {
-  const { repo } = req.body;
-  const token = getToken(req);
-  console.log('[readContext]', new Date().toISOString(), repo);
-
-  ensureContext();
-
-  if (repo && token) {
-    try {
-      const content = await github.readFile(token, repo, 'memory/context.md');
-      return res.json({ status: 'success', content });
-    } catch (e) {
-      console.error('GitHub read context error', e.message);
-      // fall back
-    }
-  }
-
-  const content = fs.readFileSync(contextFilename, 'utf-8');
-  res.json({ status: 'success', content });
-};
-
