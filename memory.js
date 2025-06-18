@@ -9,6 +9,16 @@ function ensureDir(filePath) {
 }
 
 const contextFilename = path.join(__dirname, 'memory', 'context.md');
+const planFilename = path.join(__dirname, 'memory', 'plan.json');
+
+let planCache = null;
+
+function detectLanguage() {
+  const envLang = (process.env.LANG || '').toLowerCase();
+  if (envLang.includes('ru')) return 'ru';
+  if (envLang.includes('en')) return 'en';
+  return 'en';
+}
 
 function ensureContext() {
   if (!fs.existsSync(contextFilename)) {
@@ -16,6 +26,36 @@ function ensureContext() {
     fs.writeFileSync(contextFilename, '# Context\n', 'utf-8');
   }
 }
+
+function loadPlan() {
+  ensureDir(planFilename);
+  if (!fs.existsSync(planFilename)) {
+    const newPlan = {
+      start_date: new Date().toISOString().split('T')[0],
+      language: detectLanguage(),
+      lessons_completed: [],
+      project_files: [],
+      planned_lessons: [],
+      requires_context: true
+    };
+    fs.writeFileSync(planFilename, JSON.stringify(newPlan, null, 2), 'utf-8');
+    planCache = newPlan;
+  } else {
+    try {
+      const content = fs.readFileSync(planFilename, 'utf-8');
+      planCache = JSON.parse(content);
+    } catch (e) {
+      planCache = {};
+    }
+  }
+}
+
+function savePlan() {
+  if (!planCache) loadPlan();
+  fs.writeFileSync(planFilename, JSON.stringify(planCache, null, 2), 'utf-8');
+}
+
+loadPlan();
 
 function getToken(req) {
   if (req.body && req.body.token) return req.body.token;
@@ -84,9 +124,29 @@ exports.setMemoryRepo = (req, res) => {
 };
 
 exports.saveLessonPlan = (req, res) => {
-  const { planData } = req.body;
-  console.log('[saveLessonPlan]', new Date().toISOString());
-  res.json({ status: 'success', action: 'saveLessonPlan' });
+  const { title, summary, projectFiles, plannedLessons } = req.body;
+  console.log('[saveLessonPlan]', new Date().toISOString(), title);
+
+  if (!planCache) loadPlan();
+
+  if (title || summary) {
+    planCache.lessons_completed.push({
+      title: title || `lesson_${planCache.lessons_completed.length + 1}`,
+      date: new Date().toISOString().split('T')[0],
+      summary: summary || ''
+    });
+  }
+
+  if (Array.isArray(projectFiles)) {
+    planCache.project_files = projectFiles;
+  }
+
+  if (Array.isArray(plannedLessons)) {
+    planCache.planned_lessons = plannedLessons;
+  }
+
+  savePlan();
+  res.json({ status: 'success', action: 'saveLessonPlan', plan: planCache });
 };
 
 exports.saveNote = (req, res) => {
@@ -113,6 +173,11 @@ exports.setToken = (req, res) => {
   }
   tokenStore.setToken(token);
   res.json({ status: 'success', action: 'setToken' });
+};
+
+exports.readPlan = (req, res) => {
+  if (!planCache) loadPlan();
+  res.json({ status: 'success', plan: planCache });
 };
 
 exports.saveContext = async (req, res) => {

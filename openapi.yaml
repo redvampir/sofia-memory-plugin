@@ -62,6 +62,37 @@ paths:
                     items:
                       type: string
 
+  /saveLessonPlan:
+    post:
+      summary: Update learning plan with completed lesson
+      operationId: saveLessonPlan
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SaveLessonPlanRequest"
+      responses:
+        "200":
+          description: Plan updated successfully
+
+  /plan:
+    get:
+      summary: Read current plan information
+      operationId: readPlan
+      responses:
+        "200":
+          description: Current plan contents
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  plan:
+                    type: object
+
 components:
   schemas:
     SaveMemoryRequest:
@@ -103,3 +134,19 @@ components:
         - repo
         - token
         - path
+
+    SaveLessonPlanRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        summary:
+          type: string
+        projectFiles:
+          type: array
+          items:
+            type: string
+        plannedLessons:
+          type: array
+          items:
+            type: string
