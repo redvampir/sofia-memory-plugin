@@ -37,6 +37,30 @@ paths:
         '200':
           description: Memory read successfully
 
+  /readMemory:
+    get:
+      summary: Read memory content using GET
+      operationId: readMemoryGET
+      parameters:
+        - name: repo
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: token
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: filename
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Memory read successfully
+
 components:
   schemas:
     SaveMemoryRequest:

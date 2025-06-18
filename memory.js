@@ -77,6 +77,34 @@ exports.readMemory = async (req, res) => {
   res.json({ status: 'success', action: 'readMemory', content });
 };
 
+// Read memory content using query parameters (GET version)
+exports.readMemoryGET = async (req, res) => {
+  const { repo, filename, token } = req.query;
+  console.log('[readMemoryGET]', new Date().toISOString(), repo, filename);
+
+  const normalizedFilename = filename && filename.startsWith('memory/')
+    ? filename
+    : `memory/${filename}`;
+  const filePath = path.join(__dirname, normalizedFilename);
+
+  const authToken = token || getToken(req);
+  if (repo && authToken) {
+    try {
+      const content = await github.readFile(authToken, repo, normalizedFilename);
+      return res.json({ status: 'success', action: 'readMemoryGET', content });
+    } catch (e) {
+      console.error('GitHub read error', e.message);
+    }
+  }
+
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).json({ status: 'error', message: 'File not found.' });
+  }
+
+  const content = fs.readFileSync(filePath, 'utf-8');
+  res.json({ status: 'success', action: 'readMemoryGET', content });
+};
+
 exports.setMemoryRepo = (req, res) => {
   const { repoUrl } = req.body;
   console.log('[setMemoryRepo]', repoUrl);
