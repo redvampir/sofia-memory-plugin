@@ -142,6 +142,66 @@ function updateIndexEntry(relPath, repo, token) {
   }
 }
 
+async function updateIndexFile(filename, description, tags = [], repo, token) {
+  console.log('[updateIndexFile]', filename);
+  const indexData = loadIndex();
+  const entry = { path: filename, description, tags };
+  const idx = indexData.findIndex(e => e.path === filename);
+  if (idx >= 0) {
+    indexData[idx] = { ...indexData[idx], ...entry };
+  } else {
+    indexData.push(entry);
+  }
+  saveIndex(indexData);
+
+  if (repo && token) {
+    try {
+      await github.writeFile(
+        token,
+        repo,
+        path.relative(__dirname, indexFilename),
+        JSON.stringify(indexData, null, 2),
+        'update index.json'
+      );
+    } catch (e) {
+      console.error('GitHub write index error', e.message);
+    }
+  }
+}
+
+async function appendToFile(filePath, content, repo, token) {
+  const normalized = filePath.startsWith('memory/') ? filePath : `memory/${filePath}`;
+  const fullPath = path.join(__dirname, normalized);
+  ensureDir(fullPath);
+
+  let existing = '';
+  if (fs.existsSync(fullPath)) {
+    existing = fs.readFileSync(fullPath, 'utf-8');
+    fs.appendFileSync(fullPath, `\n${content}`, 'utf-8');
+  } else {
+    fs.writeFileSync(fullPath, content, 'utf-8');
+  }
+
+  const newData = existing ? `${existing}\n${content}` : content;
+  console.log('[appendToFile]', normalized);
+
+  if (repo && token) {
+    try {
+      await github.writeFile(
+        token,
+        repo,
+        normalized,
+        newData,
+        `update ${normalized}`
+      );
+    } catch (e) {
+      console.error('GitHub write error', e.message);
+    }
+  }
+
+  updateIndexEntry(normalized, repo, token);
+}
+
 exports.saveMemory = async (req, res) => {
   const { repo, filename, content } = req.body;
   const token = getToken(req);
@@ -314,3 +374,6 @@ exports.listMemoryFiles = async function(repo, token, dirPath) {
     .readdirSync(fullPath)
     .filter(name => name.endsWith('.md'));
 };
+
+exports.updateIndexFile = updateIndexFile;
+exports.appendToFile = appendToFile;
