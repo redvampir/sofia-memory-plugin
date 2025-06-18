@@ -45,3 +45,30 @@ exports.writeFile = async function(token, repo, filePath, content, message) {
   if (sha) body.sha = sha;
   await axios.put(url, body, { headers: { Authorization: `token ${token}` } });
 };
+
+exports.listFilesInDirectory = async function(repo, token, directoryPath) {
+  const url = `https://api.github.com/repos/${repo}/contents/${encodeURIComponent(directoryPath)}`;
+  console.log('[listFilesInDirectory]', new Date().toISOString(), repo, directoryPath);
+
+  try {
+    const res = await axios.get(url, {
+      headers: {
+        Authorization: `token ${token}`,
+        Accept: 'application/vnd.github.v3+json'
+      }
+    });
+
+    return res.data.map(item => ({
+      name: item.name,
+      path: item.path,
+      type: item.type
+    }));
+  } catch (e) {
+    if (e.response && e.response.status === 404) {
+      console.error('[listFilesInDirectory] Directory not found:', directoryPath);
+      throw new Error('Directory not found');
+    }
+    console.error('[listFilesInDirectory]', e.message);
+    throw e;
+  }
+};
