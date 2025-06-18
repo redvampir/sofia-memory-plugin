@@ -20,6 +20,7 @@ app.post('/createUserProfile', memory.createUserProfile);
 app.post('/setToken', memory.setToken);
 app.get('/readContext', memory.readContext);
 app.post('/saveContext', memory.saveContext);
+app.get('/plan', memory.readPlan);
 
 app.post('/list', async (req, res) => {
   try {
