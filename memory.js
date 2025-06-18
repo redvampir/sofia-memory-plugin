@@ -33,13 +33,16 @@ exports.saveMemory = async (req, res) => {
     return res.status(400).json({ status: 'error', message: 'Missing required fields.' });
   }
 
-  const filePath = path.join(__dirname, 'memory', filename);
+  const normalizedFilename = filename.startsWith('memory/')
+    ? filename
+    : `memory/${filename}`;
+  const filePath = path.join(__dirname, normalizedFilename);
   ensureDir(filePath);
   fs.writeFileSync(filePath, content, 'utf-8');
 
   if (repo && token) {
     try {
-      await github.writeFile(token, repo, path.posix.join('memory', filename), content, `update ${filename}`);
+      await github.writeFile(token, repo, normalizedFilename, content, `update ${filename}`);
     } catch (e) {
       console.error('GitHub write error', e.message);
     }
@@ -53,10 +56,13 @@ exports.readMemory = async (req, res) => {
   const token = getToken(req);
   console.log('[readMemory]', new Date().toISOString(), repo, filename);
 
-  const filePath = path.join(__dirname, 'memory', filename);
+  const normalizedFilename = filename.startsWith('memory/')
+    ? filename
+    : `memory/${filename}`;
+  const filePath = path.join(__dirname, normalizedFilename);
   if (repo && token) {
     try {
-      const content = await github.readFile(token, repo, path.posix.join('memory', filename));
+      const content = await github.readFile(token, repo, normalizedFilename);
       return res.json({ status: 'success', action: 'readMemory', content });
     } catch (e) {
       console.error('GitHub read error', e.message);
