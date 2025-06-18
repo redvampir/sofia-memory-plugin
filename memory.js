@@ -154,3 +154,28 @@ exports.readContext = async (req, res) => {
   const content = fs.readFileSync(contextFilename, 'utf-8');
   res.json({ status: 'success', content });
 };
+
+// List markdown files in a directory either from GitHub or local storage
+exports.listMemoryFiles = async function(repo, token, dirPath) {
+  const directory = dirPath.startsWith('memory/') ? dirPath : dirPath;
+
+  // If repo and token provided, attempt to read from GitHub
+  if (repo && token) {
+    try {
+      const items = await github.listFilesInDirectory(repo, token, directory);
+      return items
+        .filter(item => item.type === 'file' && item.name.endsWith('.md'))
+        .map(item => item.name);
+    } catch (e) {
+      console.error('GitHub list files error', e.message);
+      throw e;
+    }
+  }
+
+  // Local fallback
+  const fullPath = path.join(__dirname, directory);
+  if (!fs.existsSync(fullPath)) return [];
+  return fs
+    .readdirSync(fullPath)
+    .filter(name => name.endsWith('.md'));
+};

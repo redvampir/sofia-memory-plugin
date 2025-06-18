@@ -2,6 +2,7 @@ const express = require('express');
 const path = require('path');
 const bodyParser = require('body-parser');
 const memory = require('./memory');
+const { listMemoryFiles } = require('./memory');
 const versioning = require('./versioning');
 
 const app = express();
@@ -19,6 +20,20 @@ app.post('/createUserProfile', memory.createUserProfile);
 app.post('/setToken', memory.setToken);
 app.get('/readContext', memory.readContext);
 app.post('/saveContext', memory.saveContext);
+
+app.post('/list', async (req, res) => {
+  try {
+    const { repo, token, path } = req.body;
+    if (!repo || !token || !path) {
+      return res.status(400).json({ error: 'Missing repo, token, or path' });
+    }
+
+    const fileList = await listMemoryFiles(repo, token, path);
+    return res.json({ status: 'success', files: fileList });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+});
 
 app.post('/version/commit', versioning.commitInstructions);
 app.post('/version/rollback', versioning.rollbackInstructions);
@@ -60,6 +75,7 @@ app.get('/docs', (req, res) => {
       "POST /version/commit",
       "POST /version/rollback",
       "POST /version/list",
+      "POST /list",
       "GET /ping",
       "GET /docs"
     ]
