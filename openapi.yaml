@@ -37,6 +37,31 @@ paths:
         '200':
           description: Memory read successfully
 
+  /list:
+    post:
+      summary: List memory files in a directory
+      operationId: listMemoryFiles
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ListMemoryRequest"
+      responses:
+        "200":
+          description: List of files returned successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  files:
+                    type: array
+                    items:
+                      type: string
+
 components:
   schemas:
     SaveMemoryRequest:
@@ -64,3 +89,17 @@ components:
         filename:
           type: string
           example: memory/test.md
+
+    ListMemoryRequest:
+      type: object
+      properties:
+        repo:
+          type: string
+        token:
+          type: string
+        path:
+          type: string
+      required:
+        - repo
+        - token
+        - path
