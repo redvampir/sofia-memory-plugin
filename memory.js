@@ -10,6 +10,7 @@ function ensureDir(filePath) {
 
 const contextFilename = path.join(__dirname, 'memory', 'context.md');
 const planFilename = path.join(__dirname, 'memory', 'plan.json');
+const indexFilename = path.join(__dirname, 'memory', 'index.json');
 
 let planCache = null;
 
@@ -64,6 +65,101 @@ function getToken(req) {
   return tokenStore.getToken();
 }
 
+function categorizeMemoryFile(name) {
+  const lower = name.toLowerCase();
+  if (lower === 'plan.json') return 'plan';
+  if (lower.includes('lesson')) return 'lesson';
+  if (lower.includes('note')) return 'notes';
+  if (lower.includes('context')) return 'context';
+  return 'memory';
+}
+
+function extractMeta(fullPath) {
+  const stats = fs.statSync(fullPath);
+  const result = { lastModified: stats.mtime.toISOString() };
+  if (fullPath.endsWith('.md')) {
+    try {
+      const lines = fs.readFileSync(fullPath, 'utf-8').split(/\r?\n/);
+      const titleLine = lines.find(l => l.trim());
+      if (titleLine && titleLine.startsWith('#')) {
+        result.title = titleLine.replace(/^#+\s*/, '');
+      }
+      if (lines.length > 1) {
+        result.description = lines.slice(1, 3).join(' ').slice(0, 100);
+      }
+    } catch (e) {
+      // ignore parsing errors
+    }
+  }
+  return result;
+}
+
+function scanMemory(dir, baseDir) {
+  let entries = [];
+  if (!fs.existsSync(dir)) return entries;
+  for (const item of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, item.name);
+    const rel = path.relative(baseDir, full).replace(/\\/g, '/');
+    if (item.isDirectory()) {
+      entries = entries.concat(scanMemory(full, baseDir));
+    } else {
+      const meta = extractMeta(full);
+      entries.push({
+        path: rel,
+        type: categorizeMemoryFile(item.name),
+        ...meta
+      });
+    }
+  }
+  return entries;
+}
+
+const CODE_EXTS = new Set(['.js', '.jsx', '.ts', '.tsx', '.vue', '.css', '.html', '.py']);
+
+function scanRepo(dir, baseDir) {
+  let entries = [];
+  if (!fs.existsSync(dir)) return entries;
+  for (const item of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, item.name);
+    const rel = path.relative(baseDir, full).replace(/\\/g, '/');
+    if (['node_modules', '.git', 'memory'].includes(item.name)) continue;
+    if (item.isDirectory()) {
+      entries = entries.concat(scanRepo(full, baseDir));
+    } else {
+      const ext = path.extname(item.name).toLowerCase();
+      if (CODE_EXTS.has(ext)) {
+        const stats = fs.statSync(full);
+        entries.push({
+          path: rel,
+          type: 'code',
+          language: ext.slice(1),
+          lastModified: stats.mtime.toISOString()
+        });
+      }
+    }
+  }
+  return entries;
+}
+
+async function updateIndex(repo, token) {
+  if (!planCache) loadPlan();
+  const baseDir = __dirname;
+  const memoryDir = path.join(baseDir, 'memory');
+  const memoryEntries = scanMemory(memoryDir, baseDir);
+  const repoEntries = scanRepo(baseDir, baseDir);
+  const indexData = [...memoryEntries, ...repoEntries];
+  ensureDir(indexFilename);
+  fs.writeFileSync(indexFilename, JSON.stringify(indexData, null, 2), 'utf-8');
+
+  if (repo && token) {
+    try {
+      await github.writeFile(token, repo, path.relative(baseDir, indexFilename), JSON.stringify(indexData, null, 2), 'update index.json');
+    } catch (e) {
+      console.error('GitHub write index error', e.message);
+    }
+  }
+}
+
 exports.saveMemory = async (req, res) => {
   const { repo, filename, content } = req.body;
   const token = getToken(req);
@@ -87,6 +183,8 @@ exports.saveMemory = async (req, res) => {
       console.error('GitHub write error', e.message);
     }
   }
+
+  await updateIndex(repo, token);
 
   res.json({ status: 'success', action: 'saveMemory', filePath });
 };
