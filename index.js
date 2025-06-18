@@ -9,6 +9,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use(bodyParser.json());
 
 app.post('/saveMemory', memory.saveMemory);
+app.get('/readMemory', memory.readMemoryGET); // new GET endpoint
 app.post('/readMemory', memory.readMemory);
 app.post('/setMemoryRepo', memory.setMemoryRepo);
 app.post('/saveLessonPlan', memory.saveLessonPlan);
@@ -48,6 +49,7 @@ app.get('/docs', (req, res) => {
   res.json({
     endpoints: [
       "POST /saveMemory",
+      "GET /readMemory",
       "POST /readMemory",
       "POST /setMemoryRepo",
       "POST /saveLessonPlan",
