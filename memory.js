@@ -192,11 +192,13 @@ function categorizeMemoryFile(name) {
   if (lower.includes('lesson')) return 'lesson';
   if (lower.includes('note')) return 'note';
   if (lower.includes('context')) return 'context';
+  if (lower.includes('practice')) return 'practice';
 
   if (['.md', '.txt', '.json'].includes(ext)) return 'lesson';
-  if (['.js', '.ts', '.html', '.css'].includes(ext)) return 'projectFile';
-  if (['.png', '.jpg', '.jpeg', '.svg', '.gif'].includes(ext)) return 'projectFile';
-
+  if (['.js', '.ts', '.jsx', '.tsx', '.py', '.java', '.html', '.css', '.c', '.cpp'].includes(ext))
+    return 'project';
+  if (['.png', '.jpg', '.jpeg', '.svg', '.gif'].includes(ext)) return 'project';
+  
   return 'memory';
 }
 
@@ -282,10 +284,15 @@ async function scanMemoryFolderRecursively(repo, token, basePath = 'memory') {
         walk(abs);
       } else if (item.isFile()) {
         const rel = path.relative(__dirname, abs).replace(/\\/g, '/');
-        if (!rel.endsWith('index.json')) {
-          if (/\.(md|txt|json|js|ts|jsx|tsx|html|css|png|jpe?g|svg|gif)$/i.test(item.name)) {
-            files.push(rel);
-          }
+        if (rel.endsWith('index.json')) {
+          logDebug('[scan] skipped', rel, 'index file');
+          return;
+        }
+        if (/\.(md|txt|json|js|ts|jsx|tsx|html|css|png|jpe?g|svg|gif|py|java|c|cpp|csv)$/i.test(item.name)) {
+          files.push(rel);
+          logDebug('[scan] file', rel);
+        } else {
+          logDebug('[scan] skipped', rel, 'unsupported extension');
         }
       }
     });
@@ -412,24 +419,19 @@ function scanMemoryDir(dirPath) {
 
 async function rebuildIndex(repo, token) {
   const paths = await scanMemoryFolderRecursively(repo, token);
-  const existing = await fetchIndex(repo, token);
-  const map = new Map(existing.map(e => [e.path, e]));
-
-  const updated = paths.map(rel => {
+  for (const rel of paths) {
     const abs = path.join(__dirname, rel);
     const meta = extractMeta(abs);
-    const old = map.get(rel) || {};
-    return {
+    await updateIndexEntry(repo, token, {
       path: rel,
-      type: old.type || categorizeMemoryFile(path.basename(rel)),
-      title: meta.title || old.title,
-      description: meta.description || old.description,
+      type: categorizeMemoryFile(path.basename(rel)),
+      title: meta.title,
+      description: meta.description,
       lastModified: meta.lastModified
-    };
-  });
+    });
+  }
 
-  await persistIndex(updated, repo, token);
-  return updated;
+  return fetchIndex(repo, token);
 }
 
 async function updateIndexFileManually(newEntries, repo, token) {
