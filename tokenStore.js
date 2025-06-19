@@ -1,15 +1,22 @@
 const fs = require('fs');
 const path = require('path');
 
-const tokenFile = path.join(__dirname, 'token.json');
+const cacheDir = path.join(__dirname, '.cache');
+const tokenFile = path.join(cacheDir, 'token.txt');
 let storedToken = null;
 
+function ensureDir() {
+  if (!fs.existsSync(cacheDir)) {
+    fs.mkdirSync(cacheDir, { recursive: true });
+  }
+}
+
 function loadToken() {
-  if (storedToken) return storedToken;
+  if (storedToken !== null) return storedToken;
   if (fs.existsSync(tokenFile)) {
     try {
-      const data = JSON.parse(fs.readFileSync(tokenFile, 'utf-8'));
-      storedToken = data.token || null;
+      const data = fs.readFileSync(tokenFile, 'utf-8').trim();
+      storedToken = data || null;
     } catch (e) {
       storedToken = null;
     }
@@ -18,15 +25,20 @@ function loadToken() {
 }
 
 function saveToken(token) {
+  ensureDir();
   try {
-    fs.writeFileSync(tokenFile, JSON.stringify({ token }), 'utf-8');
+    if (token) {
+      fs.writeFileSync(tokenFile, token, 'utf-8');
+    } else if (fs.existsSync(tokenFile)) {
+      fs.unlinkSync(tokenFile);
+    }
   } catch (e) {
     console.error('[tokenStore] failed to save token', e.message);
   }
 }
 
 exports.setToken = (token) => {
-  storedToken = token;
+  storedToken = token || null;
   saveToken(token);
 };
 
