@@ -454,35 +454,49 @@ exports.saveMemory = async (req, res) => {
   const token = getToken(req);
   console.log('[saveMemory]', new Date().toISOString(), repo, filename);
 
-  if (!filename || !content) {
+  if (!filename || content === undefined) {
     return res.status(400).json({ status: 'error', message: 'Missing required fields.' });
   }
 
-  const normalizedFilename = filename.startsWith('memory/')
-    ? filename
-    : `memory/${filename}`;
+  const normalizedFilename = filename.startsWith('memory/') ? filename : `memory/${filename}`;
   const filePath = path.join(__dirname, normalizedFilename);
   ensureDir(filePath);
 
-  if (filename.endsWith('.json')) {
+  let writeErr = null;
+
+  if (filename.trim().endsWith('.json')) {
     try {
       const data = JSON.parse(content);
       await updateOrInsertJsonEntry(filePath, data, null, repo, token);
     } catch (e) {
+      console.error('[saveMemory] invalid JSON', e.message);
       return res.status(400).json({ status: 'error', message: 'Invalid JSON' });
     }
   } else {
-    writeFileSafe(filePath, content);
-    logDebug('[saveMemory] file saved', normalizedFilename);
+    try {
+      writeFileSafe(filePath, content);
+      console.log('[saveMemory] wrote', normalizedFilename);
+    } catch (e) {
+      console.error('[saveMemory] local write failed', e.message);
+      writeErr = e;
+    }
 
-    if (repo && token) {
-      try {
-        await githubWriteFileSafe(token, repo, normalizedFilename, content, `update ${filename}`);
-        logDebug('[saveMemory] pushed file to GitHub', normalizedFilename);
-      } catch (e) {
-        console.error('GitHub write error', e.message);
+    if (repo) {
+      if (!token) {
+        console.error('[saveMemory] missing token for GitHub write');
+      } else {
+        try {
+          await githubWriteFileSafe(token, repo, normalizedFilename, content, `update ${filename}`);
+          console.log('[saveMemory] pushed to GitHub', normalizedFilename);
+        } catch (e) {
+          console.error('GitHub write error', e.message);
+        }
       }
     }
+  }
+
+  if (writeErr) {
+    return res.status(500).json({ status: 'error', message: 'Failed to write file' });
   }
 
   const meta = extractMeta(filePath);
@@ -492,14 +506,14 @@ exports.saveMemory = async (req, res) => {
       type: categorizeMemoryFile(path.basename(normalizedFilename)),
       title: meta.title,
       description: meta.description,
-      lastModified: new Date().toISOString()
+      lastModified: new Date().toISOString(),
     });
     logDebug('[saveMemory] index updated', normalizedFilename);
   } catch (e) {
     console.error('[saveMemory] index update error', e.message);
   }
 
-  res.json({ status: 'success', action: 'saveMemory', filePath });
+  res.json({ status: 'success', action: 'saveMemory', filePath: normalizedFilename });
 };
 
 exports.readMemory = async (req, res) => {
