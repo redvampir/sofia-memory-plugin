@@ -185,10 +185,6 @@ components:
     UpdateIndexRequest:
       type: object
       properties:
-        repo:
-          type: string
-        token:
-          type: string
         entries:
           type: array
           items:
