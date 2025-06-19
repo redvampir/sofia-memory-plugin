@@ -20,6 +20,7 @@ app.post('/createUserProfile', memory.createUserProfile);
 app.post('/setToken', memory.setToken);
 app.get('/readContext', memory.readContext);
 app.post('/saveContext', memory.saveContext);
+app.post('/updateIndex', memory.updateIndexManual);
 app.get('/plan', memory.readPlan);
 
 app.post('/list', async (req, res) => {
@@ -77,6 +78,7 @@ app.get('/docs', (req, res) => {
       "POST /version/rollback",
       "POST /version/list",
       "POST /list",
+      "POST /updateIndex",
       "GET /ping",
       "GET /docs"
     ]

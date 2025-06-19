@@ -76,6 +76,20 @@ paths:
         "200":
           description: Plan updated successfully
 
+  /updateIndex:
+    post:
+      summary: Manually update index.json
+      operationId: updateIndexFileManually
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateIndexRequest"
+      responses:
+        "200":
+          description: Index file updated successfully
+
   /plan:
     get:
       summary: Read current plan information
@@ -150,3 +164,34 @@ components:
           type: array
           items:
             type: string
+
+    IndexEntry:
+      type: object
+      properties:
+        path:
+          type: string
+        type:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        lastModified:
+          type: string
+      required:
+        - path
+        - type
+
+    UpdateIndexRequest:
+      type: object
+      properties:
+        repo:
+          type: string
+        token:
+          type: string
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/IndexEntry'
+      required:
+        - entries
