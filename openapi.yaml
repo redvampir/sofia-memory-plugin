@@ -79,7 +79,7 @@ paths:
   /updateIndex:
     post:
       summary: Manually update index.json
-      operationId: updateIndexFileManually
+      operationId: updateIndexManual
       requestBody:
         required: true
         content:
@@ -189,5 +189,9 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/IndexEntry'
+        repo:
+          type: string
+        token:
+          type: string
       required:
         - entries
