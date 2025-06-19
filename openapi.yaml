@@ -172,6 +172,9 @@ components:
           type: string
         type:
           type: string
+          description: >-
+            Category of the file. For code or asset files the value can be
+            'projectFile'.
         title:
           type: string
         description:

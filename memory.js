@@ -151,8 +151,8 @@ function categorizeMemoryFile(name) {
   if (lower.includes('context')) return 'context';
 
   if (['.md', '.txt', '.json'].includes(ext)) return 'lesson';
-  if (['.js', '.ts', '.html', '.css'].includes(ext)) return 'code';
-  if (['.png', '.jpg', '.jpeg', '.svg', '.gif'].includes(ext)) return 'asset';
+  if (['.js', '.ts', '.html', '.css'].includes(ext)) return 'projectFile';
+  if (['.png', '.jpg', '.jpeg', '.svg', '.gif'].includes(ext)) return 'projectFile';
 
   return 'memory';
 }
@@ -178,14 +178,21 @@ function extractMeta(fullPath) {
 }
 
 function loadIndex() {
-  if (fs.existsSync(indexFilename)) {
-    try {
-      return JSON.parse(fs.readFileSync(indexFilename, 'utf-8'));
-    } catch (e) {
-      return [];
-    }
+  if (!fs.existsSync(indexFilename)) {
+    console.warn('[loadIndex] index.json not found - creating new');
+    ensureDir(indexFilename);
+    fs.writeFileSync(indexFilename, '[]', 'utf-8');
+    return [];
   }
-  return [];
+
+  try {
+    const parsed = JSON.parse(fs.readFileSync(indexFilename, 'utf-8'));
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (e) {
+    console.warn('[loadIndex] failed to parse index.json, resetting', e.message);
+    fs.writeFileSync(indexFilename, '[]', 'utf-8');
+    return [];
+  }
 }
 
 function saveIndex(data) {
@@ -194,47 +201,17 @@ function saveIndex(data) {
 }
 
 async function updateIndexFile(entry, repo, token) {
-  ensureDir(indexFilename);
-  const indexRel = path.relative(__dirname, indexFilename);
-  let data = [];
-
-  if (repo && token) {
-    try {
-      const remote = await github.readFile(token, repo, indexRel);
-      data = JSON.parse(remote);
-    } catch (e) {
-      // ignore if file absent or invalid
-      data = [];
-    }
-  }
-
-  if (data.length === 0 && fs.existsSync(indexFilename)) {
-    try {
-      const local = JSON.parse(fs.readFileSync(indexFilename, 'utf-8'));
-      if (Array.isArray(local)) data = local;
-    } catch (e) {
-      // ignore parse errors
-    }
-  }
-
-  if (!Array.isArray(data)) data = [];
+  const data = await fetchIndex(repo, token);
   const idx = data.findIndex(i => i.path === entry.path);
   if (idx >= 0) {
     data[idx] = { ...data[idx], ...entry };
+    console.log('[updateIndexFile] updated', entry.path);
   } else {
     data.push(entry);
+    console.log('[updateIndexFile] added', entry.path);
   }
 
-  fs.writeFileSync(indexFilename, JSON.stringify(data, null, 2), 'utf-8');
-
-  if (repo && token) {
-    try {
-      await github.writeFile(token, repo, indexRel, JSON.stringify(data, null, 2), 'update index.json');
-    } catch (e) {
-      console.error('GitHub write index error', e.message);
-    }
-  }
-
+  await persistIndex(data, repo, token);
   return data;
 }
 
@@ -272,12 +249,23 @@ function scanMemoryFolderRecursively(basePath) {
 
 async function fetchIndex(repo, token) {
   const indexRel = path.relative(__dirname, indexFilename);
-  let data = [];
+  let localData = [];
+  let remoteData = [];
+
+  if (fs.existsSync(indexFilename)) {
+    try {
+      const parsed = JSON.parse(fs.readFileSync(indexFilename, 'utf-8'));
+      if (Array.isArray(parsed)) localData = parsed;
+    } catch (e) {
+      console.warn('[fetchIndex] local read error', e.message);
+    }
+  }
 
   if (repo && token) {
     try {
       const remote = await github.readFile(token, repo, indexRel);
-      data = JSON.parse(remote);
+      const parsedRemote = JSON.parse(remote);
+      if (Array.isArray(parsedRemote)) remoteData = parsedRemote;
     } catch (e) {
       if (e.response?.status !== 404) {
         console.error('[fetchIndex] GitHub read error', e.message);
@@ -285,23 +273,21 @@ async function fetchIndex(repo, token) {
     }
   }
 
-  if (!Array.isArray(data) && fs.existsSync(indexFilename)) {
-    try {
-      data = JSON.parse(fs.readFileSync(indexFilename, 'utf-8'));
-    } catch (e) {
-      console.error('[fetchIndex] local read error', e.message);
-      data = [];
+  const map = new Map();
+  [...localData, ...remoteData].forEach(entry => {
+    if (entry && entry.path) {
+      map.set(entry.path, { ...map.get(entry.path), ...entry });
     }
-  }
+  });
 
-  if (!Array.isArray(data)) data = [];
-  return data;
+  return Array.from(map.values());
 }
 
 async function persistIndex(data, repo, token) {
   ensureDir(indexFilename);
   try {
     fs.writeFileSync(indexFilename, JSON.stringify(data, null, 2), 'utf-8');
+    console.log('[persistIndex] local index saved');
   } catch (e) {
     console.error('[persistIndex] local write error', e.message);
   }
@@ -315,6 +301,7 @@ async function persistIndex(data, repo, token) {
         JSON.stringify(data, null, 2),
         'update index.json'
       );
+      console.log('[persistIndex] pushed index to GitHub');
     } catch (e) {
       console.error('[persistIndex] GitHub write error', e.message);
     }
@@ -338,8 +325,10 @@ async function updateIndexEntry(filePath, meta = {}, repo, token) {
 
   if (idx >= 0) {
     indexData[idx] = { ...indexData[idx], ...entry };
+    console.log('[updateIndexEntry] updated', filePath);
   } else {
     indexData.push(entry);
+    console.log('[updateIndexEntry] added', filePath);
   }
 
   await persistIndex(indexData, repo, token);
@@ -449,10 +438,12 @@ exports.saveMemory = async (req, res) => {
     }
   } else {
     fs.writeFileSync(filePath, content, 'utf-8');
+    console.log('[saveMemory] file saved', normalizedFilename);
 
     if (repo && token) {
       try {
         await github.writeFile(token, repo, normalizedFilename, content, `update ${filename}`);
+        console.log('[saveMemory] pushed file to GitHub', normalizedFilename);
       } catch (e) {
         console.error('GitHub write error', e.message);
       }
@@ -471,6 +462,7 @@ exports.saveMemory = async (req, res) => {
     repo,
     token
   );
+  console.log('[saveMemory] index updated', normalizedFilename);
 
   res.json({ status: 'success', action: 'saveMemory', filePath });
 };
