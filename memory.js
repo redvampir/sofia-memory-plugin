@@ -193,7 +193,9 @@ function getToken(req) {
   if (req.body && req.body.token) return req.body.token;
   const auth = req.headers['authorization'];
   if (auth && auth.startsWith('token ')) return auth.slice(6);
-  return tokenStore.getToken();
+  const stored = tokenStore.getToken();
+  if (stored) return stored;
+  return process.env.GITHUB_TOKEN || null;
 }
 
 function categorizeMemoryFile(name) {
@@ -523,8 +525,10 @@ exports.saveMemory = async (req, res) => {
 
     if (repo) {
       if (!token) {
-        gitErr = new Error('Missing GitHub token');
-        console.error('[saveMemory] missing token for GitHub write');
+        return res.status(401).json({
+          status: 'error',
+          message: 'Missing GitHub token'
+        });
       } else {
         try {
           await githubWriteFileSafe(
@@ -575,7 +579,10 @@ exports.readMemory = async (req, res) => {
 
   const normalizedFilename = normalizeMemoryPath(filename);
   const filePath = path.join(__dirname, normalizedFilename);
-  if (repo && token) {
+  if (repo) {
+    if (!token) {
+      return res.status(401).json({ status: 'error', message: 'Missing GitHub token' });
+    }
     try {
       const content = await github.readFile(token, repo, normalizedFilename);
       return res.json({ status: 'success', action: 'readMemory', content });
