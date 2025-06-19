@@ -1,5 +1,6 @@
 const express = require('express');
 const path = require('path');
+const fs = require('fs');
 const bodyParser = require('body-parser');
 const memory = require('./memory');
 const { listMemoryFiles } = require('./memory');
@@ -45,6 +46,16 @@ app.get('/', (req, res) => {
   res.send('Sofia plugin is running');
 });
 
+// Debug route to inspect index.json
+app.get('/debug/index', (req, res) => {
+  const indexPath = path.join(__dirname, 'memory', 'index.json');
+  if (!fs.existsSync(indexPath)) {
+    return res.status(404).send('index.json not found');
+  }
+  const data = fs.readFileSync(indexPath, 'utf-8');
+  res.type('text/plain').send(data);
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Sofia Plugin Server running on port ${PORT}`);
@@ -79,6 +90,7 @@ app.get('/docs', (req, res) => {
       "POST /version/list",
       "POST /list",
       "POST /updateIndex",
+      "GET /debug/index",
       "GET /ping",
       "GET /docs"
     ]
