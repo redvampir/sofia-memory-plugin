@@ -654,12 +654,14 @@ exports.createUserProfile = (req, res) => {
 };
 
 exports.setToken = (req, res) => {
-  const { token } = req.body;
-  if (!token) {
-    return res.status(400).json({ status: 'error', message: 'Token required' });
-  }
+  const token = req.body && req.body.token ? req.body.token : '';
   tokenStore.setToken(token);
-  res.json({ status: 'success', action: 'setToken' });
+  res.json({ status: 'success', action: 'setToken', connected: !!token });
+};
+
+exports.tokenStatus = (req, res) => {
+  const token = tokenStore.getToken();
+  res.json({ connected: !!token });
 };
 
 exports.readPlan = (req, res) => {

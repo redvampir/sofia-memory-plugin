@@ -6,10 +6,14 @@
 </head>
 <body>
   <h1>Sofia Memory Plugin</h1>
-  <label for="github-token">GitHub Token:
-    <input type="password" id="github-token" />
-  </label>
-  <button id="save-token">Save Token</button>
+  <div id="token-section">
+    <label for="github-token">GitHub Token:
+      <input type="password" id="github-token" />
+    </label>
+    <button id="save-token">Save Token</button>
+  </div>
+  <button id="logout" style="display:none;">Log Out</button>
+  <button id="clear-local">Clear token (local)</button>
   <span id="token-status"></span>
 
   <script src="main.js"></script>

@@ -107,6 +107,38 @@ paths:
                   plan:
                     type: object
 
+  /setToken:
+    post:
+      summary: Store GitHub token on the server
+      operationId: setToken
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                token:
+                  type: string
+      responses:
+        "200":
+          description: Token stored
+
+  /token/status:
+    get:
+      summary: Check if a token is stored on the server
+      operationId: tokenStatus
+      responses:
+        "200":
+          description: Token status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  connected:
+                    type: boolean
+
 components:
   schemas:
     SaveMemoryRequest:
