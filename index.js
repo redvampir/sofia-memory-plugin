@@ -25,12 +25,12 @@ app.get('/plan', memory.readPlan);
 
 app.post('/list', async (req, res) => {
   try {
-    const { repo, token, path } = req.body;
-    if (!repo || !token || !path) {
+    const { repo, token, path: dirPath } = req.body;
+    if (!repo || !token || !dirPath) {
       return res.status(400).json({ error: 'Missing repo, token, or path' });
     }
 
-    const fileList = await listMemoryFiles(repo, token, path);
+    const fileList = await listMemoryFiles(repo, token, dirPath);
     return res.json({ status: 'success', files: fileList });
   } catch (error) {
     return res.status(500).json({ error: error.message });

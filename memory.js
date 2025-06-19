@@ -2,10 +2,41 @@ const fs = require('fs');
 const path = require('path');
 const github = require('./githubClient');
 const tokenStore = require('./tokenStore');
+const indexManager = require('./indexManager');
+
+const DEBUG = process.env.DEBUG === 'true';
+
+function logDebug(...args) {
+  if (DEBUG) console.log(...args);
+}
 
 function ensureDir(filePath) {
   const dir = path.dirname(filePath);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+}
+
+function writeFileSafe(filePath, data) {
+  try {
+    ensureDir(filePath);
+    fs.writeFileSync(filePath, data, 'utf-8');
+    logDebug('[writeFileSafe] wrote', filePath);
+  } catch (e) {
+    console.error(`[writeFileSafe] Error writing ${filePath}`, e.message);
+    throw e;
+  }
+}
+
+async function githubWriteFileSafe(token, repo, relPath, data, message, attempts = 2) {
+  for (let i = 1; i <= attempts; i++) {
+    try {
+      await github.writeFile(token, repo, relPath, data, message);
+      logDebug(`[githubWriteFileSafe] pushed ${relPath}`);
+      return;
+    } catch (e) {
+      console.error(`[githubWriteFileSafe] attempt ${i} failed for ${relPath}`, e.message);
+      if (i === attempts) throw e;
+    }
+  }
 }
 
 function isObject(val) {
@@ -67,11 +98,17 @@ async function updateOrInsertJsonEntry(filePath, newData, matchKey, repo, token)
   }
 
   const updated = deepMerge(existing, newData, matchKey);
-  fs.writeFileSync(filePath, JSON.stringify(updated, null, 2), 'utf-8');
+  writeFileSafe(filePath, JSON.stringify(updated, null, 2));
 
   if (repo && token) {
     try {
-      await github.writeFile(token, repo, relPath, JSON.stringify(updated, null, 2), `update ${path.basename(filePath)}`);
+      await githubWriteFileSafe(
+        token,
+        repo,
+        relPath,
+        JSON.stringify(updated, null, 2),
+        `update ${path.basename(filePath)}`
+      );
     } catch (e) {
       console.error('GitHub write error', e.message);
     }
@@ -96,8 +133,8 @@ function detectLanguage() {
 function ensureContext() {
   if (!fs.existsSync(contextFilename)) {
     ensureDir(contextFilename);
-    fs.writeFileSync(contextFilename, '# Context\n', 'utf-8');
-    rebuildIndex();
+    writeFileSafe(contextFilename, '# Context\n');
+    rebuildIndex().catch(e => console.error('[ensureContext] rebuild error', e.message));
   }
 }
 
@@ -112,9 +149,9 @@ function loadPlan() {
       planned_lessons: [],
       requires_context: true
     };
-    fs.writeFileSync(planFilename, JSON.stringify(newPlan, null, 2), 'utf-8');
+    writeFileSafe(planFilename, JSON.stringify(newPlan, null, 2));
     planCache = newPlan;
-    rebuildIndex();
+    rebuildIndex().catch(e => console.error('[loadPlan] rebuild error', e.message));
   } else {
     try {
       const content = fs.readFileSync(planFilename, 'utf-8');
@@ -131,8 +168,14 @@ async function savePlan(repo, token) {
   await rebuildIndex(repo, token);
 }
 
-loadPlan();
-rebuildIndex();
+(async () => {
+  try {
+    await loadPlan();
+    await rebuildIndex();
+  } catch (e) {
+    console.error('[init] startup error', e.message);
+  }
+})();
 
 function getToken(req) {
   if (req.body && req.body.token) return req.body.token;
@@ -181,7 +224,7 @@ function loadIndex() {
   if (!fs.existsSync(indexFilename)) {
     console.warn('[loadIndex] index.json not found - creating new');
     ensureDir(indexFilename);
-    fs.writeFileSync(indexFilename, '[]', 'utf-8');
+    writeFileSafe(indexFilename, '[]');
     return [];
   }
 
@@ -190,14 +233,14 @@ function loadIndex() {
     return Array.isArray(parsed) ? parsed : [];
   } catch (e) {
     console.warn('[loadIndex] failed to parse index.json, resetting', e.message);
-    fs.writeFileSync(indexFilename, '[]', 'utf-8');
+    writeFileSafe(indexFilename, '[]');
     return [];
   }
 }
 
 function saveIndex(data) {
   ensureDir(indexFilename);
-  fs.writeFileSync(indexFilename, JSON.stringify(data, null, 2), 'utf-8');
+  writeFileSafe(indexFilename, JSON.stringify(data, null, 2));
 }
 
 async function updateIndexFile(entry, repo, token) {
@@ -286,22 +329,22 @@ async function fetchIndex(repo, token) {
 async function persistIndex(data, repo, token) {
   ensureDir(indexFilename);
   try {
-    fs.writeFileSync(indexFilename, JSON.stringify(data, null, 2), 'utf-8');
-    console.log('[persistIndex] local index saved');
+    writeFileSafe(indexFilename, JSON.stringify(data, null, 2));
+    logDebug('[persistIndex] local index saved');
   } catch (e) {
     console.error('[persistIndex] local write error', e.message);
   }
 
   if (repo && token) {
     try {
-      await github.writeFile(
+      await githubWriteFileSafe(
         token,
         repo,
         path.relative(__dirname, indexFilename),
         JSON.stringify(data, null, 2),
         'update index.json'
       );
-      console.log('[persistIndex] pushed index to GitHub');
+      logDebug('[persistIndex] pushed index to GitHub');
     } catch (e) {
       console.error('[persistIndex] GitHub write error', e.message);
     }
@@ -384,7 +427,7 @@ async function rebuildIndex(repo, token) {
 
   if (repo && token) {
     try {
-      await github.writeFile(
+      await githubWriteFileSafe(
         token,
         repo,
         path.relative(__dirname, indexFilename),
@@ -437,13 +480,13 @@ exports.saveMemory = async (req, res) => {
       return res.status(400).json({ status: 'error', message: 'Invalid JSON' });
     }
   } else {
-    fs.writeFileSync(filePath, content, 'utf-8');
-    console.log('[saveMemory] file saved', normalizedFilename);
+    writeFileSafe(filePath, content);
+    logDebug('[saveMemory] file saved', normalizedFilename);
 
     if (repo && token) {
       try {
-        await github.writeFile(token, repo, normalizedFilename, content, `update ${filename}`);
-        console.log('[saveMemory] pushed file to GitHub', normalizedFilename);
+        await githubWriteFileSafe(token, repo, normalizedFilename, content, `update ${filename}`);
+        logDebug('[saveMemory] pushed file to GitHub', normalizedFilename);
       } catch (e) {
         console.error('GitHub write error', e.message);
       }
@@ -451,18 +494,19 @@ exports.saveMemory = async (req, res) => {
   }
 
   const meta = extractMeta(filePath);
-  await updateIndexEntry(
-    normalizedFilename,
-    {
+  try {
+    await indexManager.addOrUpdateEntry({
+      path: normalizedFilename,
       type: categorizeMemoryFile(path.basename(normalizedFilename)),
       title: meta.title,
       description: meta.description,
       lastModified: new Date().toISOString()
-    },
-    repo,
-    token
-  );
-  console.log('[saveMemory] index updated', normalizedFilename);
+    });
+    await indexManager.saveIndex(repo, token);
+    logDebug('[saveMemory] index updated', normalizedFilename);
+  } catch (e) {
+    console.error('[saveMemory] index update error', e.message);
+  }
 
   res.json({ status: 'success', action: 'saveMemory', filePath });
 };
@@ -568,17 +612,21 @@ exports.saveContext = async (req, res) => {
 
   ensureContext();
   const data = content || '';
-  fs.writeFileSync(contextFilename, data, 'utf-8');
+  writeFileSafe(contextFilename, data);
 
   if (repo && token) {
     try {
-      await github.writeFile(token, repo, 'memory/context.md', data, 'update context');
+      await githubWriteFileSafe(token, repo, 'memory/context.md', data, 'update context');
     } catch (e) {
       console.error('GitHub write context error', e.message);
     }
   }
 
-  await rebuildIndex(repo, token);
+  try {
+    await rebuildIndex(repo, token);
+  } catch (e) {
+    console.error('[saveContext] rebuild error', e.message);
+  }
 
   res.json({ status: 'success', action: 'saveContext' });
 };
@@ -605,7 +653,7 @@ exports.readContext = async (req, res) => {
 
 // List markdown files in a directory either from GitHub or local storage
 exports.listMemoryFiles = async function(repo, token, dirPath) {
-  const directory = dirPath.startsWith('memory/') ? dirPath : dirPath;
+  const directory = dirPath.startsWith('memory/') ? dirPath : path.join('memory', dirPath);
 
   // Always use local storage for listing
   const fullPath = path.join(__dirname, directory);
