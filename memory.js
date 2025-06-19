@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const github = require('./githubClient');
 const tokenStore = require('./tokenStore');
+const memoryConfig = require('./memoryConfig');
 const indexManager = require('./indexManager');
 
 const DEBUG = process.env.DEBUG === 'true';
@@ -362,11 +363,14 @@ async function persistIndex(data, repo, token) {
     console.error('[persistIndex] local write error', e.message);
   }
 
-  if (repo && token) {
+  const finalRepo = repo || memoryConfig.getRepoUrl();
+  const finalToken = token || tokenStore.getToken();
+
+  if (finalRepo && finalToken) {
     try {
       await githubWriteFileSafe(
-        token,
-        repo,
+        finalToken,
+        finalRepo,
         path.relative(__dirname, indexFilename),
         JSON.stringify(data, null, 2),
         'update index.json'
@@ -493,7 +497,8 @@ async function updateIndexFileManually(newEntries, repo, token) {
 exports.saveMemory = async (req, res) => {
   const { repo, filename, content } = req.body;
   const token = getToken(req);
-  console.log('[saveMemory]', new Date().toISOString(), repo, filename);
+  const effectiveRepo = repo || memoryConfig.getRepoUrl();
+  console.log('[saveMemory]', new Date().toISOString(), effectiveRepo, filename);
 
   if (!filename || content === undefined) {
     return res.status(400).json({ status: 'error', message: 'Missing required fields.' });
@@ -509,7 +514,7 @@ exports.saveMemory = async (req, res) => {
   if (filename.trim().endsWith('.json')) {
     try {
       const data = JSON.parse(content);
-      await updateOrInsertJsonEntry(filePath, data, null, repo, token);
+      await updateOrInsertJsonEntry(filePath, data, null, effectiveRepo, token);
     } catch (e) {
       console.error('[saveMemory] invalid JSON', e.message);
       return res.status(400).json({ status: 'error', message: 'Invalid JSON' });
@@ -523,7 +528,7 @@ exports.saveMemory = async (req, res) => {
       writeErr = e;
     }
 
-    if (repo) {
+    if (effectiveRepo) {
       if (!token) {
         return res.status(401).json({
           status: 'error',
@@ -533,7 +538,7 @@ exports.saveMemory = async (req, res) => {
         try {
           await githubWriteFileSafe(
             token,
-            repo,
+            effectiveRepo,
             normalizedFilename,
             content,
             `update ${filename}`
@@ -557,7 +562,7 @@ exports.saveMemory = async (req, res) => {
 
   const meta = extractMeta(filePath);
   try {
-    await updateIndexEntry(repo, token, {
+    await updateIndexEntry(effectiveRepo, token, {
       path: normalizedFilename,
       type: categorizeMemoryFile(path.basename(normalizedFilename)),
       title: meta.title,
@@ -575,16 +580,17 @@ exports.saveMemory = async (req, res) => {
 exports.readMemory = async (req, res) => {
   const { repo, filename } = req.body;
   const token = getToken(req);
-  console.log('[readMemory]', new Date().toISOString(), repo, filename);
+  const effectiveRepo = repo || memoryConfig.getRepoUrl();
+  console.log('[readMemory]', new Date().toISOString(), effectiveRepo, filename);
 
   const normalizedFilename = normalizeMemoryPath(filename);
   const filePath = path.join(__dirname, normalizedFilename);
-  if (repo) {
+  if (effectiveRepo) {
     if (!token) {
       return res.status(401).json({ status: 'error', message: 'Missing GitHub token' });
     }
     try {
-      const content = await github.readFile(token, repo, normalizedFilename);
+      const content = await github.readFile(token, effectiveRepo, normalizedFilename);
       return res.json({ status: 'success', action: 'readMemory', content });
     } catch (e) {
       console.error('GitHub read error', e.message);
@@ -602,6 +608,7 @@ exports.readMemory = async (req, res) => {
 exports.setMemoryRepo = (req, res) => {
   const { repoUrl } = req.body;
   console.log('[setMemoryRepo]', repoUrl);
+  memoryConfig.setRepoUrl(repoUrl);
   res.json({ status: 'success', repo: repoUrl });
 };
 
@@ -609,6 +616,7 @@ exports.saveLessonPlan = async (req, res) => {
   const { title, summary, projectFiles, plannedLessons, repo } = req.body;
   const token = getToken(req);
   console.log('[saveLessonPlan]', new Date().toISOString(), title);
+  const effectiveRepo = repo || memoryConfig.getRepoUrl();
 
   if (!planCache) loadPlan();
 
@@ -631,8 +639,8 @@ exports.saveLessonPlan = async (req, res) => {
     updates.planned_lessons = plannedLessons;
   }
 
-  planCache = await updateOrInsertJsonEntry(planFilename, updates, 'title', repo, token);
-  await rebuildIndex(repo, token);
+  planCache = await updateOrInsertJsonEntry(planFilename, updates, 'title', effectiveRepo, token);
+  await rebuildIndex(effectiveRepo, token);
   res.json({ status: 'success', action: 'saveLessonPlan', plan: planCache });
 };
 
@@ -757,7 +765,8 @@ exports.rebuildIndex = rebuildIndex;
 exports.updateIndexManual = async (req, res) => {
   const { entries, repo } = req.body;
   const token = getToken(req);
+  const effectiveRepo = repo || memoryConfig.getRepoUrl();
   console.log('[updateIndexManual]', new Date().toISOString());
-  const result = await updateIndexFileManually(entries, repo, token);
+  const result = await updateIndexFileManually(entries, effectiveRepo, token);
   res.json({ status: 'success', entries: result });
 };
