@@ -6,25 +6,12 @@
 </head>
 <body>
   <h1>Sofia Memory Plugin</h1>
-  <label>GitHub Token:
-    <input type="password" id="token">
+  <label for="github-token">GitHub Token:
+    <input type="password" id="github-token" />
   </label>
-  <button onclick="saveToken()">Save Token</button>
-  <script>
-    function saveToken() {
-      const t = document.getElementById('token').value;
-      localStorage.setItem('github_token', t);
-      fetch('/setToken', {
-        method: 'POST',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({token: t})
-      });
-      alert('Token saved');
-    }
-    document.addEventListener('DOMContentLoaded', () => {
-      const t = localStorage.getItem('github_token');
-      if (t) document.getElementById('token').value = t;
-    });
-  </script>
+  <button id="save-token">Save Token</button>
+  <span id="token-status"></span>
+
+  <script src="main.js"></script>
 </body>
 </html>
