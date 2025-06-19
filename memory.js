@@ -28,7 +28,10 @@ function writeFileSafe(filePath, data) {
 
 function normalizeMemoryPath(p) {
   if (!p) return 'memory/';
-  let rel = path.posix.normalize(p)
+  // support Windows style paths and remove leading prefixes
+  let rel = p.replace(/\\+/g, '/');
+  rel = path.posix
+    .normalize(rel)
     .replace(/^(\.\/)+/, '')
     .replace(/^\/+/, '');
   if (rel.startsWith('memory/')) rel = rel.slice('memory/'.length);
@@ -397,8 +400,10 @@ async function updateIndexEntry(repo, token, { path: filePath, type, title, desc
       existing.description !== entry.description;
     const timeChanged = existing.lastModified !== entry.lastModified;
 
+    // always update stored timestamp
+    indexData[idx] = { ...existing, ...entry };
+
     if (metaChanged || timeChanged) {
-      indexData[idx] = { ...existing, ...entry };
       op = metaChanged ? 'updated' : 'timestamp';
     }
   } else {
@@ -497,6 +502,7 @@ exports.saveMemory = async (req, res) => {
   ensureDir(filePath);
 
   let writeErr = null;
+  let gitErr = null;
 
   if (filename.trim().endsWith('.json')) {
     try {
@@ -517,20 +523,32 @@ exports.saveMemory = async (req, res) => {
 
     if (repo) {
       if (!token) {
+        gitErr = new Error('Missing GitHub token');
         console.error('[saveMemory] missing token for GitHub write');
       } else {
         try {
-          await githubWriteFileSafe(token, repo, normalizedFilename, content, `update ${filename}`);
+          await githubWriteFileSafe(
+            token,
+            repo,
+            normalizedFilename,
+            content,
+            `update ${filename}`
+          );
           console.log('[saveMemory] pushed to GitHub', normalizedFilename);
         } catch (e) {
+          gitErr = e;
           console.error('GitHub write error', e.message);
         }
       }
     }
   }
 
-  if (writeErr) {
-    return res.status(500).json({ status: 'error', message: 'Failed to write file' });
+  if (writeErr || gitErr) {
+    return res.status(500).json({
+      status: 'error',
+      message: 'Failed to save file',
+      error: (gitErr || writeErr).message
+    });
   }
 
   const meta = extractMeta(filePath);
