@@ -97,7 +97,7 @@ function ensureContext() {
   if (!fs.existsSync(contextFilename)) {
     ensureDir(contextFilename);
     fs.writeFileSync(contextFilename, '# Context\n', 'utf-8');
-    updateIndexEntry(path.relative(__dirname, contextFilename));
+    rebuildIndex();
   }
 }
 
@@ -114,7 +114,7 @@ function loadPlan() {
     };
     fs.writeFileSync(planFilename, JSON.stringify(newPlan, null, 2), 'utf-8');
     planCache = newPlan;
-    updateIndexEntry(path.relative(__dirname, planFilename));
+    rebuildIndex();
   } else {
     try {
       const content = fs.readFileSync(planFilename, 'utf-8');
@@ -128,10 +128,11 @@ function loadPlan() {
 async function savePlan(repo, token) {
   if (!planCache) loadPlan();
   planCache = await updateOrInsertJsonEntry(planFilename, planCache, 'title', repo, token);
-  await updateIndexEntry(path.relative(__dirname, planFilename), repo, token);
+  await rebuildIndex(repo, token);
 }
 
 loadPlan();
+rebuildIndex();
 
 function getToken(req) {
   if (req.body && req.body.token) return req.body.token;
@@ -142,10 +143,17 @@ function getToken(req) {
 
 function categorizeMemoryFile(name) {
   const lower = name.toLowerCase();
-  if (lower === 'plan.json') return 'plan';
+  const ext = path.extname(lower);
+
+  if (lower === 'plan.json' || lower.endsWith('plan.json')) return 'plan';
   if (lower.includes('lesson')) return 'lesson';
-  if (lower.includes('note')) return 'notes';
+  if (lower.includes('note')) return 'note';
   if (lower.includes('context')) return 'context';
+
+  if (['.md', '.txt', '.json'].includes(ext)) return 'lesson';
+  if (['.js', '.ts', '.html', '.css'].includes(ext)) return 'code';
+  if (['.png', '.jpg', '.jpeg', '.svg', '.gif'].includes(ext)) return 'asset';
+
   return 'memory';
 }
 
@@ -243,6 +251,70 @@ async function updateIndexEntry(relPath, repo, token) {
   await updateIndexFile(entry, repo, token);
 }
 
+function scanMemoryDir(dirPath) {
+  const results = [];
+
+  function walk(current) {
+    const items = fs.readdirSync(current);
+    items.forEach(item => {
+      const abs = path.join(current, item);
+      const stats = fs.statSync(abs);
+      if (stats.isDirectory()) {
+        walk(abs);
+      } else {
+        if (abs === indexFilename) return;
+        const rel = path.relative(__dirname, abs);
+        const meta = extractMeta(abs);
+        results.push({
+          path: rel,
+          type: categorizeMemoryFile(item),
+          ...meta
+        });
+      }
+    });
+  }
+
+  if (fs.existsSync(dirPath)) walk(dirPath);
+  return results;
+}
+
+async function rebuildIndex(repo, token) {
+  const scanned = scanMemoryDir(path.join(__dirname, 'memory'));
+  const existing = loadIndex();
+  const map = {};
+  existing.forEach(e => {
+    map[e.path] = e;
+  });
+
+  const updated = scanned.map(entry => {
+    const old = map[entry.path] || {};
+    return {
+      ...old,
+      ...entry,
+      description: entry.description || old.description,
+      title: entry.title || old.title
+    };
+  });
+
+  saveIndex(updated);
+
+  if (repo && token) {
+    try {
+      await github.writeFile(
+        token,
+        repo,
+        path.relative(__dirname, indexFilename),
+        JSON.stringify(updated, null, 2),
+        'update index.json'
+      );
+    } catch (e) {
+      console.error('GitHub write index error', e.message);
+    }
+  }
+
+  return updated;
+}
+
 async function updateIndexFileManually(newEntries, repo, token) {
   const absolutePath = path.join(__dirname, 'memory', 'index.json');
   const result = await updateOrInsertJsonEntry(
@@ -289,7 +361,7 @@ exports.saveMemory = async (req, res) => {
     }
   }
 
-  await updateIndexEntry(normalizedFilename, repo, token);
+  await rebuildIndex(repo, token);
 
   res.json({ status: 'success', action: 'saveMemory', filePath });
 };
@@ -353,7 +425,7 @@ exports.saveLessonPlan = async (req, res) => {
   }
 
   planCache = await updateOrInsertJsonEntry(planFilename, updates, 'title', repo, token);
-  await updateIndexEntry(path.relative(__dirname, planFilename), repo, token);
+  await rebuildIndex(repo, token);
   res.json({ status: 'success', action: 'saveLessonPlan', plan: planCache });
 };
 
@@ -405,7 +477,7 @@ exports.saveContext = async (req, res) => {
     }
   }
 
-  await updateIndexEntry(path.relative(__dirname, contextFilename), repo, token);
+  await rebuildIndex(repo, token);
 
   res.json({ status: 'success', action: 'saveContext' });
 };
@@ -445,6 +517,7 @@ exports.listMemoryFiles = async function(repo, token, dirPath) {
 exports.updateOrInsertJsonEntry = updateOrInsertJsonEntry;
 exports.updateIndexFile = updateIndexFile;
 exports.updateIndexFileManually = updateIndexFileManually;
+exports.rebuildIndex = rebuildIndex;
 exports.updateIndexManual = async (req, res) => {
   const { repo, token, entries } = req.body;
   console.log('[updateIndexManual]', new Date().toISOString(), repo);
