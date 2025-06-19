@@ -238,7 +238,7 @@ async function updateIndexFile(entry, repo, token) {
   return data;
 }
 
-async function updateIndexEntry(relPath, repo, token) {
+async function updateIndexFromPath(relPath, repo, token) {
   const fullPath = path.join(__dirname, relPath);
   if (!fs.existsSync(fullPath)) return;
   const meta = extractMeta(fullPath);
@@ -249,6 +249,44 @@ async function updateIndexEntry(relPath, repo, token) {
   };
 
   await updateIndexFile(entry, repo, token);
+}
+
+function scanMemoryFolderRecursively(basePath) {
+  const files = [];
+
+  function walk(current) {
+    const items = fs.readdirSync(current, { withFileTypes: true });
+    items.forEach(item => {
+      const abs = path.join(current, item.name);
+      if (item.isDirectory()) {
+        walk(abs);
+      } else if (item.isFile()) {
+        files.push(path.relative(__dirname, abs));
+      }
+    });
+  }
+
+  if (fs.existsSync(basePath)) walk(basePath);
+  return files;
+}
+
+async function updateIndexEntry(entry) {
+  const { path: p, type, title, description, lastModified } = entry;
+  if (!p || !type || !lastModified) return;
+  const existing = loadIndex();
+  const idx = existing.findIndex(e => e.path === p);
+  const newEntry = { path: p, type, lastModified };
+  if (title) newEntry.title = title;
+  if (description) newEntry.description = description;
+
+  if (idx >= 0) {
+    existing[idx] = { ...existing[idx], ...newEntry };
+  } else {
+    existing.push(newEntry);
+  }
+
+  saveIndex(existing);
+  return newEntry;
 }
 
 function scanMemoryDir(dirPath) {
@@ -315,16 +353,14 @@ async function rebuildIndex(repo, token) {
   return updated;
 }
 
-async function updateIndexFileManually(newEntries, repo, token) {
-  const absolutePath = path.join(__dirname, 'memory', 'index.json');
-  const result = await updateOrInsertJsonEntry(
-    absolutePath,
-    newEntries,
-    'path',
-    repo,
-    token
-  );
-  return result;
+async function updateIndexFileManually(newEntries) {
+  if (!Array.isArray(newEntries)) return [];
+  const results = [];
+  for (const entry of newEntries) {
+    const updated = await updateIndexEntry(entry);
+    if (updated) results.push(updated);
+  }
+  return results;
 }
 
 exports.saveMemory = async (req, res) => {
@@ -361,7 +397,14 @@ exports.saveMemory = async (req, res) => {
     }
   }
 
-  await rebuildIndex(repo, token);
+  const meta = extractMeta(filePath);
+  await updateIndexEntry({
+    path: normalizedFilename,
+    type: categorizeMemoryFile(path.basename(normalizedFilename)),
+    title: meta.title,
+    description: meta.description,
+    lastModified: new Date().toISOString()
+  });
 
   res.json({ status: 'success', action: 'saveMemory', filePath });
 };
@@ -517,10 +560,12 @@ exports.listMemoryFiles = async function(repo, token, dirPath) {
 exports.updateOrInsertJsonEntry = updateOrInsertJsonEntry;
 exports.updateIndexFile = updateIndexFile;
 exports.updateIndexFileManually = updateIndexFileManually;
+exports.scanMemoryFolderRecursively = scanMemoryFolderRecursively;
+exports.updateIndexEntry = updateIndexEntry;
 exports.rebuildIndex = rebuildIndex;
 exports.updateIndexManual = async (req, res) => {
-  const { repo, token, entries } = req.body;
-  console.log('[updateIndexManual]', new Date().toISOString(), repo);
-  const result = await updateIndexFileManually(entries, repo, token);
-  res.json({ status: 'success', ...result });
+  const { entries } = req.body;
+  console.log('[updateIndexManual]', new Date().toISOString());
+  const result = await updateIndexFileManually(entries);
+  res.json({ status: 'success', entries: result });
 };
