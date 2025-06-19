@@ -8,6 +8,78 @@ function ensureDir(filePath) {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 }
 
+function isObject(val) {
+  return val && typeof val === 'object' && !Array.isArray(val);
+}
+
+function deepMerge(target, source, matchKey) {
+  if (Array.isArray(target) && Array.isArray(source)) {
+    const result = [...target];
+    const srcArr = source;
+    srcArr.forEach(item => {
+      if (matchKey && isObject(item)) {
+        const idx = result.findIndex(e => isObject(e) && e[matchKey] === item[matchKey]);
+        if (idx >= 0) {
+          result[idx] = deepMerge(result[idx], item, matchKey);
+        } else {
+          result.push(item);
+        }
+      } else if (!result.includes(item)) {
+        result.push(item);
+      }
+    });
+    return result;
+  } else if (isObject(target) && isObject(source)) {
+    const out = { ...target };
+    Object.keys(source).forEach(key => {
+      if (key in target) {
+        out[key] = deepMerge(target[key], source[key], matchKey);
+      } else {
+        out[key] = source[key];
+      }
+    });
+    return out;
+  }
+  return source;
+}
+
+async function updateOrInsertJsonEntry(filePath, newData, matchKey, repo, token) {
+  ensureDir(filePath);
+  const relPath = path.relative(__dirname, filePath);
+  let existing = Array.isArray(newData) ? [] : {};
+
+  if (repo && token) {
+    try {
+      const remote = await github.readFile(token, repo, relPath);
+      existing = JSON.parse(remote);
+    } catch (e) {
+      // ignore missing remote file
+    }
+  }
+
+  if (fs.existsSync(filePath)) {
+    try {
+      const local = fs.readFileSync(filePath, 'utf-8');
+      existing = deepMerge(existing, JSON.parse(local), matchKey);
+    } catch (e) {
+      // ignore parse errors
+    }
+  }
+
+  const updated = deepMerge(existing, newData, matchKey);
+  fs.writeFileSync(filePath, JSON.stringify(updated, null, 2), 'utf-8');
+
+  if (repo && token) {
+    try {
+      await github.writeFile(token, repo, relPath, JSON.stringify(updated, null, 2), `update ${path.basename(filePath)}`);
+    } catch (e) {
+      console.error('GitHub write error', e.message);
+    }
+  }
+
+  return updated;
+}
+
 const contextFilename = path.join(__dirname, 'memory', 'context.md');
 const planFilename = path.join(__dirname, 'memory', 'plan.json');
 const indexFilename = path.join(__dirname, 'memory', 'index.json');
@@ -53,10 +125,10 @@ function loadPlan() {
   }
 }
 
-function savePlan() {
+async function savePlan(repo, token) {
   if (!planCache) loadPlan();
-  fs.writeFileSync(planFilename, JSON.stringify(planCache, null, 2), 'utf-8');
-  updateIndexEntry(path.relative(__dirname, planFilename));
+  planCache = await updateOrInsertJsonEntry(planFilename, planCache, 'title', repo, token);
+  await updateIndexEntry(path.relative(__dirname, planFilename), repo, token);
 }
 
 loadPlan();
@@ -113,10 +185,9 @@ function saveIndex(data) {
   fs.writeFileSync(indexFilename, JSON.stringify(data, null, 2), 'utf-8');
 }
 
-function updateIndexEntry(relPath, repo, token) {
+async function updateIndexEntry(relPath, repo, token) {
   const fullPath = path.join(__dirname, relPath);
   if (!fs.existsSync(fullPath)) return;
-  const indexData = loadIndex();
   const meta = extractMeta(fullPath);
   const entry = {
     path: relPath,
@@ -124,22 +195,7 @@ function updateIndexEntry(relPath, repo, token) {
     ...meta
   };
 
-  const existing = indexData.findIndex(e => e.path === relPath);
-  if (existing >= 0) {
-    indexData[existing] = { ...indexData[existing], ...entry };
-  } else {
-    indexData.push(entry);
-  }
-
-  saveIndex(indexData);
-
-  if (repo && token) {
-    try {
-      github.writeFile(token, repo, path.relative(__dirname, indexFilename), JSON.stringify(indexData, null, 2), 'update index.json');
-    } catch (e) {
-      console.error('GitHub write index error', e.message);
-    }
-  }
+  await updateOrInsertJsonEntry(indexFilename, [entry], 'path', repo, token);
 }
 
 exports.saveMemory = async (req, res) => {
@@ -156,17 +212,27 @@ exports.saveMemory = async (req, res) => {
     : `memory/${filename}`;
   const filePath = path.join(__dirname, normalizedFilename);
   ensureDir(filePath);
-  fs.writeFileSync(filePath, content, 'utf-8');
 
-  if (repo && token) {
+  if (filename.endsWith('.json')) {
     try {
-      await github.writeFile(token, repo, normalizedFilename, content, `update ${filename}`);
+      const data = JSON.parse(content);
+      await updateOrInsertJsonEntry(filePath, data, null, repo, token);
     } catch (e) {
-      console.error('GitHub write error', e.message);
+      return res.status(400).json({ status: 'error', message: 'Invalid JSON' });
+    }
+  } else {
+    fs.writeFileSync(filePath, content, 'utf-8');
+
+    if (repo && token) {
+      try {
+        await github.writeFile(token, repo, normalizedFilename, content, `update ${filename}`);
+      } catch (e) {
+        console.error('GitHub write error', e.message);
+      }
     }
   }
 
-  updateIndexEntry(normalizedFilename, repo, token);
+  await updateIndexEntry(normalizedFilename, repo, token);
 
   res.json({ status: 'success', action: 'saveMemory', filePath });
 };
@@ -203,30 +269,34 @@ exports.setMemoryRepo = (req, res) => {
   res.json({ status: 'success', repo: repoUrl });
 };
 
-exports.saveLessonPlan = (req, res) => {
-  const { title, summary, projectFiles, plannedLessons } = req.body;
+exports.saveLessonPlan = async (req, res) => {
+  const { title, summary, projectFiles, plannedLessons, repo } = req.body;
+  const token = getToken(req);
   console.log('[saveLessonPlan]', new Date().toISOString(), title);
 
   if (!planCache) loadPlan();
 
+  const updates = {};
   if (title || summary) {
-    planCache.lessons_completed.push({
-      title: title || `lesson_${planCache.lessons_completed.length + 1}`,
-      date: new Date().toISOString().split('T')[0],
-      summary: summary || ''
-    });
+    updates.lessons_completed = [
+      {
+        title: title || `lesson_${planCache.lessons_completed.length + 1}`,
+        date: new Date().toISOString().split('T')[0],
+        summary: summary || ''
+      }
+    ];
   }
 
   if (Array.isArray(projectFiles)) {
-    planCache.project_files = projectFiles;
+    updates.project_files = projectFiles;
   }
 
   if (Array.isArray(plannedLessons)) {
-    planCache.planned_lessons = plannedLessons;
+    updates.planned_lessons = plannedLessons;
   }
 
-  savePlan();
-  updateIndexEntry(path.relative(__dirname, planFilename));
+  planCache = await updateOrInsertJsonEntry(planFilename, updates, 'title', repo, token);
+  await updateIndexEntry(path.relative(__dirname, planFilename), repo, token);
   res.json({ status: 'success', action: 'saveLessonPlan', plan: planCache });
 };
 
@@ -278,7 +348,7 @@ exports.saveContext = async (req, res) => {
     }
   }
 
-  updateIndexEntry(path.relative(__dirname, contextFilename), repo, token);
+  await updateIndexEntry(path.relative(__dirname, contextFilename), repo, token);
 
   res.json({ status: 'success', action: 'saveContext' });
 };
@@ -314,3 +384,5 @@ exports.listMemoryFiles = async function(repo, token, dirPath) {
     .readdirSync(fullPath)
     .filter(name => name.endsWith('.md'));
 };
+
+exports.updateOrInsertJsonEntry = updateOrInsertJsonEntry;
