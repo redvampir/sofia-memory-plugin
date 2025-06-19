@@ -26,6 +26,15 @@ function writeFileSafe(filePath, data) {
   }
 }
 
+function normalizeMemoryPath(p) {
+  if (!p) return 'memory/';
+  let rel = path.posix.normalize(p)
+    .replace(/^(\.\/)+/, '')
+    .replace(/^\/+/, '');
+  if (rel.startsWith('memory/')) rel = rel.slice('memory/'.length);
+  return path.posix.join('memory', rel);
+}
+
 async function githubWriteFileSafe(token, repo, relPath, data, message, attempts = 2) {
   for (let i = 1; i <= attempts; i++) {
     try {
@@ -367,7 +376,7 @@ async function persistIndex(data, repo, token) {
 async function updateIndexEntry(repo, token, { path: filePath, type, title, description, lastModified }) {
   if (!filePath) return null;
 
-  const normalized = path.posix.normalize(filePath).replace(/^\.?\/*/, '');
+  const normalized = normalizeMemoryPath(filePath);
   const indexData = await fetchIndex(repo, token);
   const idx = indexData.findIndex(e => path.posix.normalize(e.path) === normalized);
 
@@ -382,14 +391,15 @@ async function updateIndexEntry(repo, token, { path: filePath, type, title, desc
   let op = 'skipped';
   if (idx >= 0) {
     const existing = indexData[idx];
-    const changed =
+    const metaChanged =
       existing.type !== entry.type ||
       existing.title !== entry.title ||
       existing.description !== entry.description;
+    const timeChanged = existing.lastModified !== entry.lastModified;
 
-    if (changed) {
+    if (metaChanged || timeChanged) {
       indexData[idx] = { ...existing, ...entry };
-      op = 'updated';
+      op = metaChanged ? 'updated' : 'timestamp';
     }
   } else {
     indexData.push(entry);
@@ -406,7 +416,11 @@ async function updateIndexEntry(repo, token, { path: filePath, type, title, desc
   indexData.push(...deduped);
 
   await persistIndex(indexData, repo, token);
-  console.log('[updateIndexEntry]', op, normalized);
+  if (op === 'skipped') {
+    logDebug('[updateIndexEntry] skipped', normalized, 'no changes detected');
+  } else {
+    console.log('[updateIndexEntry]', op, normalized);
+  }
   return entry;
 }
 
@@ -478,7 +492,7 @@ exports.saveMemory = async (req, res) => {
     return res.status(400).json({ status: 'error', message: 'Missing required fields.' });
   }
 
-  const normalizedFilename = filename.startsWith('memory/') ? filename : `memory/${filename}`;
+  const normalizedFilename = normalizeMemoryPath(filename);
   const filePath = path.join(__dirname, normalizedFilename);
   ensureDir(filePath);
 
@@ -541,9 +555,7 @@ exports.readMemory = async (req, res) => {
   const token = getToken(req);
   console.log('[readMemory]', new Date().toISOString(), repo, filename);
 
-  const normalizedFilename = filename.startsWith('memory/')
-    ? filename
-    : `memory/${filename}`;
+  const normalizedFilename = normalizeMemoryPath(filename);
   const filePath = path.join(__dirname, normalizedFilename);
   if (repo && token) {
     try {
