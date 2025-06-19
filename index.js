@@ -3,7 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const bodyParser = require('body-parser');
 const memory = require('./memory');
-const { listMemoryFiles } = require('./memory');
+const { listMemoryFiles } = memory;
 const versioning = require('./versioning');
 
 const app = express();
@@ -58,15 +58,15 @@ app.get('/debug/index', (req, res) => {
   res.type('text/plain').send(data);
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Sofia Plugin Server running on port ${PORT}`);
-});
-
 // Дополнительные alias-маршруты для совместимости
 app.post('/save', memory.saveMemory);     // alias for /saveMemory
 app.post('/read', memory.readMemory);     // alias for /readMemory
 app.post('/set', memory.setMemoryRepo);   // alias for /setMemoryRepo
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Sofia Plugin Server running on port ${PORT}`);
+});
 
 // Проверка доступности сервера
 app.get('/ping', (req, res) => {
