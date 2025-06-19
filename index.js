@@ -20,6 +20,7 @@ app.post('/getContextSnapshot', memory.getContextSnapshot);
 app.post('/createUserProfile', memory.createUserProfile);
 app.post('/setToken', memory.setToken);
 app.get('/token/status', memory.tokenStatus);
+app.get('/tokenStatus', memory.tokenStatus); // alias for /token/status
 app.get('/readContext', memory.readContext);
 app.post('/saveContext', memory.saveContext);
 app.post('/updateIndex', memory.updateIndexManual);

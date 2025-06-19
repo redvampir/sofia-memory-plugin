@@ -139,6 +139,21 @@ paths:
                   connected:
                     type: boolean
 
+  /tokenStatus:
+    get:
+      summary: Check if a token is stored on the server
+      operationId: tokenStatus
+      responses:
+        "200":
+          description: Token status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  connected:
+                    type: boolean
+
 components:
   schemas:
     SaveMemoryRequest:

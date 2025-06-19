@@ -655,12 +655,18 @@ exports.createUserProfile = (req, res) => {
 
 exports.setToken = (req, res) => {
   const token = req.body && req.body.token ? req.body.token : '';
+  if (token) {
+    console.log('[setToken] token updated');
+  } else {
+    console.log('[setToken] token cleared or missing');
+  }
   tokenStore.setToken(token);
   res.json({ status: 'success', action: 'setToken', connected: !!token });
 };
 
 exports.tokenStatus = (req, res) => {
   const token = tokenStore.getToken();
+  console.log('[tokenStatus]', !!token);
   res.json({ connected: !!token });
 };
 
