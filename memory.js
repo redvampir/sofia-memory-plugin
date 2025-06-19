@@ -494,7 +494,8 @@ async function updateIndexFileManually(newEntries, repo, token) {
   return results;
 }
 
-exports.saveMemory = async (req, res) => {
+async function saveMemory(req, res) {
+  console.log('[saveMemory] called');
   const { repo, filename, content } = req.body;
   const token = getToken(req);
   const effectiveRepo = repo || memoryConfig.getRepoUrl();
@@ -575,9 +576,9 @@ exports.saveMemory = async (req, res) => {
   }
 
   res.json({ status: 'success', action: 'saveMemory', filePath: normalizedFilename });
-};
+}
 
-exports.readMemory = async (req, res) => {
+async function readMemory(req, res) {
   const { repo, filename } = req.body;
   const token = getToken(req);
   const effectiveRepo = repo || memoryConfig.getRepoUrl();
@@ -603,16 +604,16 @@ exports.readMemory = async (req, res) => {
 
   const content = fs.readFileSync(filePath, 'utf-8');
   res.json({ status: 'success', action: 'readMemory', content });
-};
+}
 
-exports.setMemoryRepo = (req, res) => {
+function setMemoryRepo(req, res) {
   const { repoUrl } = req.body;
   console.log('[setMemoryRepo]', repoUrl);
   memoryConfig.setRepoUrl(repoUrl);
   res.json({ status: 'success', repo: repoUrl });
-};
+}
 
-exports.saveLessonPlan = async (req, res) => {
+async function saveLessonPlan(req, res) {
   const { title, summary, projectFiles, plannedLessons, repo } = req.body;
   const token = getToken(req);
   console.log('[saveLessonPlan]', new Date().toISOString(), title);
@@ -642,26 +643,26 @@ exports.saveLessonPlan = async (req, res) => {
   planCache = await updateOrInsertJsonEntry(planFilename, updates, 'title', effectiveRepo, token);
   await rebuildIndex(effectiveRepo, token);
   res.json({ status: 'success', action: 'saveLessonPlan', plan: planCache });
-};
+}
 
-exports.saveNote = (req, res) => {
+function saveNote(req, res) {
   const { note } = req.body;
   console.log('[saveNote]', new Date().toISOString());
   res.json({ status: 'success', action: 'saveNote' });
-};
+}
 
-exports.getContextSnapshot = (req, res) => {
+function getContextSnapshot(req, res) {
   console.log('[getContextSnapshot]', new Date().toISOString());
   res.json({ status: 'success', context: {} });
-};
+}
 
-exports.createUserProfile = (req, res) => {
+function createUserProfile(req, res) {
   const { user } = req.body;
   console.log('[createUserProfile]', user);
   res.json({ status: 'success', action: 'createUserProfile' });
-};
+}
 
-exports.setToken = (req, res) => {
+function setToken(req, res) {
   const token = req.body && req.body.token ? req.body.token : '';
   if (token) {
     console.log('[setToken] token updated');
@@ -670,20 +671,20 @@ exports.setToken = (req, res) => {
   }
   tokenStore.setToken(token);
   res.json({ status: 'success', action: 'setToken', connected: !!token });
-};
+}
 
-exports.tokenStatus = (req, res) => {
+function tokenStatus(req, res) {
   const token = tokenStore.getToken();
   console.log('[tokenStatus]', !!token);
   res.json({ connected: !!token });
-};
+}
 
-exports.readPlan = (req, res) => {
+function readPlan(req, res) {
   if (!planCache) loadPlan();
   res.json({ status: 'success', plan: planCache });
-};
+}
 
-exports.saveContext = async (req, res) => {
+async function saveContext(req, res) {
   const { repo, content } = req.body;
   const token = getToken(req);
   console.log('[saveContext]', new Date().toISOString(), repo);
@@ -707,9 +708,9 @@ exports.saveContext = async (req, res) => {
   }
 
   res.json({ status: 'success', action: 'saveContext' });
-};
+}
 
-exports.readContext = async (req, res) => {
+async function readContext(req, res) {
   const { repo } = req.body;
   const token = getToken(req);
   console.log('[readContext]', new Date().toISOString(), repo);
@@ -727,10 +728,10 @@ exports.readContext = async (req, res) => {
 
   const content = fs.readFileSync(contextFilename, 'utf-8');
   res.json({ status: 'success', content });
-};
+}
 
 // Recursively list memory files from local storage
-exports.listMemoryFiles = async function(repo, token, dirPath) {
+async function listMemoryFiles(repo, token, dirPath) {
   const directory = dirPath.startsWith('memory') ? dirPath : path.join('memory', dirPath);
   const fullPath = path.join(__dirname, directory);
   if (!fs.existsSync(fullPath)) return [];
@@ -754,19 +755,36 @@ exports.listMemoryFiles = async function(repo, token, dirPath) {
 
   walk(fullPath);
   return results;
-};
+}
 
-exports.updateOrInsertJsonEntry = updateOrInsertJsonEntry;
-exports.updateIndexFile = updateIndexFile;
-exports.updateIndexFileManually = updateIndexFileManually;
-exports.scanMemoryFolderRecursively = scanMemoryFolderRecursively;
-exports.updateIndexEntry = updateIndexEntry;
-exports.rebuildIndex = rebuildIndex;
-exports.updateIndexManual = async (req, res) => {
+async function updateIndexManual(req, res) {
   const { entries, repo } = req.body;
   const token = getToken(req);
   const effectiveRepo = repo || memoryConfig.getRepoUrl();
   console.log('[updateIndexManual]', new Date().toISOString());
   const result = await updateIndexFileManually(entries, effectiveRepo, token);
   res.json({ status: 'success', entries: result });
+}
+
+module.exports = {
+  saveMemory,
+  readMemory,
+  setMemoryRepo,
+  saveLessonPlan,
+  saveNote,
+  getContextSnapshot,
+  createUserProfile,
+  setToken,
+  tokenStatus,
+  readPlan,
+  saveContext,
+  readContext,
+  listMemoryFiles,
+  updateOrInsertJsonEntry,
+  updateIndexFile,
+  updateIndexFileManually,
+  scanMemoryFolderRecursively,
+  updateIndexEntry,
+  rebuildIndex,
+  updateIndexManual
 };
