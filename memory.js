@@ -367,26 +367,46 @@ async function persistIndex(data, repo, token) {
 async function updateIndexEntry(repo, token, { path: filePath, type, title, description, lastModified }) {
   if (!filePath) return null;
 
+  const normalized = path.posix.normalize(filePath).replace(/^\.?\/*/, '');
   const indexData = await fetchIndex(repo, token);
-  const idx = indexData.findIndex(e => e.path === filePath);
+  const idx = indexData.findIndex(e => path.posix.normalize(e.path) === normalized);
 
   const entry = {
-    path: filePath,
-    type: type || categorizeMemoryFile(path.basename(filePath)),
-    title,
-    description,
-    lastModified: lastModified || new Date().toISOString()
+    path: normalized,
+    type: type || categorizeMemoryFile(path.basename(normalized)),
   };
+  if (title !== undefined) entry.title = title;
+  if (description !== undefined) entry.description = description;
+  entry.lastModified = lastModified || new Date().toISOString();
 
+  let op = 'skipped';
   if (idx >= 0) {
-    indexData[idx] = { ...indexData[idx], ...entry };
-    console.log('[updateIndexEntry] updated', filePath);
+    const existing = indexData[idx];
+    const changed =
+      existing.type !== entry.type ||
+      existing.title !== entry.title ||
+      existing.description !== entry.description;
+
+    if (changed) {
+      indexData[idx] = { ...existing, ...entry };
+      op = 'updated';
+    }
   } else {
     indexData.push(entry);
-    console.log('[updateIndexEntry] added', filePath);
+    op = 'added';
   }
 
+  const dedupMap = new Map();
+  indexData.forEach(e => {
+    const p = path.posix.normalize(e.path);
+    dedupMap.set(p, { ...dedupMap.get(p), ...e });
+  });
+  const deduped = Array.from(dedupMap.values());
+  indexData.length = 0;
+  indexData.push(...deduped);
+
   await persistIndex(indexData, repo, token);
+  console.log('[updateIndexEntry]', op, normalized);
   return entry;
 }
 
@@ -656,15 +676,31 @@ exports.readContext = async (req, res) => {
   res.json({ status: 'success', content });
 };
 
-// List markdown files in a directory either from GitHub or local storage
+// Recursively list memory files from local storage
 exports.listMemoryFiles = async function(repo, token, dirPath) {
   const directory = dirPath.startsWith('memory') ? dirPath : path.join('memory', dirPath);
-
   const fullPath = path.join(__dirname, directory);
   if (!fs.existsSync(fullPath)) return [];
-  return fs
-    .readdirSync(fullPath)
-    .filter(name => /\.(md|txt|json|js|ts|html|css)$/i.test(name));
+
+  const results = [];
+  function walk(current) {
+    const entries = fs.readdirSync(current, { withFileTypes: true });
+    entries.forEach(entry => {
+      const abs = path.join(current, entry.name);
+      if (entry.isDirectory()) {
+        walk(abs);
+      } else if (entry.isFile()) {
+        const rel = path.relative(__dirname, abs).replace(/\\/g, '/');
+        if (rel.endsWith('index.json')) return;
+        if (/\.(md|txt|json|js|ts|jsx|tsx|html|css)$/i.test(entry.name)) {
+          results.push(rel);
+        }
+      }
+    });
+  }
+
+  walk(fullPath);
+  return results;
 };
 
 exports.updateOrInsertJsonEntry = updateOrInsertJsonEntry;
