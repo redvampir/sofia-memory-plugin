@@ -1,6 +1,8 @@
 const fs = require('fs');
 const path = require('path');
 const github = require('./githubClient');
+const tokenStore = require('./tokenStore');
+const memoryConfig = require('./memoryConfig');
 
 const indexPath = path.join(__dirname, 'memory', 'index.json');
 let indexData = null;
@@ -72,10 +74,14 @@ async function saveIndex(repo, token) {
     console.error('[indexManager] local write error', e.message);
   }
 
-  if (repo && token) {
+  const finalRepo = repo || memoryConfig.getRepoUrl();
+  const finalToken = token || tokenStore.getToken();
+
+  if (finalRepo && finalToken) {
     try {
       const rel = path.relative(__dirname, indexPath);
-      await githubWriteFileSafe(token, repo, rel, JSON.stringify(indexData, null, 2), 'update index.json');
+      await githubWriteFileSafe(finalToken, finalRepo, rel, JSON.stringify(indexData, null, 2), 'update index.json');
+      if (process.env.DEBUG) console.log('[indexManager] \u2714 index.json pushed');
     } catch (e) {
       console.error('[indexManager] failed to push index to GitHub', e.message);
     }
