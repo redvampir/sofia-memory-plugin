@@ -185,6 +185,51 @@ function saveIndex(data) {
   fs.writeFileSync(indexFilename, JSON.stringify(data, null, 2), 'utf-8');
 }
 
+async function updateIndexFile(entry, repo, token) {
+  ensureDir(indexFilename);
+  const indexRel = path.relative(__dirname, indexFilename);
+  let data = [];
+
+  if (repo && token) {
+    try {
+      const remote = await github.readFile(token, repo, indexRel);
+      data = JSON.parse(remote);
+    } catch (e) {
+      // ignore if file absent or invalid
+      data = [];
+    }
+  }
+
+  if (data.length === 0 && fs.existsSync(indexFilename)) {
+    try {
+      const local = JSON.parse(fs.readFileSync(indexFilename, 'utf-8'));
+      if (Array.isArray(local)) data = local;
+    } catch (e) {
+      // ignore parse errors
+    }
+  }
+
+  if (!Array.isArray(data)) data = [];
+  const idx = data.findIndex(i => i.path === entry.path);
+  if (idx >= 0) {
+    data[idx] = { ...data[idx], ...entry };
+  } else {
+    data.push(entry);
+  }
+
+  fs.writeFileSync(indexFilename, JSON.stringify(data, null, 2), 'utf-8');
+
+  if (repo && token) {
+    try {
+      await github.writeFile(token, repo, indexRel, JSON.stringify(data, null, 2), 'update index.json');
+    } catch (e) {
+      console.error('GitHub write index error', e.message);
+    }
+  }
+
+  return data;
+}
+
 async function updateIndexEntry(relPath, repo, token) {
   const fullPath = path.join(__dirname, relPath);
   if (!fs.existsSync(fullPath)) return;
@@ -195,7 +240,7 @@ async function updateIndexEntry(relPath, repo, token) {
     ...meta
   };
 
-  await updateOrInsertJsonEntry(indexFilename, [entry], 'path', repo, token);
+  await updateIndexFile(entry, repo, token);
 }
 
 exports.saveMemory = async (req, res) => {
@@ -386,3 +431,4 @@ exports.listMemoryFiles = async function(repo, token, dirPath) {
 };
 
 exports.updateOrInsertJsonEntry = updateOrInsertJsonEntry;
+exports.updateIndexFile = updateIndexFile;
