@@ -243,6 +243,80 @@ async function updateIndexEntry(relPath, repo, token) {
   await updateIndexFile(entry, repo, token);
 }
 
+async function updateIndexFileManually(entries = [], repo, token) {
+  if (!Array.isArray(entries) || entries.length === 0) return { added: 0, updated: 0 };
+
+  ensureDir(indexFilename);
+  const indexRel = path.relative(__dirname, indexFilename);
+  let data = [];
+
+  if (repo && token) {
+    try {
+      const remote = await github.readFile(token, repo, indexRel);
+      data = JSON.parse(remote);
+    } catch (e) {
+      data = [];
+    }
+  }
+
+  if (fs.existsSync(indexFilename)) {
+    try {
+      const local = JSON.parse(fs.readFileSync(indexFilename, 'utf-8'));
+      if (Array.isArray(local)) {
+        const map = new Map(data.map(e => [e.path, e]));
+        local.forEach(e => {
+          if (map.has(e.path)) {
+            map.set(e.path, { ...map.get(e.path), ...e });
+          } else {
+            map.set(e.path, e);
+          }
+        });
+        data = Array.from(map.values());
+      }
+    } catch (e) {
+      // ignore parse errors
+    }
+  }
+
+  const map = new Map(data.map(e => [e.path, e]));
+  let added = 0;
+  let updated = 0;
+
+  entries.forEach(entry => {
+    if (!entry || !entry.path) return;
+    if (map.has(entry.path)) {
+      const existing = map.get(entry.path);
+      const merged = { ...existing, ...entry };
+      if (JSON.stringify(existing) !== JSON.stringify(merged)) {
+        updated += 1;
+      }
+      map.set(entry.path, merged);
+    } else {
+      added += 1;
+      map.set(entry.path, entry);
+    }
+  });
+
+  data = Array.from(map.values()).sort((a, b) => a.path.localeCompare(b.path));
+  fs.writeFileSync(indexFilename, JSON.stringify(data, null, 2), 'utf-8');
+
+  if (repo && token) {
+    try {
+      await github.writeFile(
+        token,
+        repo,
+        indexRel,
+        JSON.stringify(data, null, 2),
+        `manual index update (${added} added, ${updated} updated)`
+      );
+    } catch (e) {
+      console.error('GitHub write index error', e.message);
+    }
+  }
+
+  return { added, updated };
+}
+
 exports.saveMemory = async (req, res) => {
   const { repo, filename, content } = req.body;
   const token = getToken(req);
@@ -432,3 +506,10 @@ exports.listMemoryFiles = async function(repo, token, dirPath) {
 
 exports.updateOrInsertJsonEntry = updateOrInsertJsonEntry;
 exports.updateIndexFile = updateIndexFile;
+exports.updateIndexFileManually = updateIndexFileManually;
+exports.updateIndexManual = async (req, res) => {
+  const { repo, token, entries } = req.body;
+  console.log('[updateIndexManual]', new Date().toISOString(), repo);
+  const result = await updateIndexFileManually(entries, repo, token);
+  res.json({ status: 'success', ...result });
+};
