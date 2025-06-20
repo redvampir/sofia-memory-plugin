@@ -46,6 +46,30 @@ function ensureDir(filePath) {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 }
 
+function normalizeMemoryPath(p) {
+  if (!p) return 'memory/';
+  let rel = p.replace(/\\+/g, '/');
+  rel = path.posix.normalize(rel).replace(/^(\.\/)+/, '').replace(/^\/+/, '');
+  while (rel.startsWith('memory/')) {
+    rel = rel.slice('memory/'.length);
+  }
+  return path.posix.join('memory', rel);
+}
+
+function generateTitleFromPath(p) {
+  const base = path.basename(p, path.extname(p));
+  return base.charAt(0).toUpperCase() + base.slice(1);
+}
+
+function inferTypeFromPath(p) {
+  const lower = p.toLowerCase();
+  if (lower.includes('plan')) return 'plan';
+  if (lower.includes('profile')) return 'profile';
+  if (lower.includes('lesson')) return 'lesson';
+  if (lower.includes('notes')) return 'note';
+  return 'file';
+}
+
 async function githubWriteFileSafe(token, repo, relPath, data, message, attempts = 2) {
   for (let i = 1; i <= attempts; i++) {
     try {
@@ -161,4 +185,31 @@ async function saveIndex(repo, token, userId) {
   }
 }
 
-module.exports = { loadIndex, addOrUpdateEntry, removeEntry, saveIndex, mergeIndex };
+async function saveMemoryWithIndex(userId, repo, token, filename, content) {
+  const finalRepo = repo || memoryConfig.getRepoUrl(userId);
+  const finalToken = token || tokenStore.getToken(userId);
+  if (!finalRepo || !finalToken) {
+    throw new Error('Missing repo or token');
+  }
+  const normalized = normalizeMemoryPath(filename);
+  await githubWriteFileSafe(finalToken, finalRepo, normalized, content, `update ${filename}`);
+  await addOrUpdateEntry({
+    path: normalized,
+    title: generateTitleFromPath(normalized),
+    type: inferTypeFromPath(normalized),
+    lastModified: new Date().toISOString()
+  });
+  await saveIndex(finalRepo, finalToken, userId);
+  return normalized;
+}
+
+module.exports = {
+  loadIndex,
+  addOrUpdateEntry,
+  removeEntry,
+  saveIndex,
+  mergeIndex,
+  saveMemoryWithIndex,
+  generateTitleFromPath,
+  inferTypeFromPath
+};
