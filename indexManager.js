@@ -160,8 +160,7 @@ async function saveIndex(repo, token, userId) {
   let remoteData = [];
   if (finalRepo && finalToken) {
     try {
-      const rel = path.relative(__dirname, indexPath);
-      const remote = await github.readFile(finalToken, finalRepo, rel);
+      const remote = await github.readFile(finalToken, finalRepo, 'memory/index.json');
       remoteData = JSON.parse(remote);
     } catch (e) {
       if (e.response?.status !== 404) console.error('[indexManager] GitHub read error', e.message);
@@ -179,8 +178,13 @@ async function saveIndex(repo, token, userId) {
 
   if (finalRepo && finalToken) {
     try {
-      const rel = path.relative(__dirname, indexPath);
-      await githubWriteFileSafe(finalToken, finalRepo, rel, JSON.stringify(indexData, null, 2), 'update index.json');
+      await githubWriteFileSafe(
+        finalToken,
+        finalRepo,
+        'memory/index.json',
+        JSON.stringify(indexData, null, 2),
+        'update index.json'
+      );
       if (process.env.DEBUG) console.log('[indexManager] \u2714 index.json pushed');
     } catch (e) {
       console.error('[indexManager] failed to push index to GitHub', e.message);
