@@ -2,44 +2,59 @@ const fs = require('fs');
 const path = require('path');
 
 const cacheDir = path.join(__dirname, '.cache');
-const repoFile = path.join(cacheDir, 'repo.txt');
-let repoUrl = null;
+const reposDir = path.join(cacheDir, 'repos');
+const repoCache = {};
 
 function ensureDir() {
-  if (!fs.existsSync(cacheDir)) {
-    fs.mkdirSync(cacheDir, { recursive: true });
+  if (!fs.existsSync(reposDir)) {
+    fs.mkdirSync(reposDir, { recursive: true });
   }
 }
 
-function loadRepo() {
-  if (repoUrl !== null) return repoUrl;
-  if (fs.existsSync(repoFile)) {
+function repoPath(userId) {
+  return path.join(reposDir, `${userId}.txt`);
+}
+
+function loadRepo(userId) {
+  if (Object.prototype.hasOwnProperty.call(repoCache, userId)) {
+    return repoCache[userId];
+  }
+  const file = repoPath(userId);
+  if (fs.existsSync(file)) {
     try {
-      const data = fs.readFileSync(repoFile, 'utf-8').trim();
-      repoUrl = data || null;
+      const data = fs.readFileSync(file, 'utf-8').trim();
+      repoCache[userId] = data || null;
     } catch (e) {
-      repoUrl = null;
+      repoCache[userId] = null;
     }
+  } else {
+    repoCache[userId] = null;
   }
-  return repoUrl;
+  return repoCache[userId];
 }
 
-function saveRepo(url) {
+function saveRepo(userId, url) {
   ensureDir();
+  const file = repoPath(userId);
   try {
     if (url) {
-      fs.writeFileSync(repoFile, url, 'utf-8');
-    } else if (fs.existsSync(repoFile)) {
-      fs.unlinkSync(repoFile);
+      fs.writeFileSync(file, url, 'utf-8');
+    } else if (fs.existsSync(file)) {
+      fs.unlinkSync(file);
     }
   } catch (e) {
-    console.error('[memoryConfig] failed to save repo url', e.message);
+    console.error(`[memoryConfig] failed to save repo url for ${userId}`, e.message);
   }
 }
 
-exports.setRepoUrl = url => {
-  repoUrl = url || null;
-  saveRepo(url);
+exports.setRepoUrl = (userId, url) => {
+  repoCache[userId] = url || null;
+  saveRepo(userId, url);
 };
 
-exports.getRepoUrl = () => loadRepo();
+exports.getRepoUrl = userId => loadRepo(userId);
+
+exports.getAllUsers = () => {
+  if (!fs.existsSync(reposDir)) return [];
+  return fs.readdirSync(reposDir).map(f => path.basename(f, '.txt'));
+};

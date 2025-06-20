@@ -23,6 +23,7 @@ app.get('/token/status', memory.tokenStatus);
 app.get('/tokenStatus', memory.tokenStatus); // alias for /token/status
 app.get('/readContext', memory.readContext);
 app.post('/saveContext', memory.saveContext);
+app.post('/chat/setup', memory.chatSetupCommand);
 app.post('/updateIndex', memory.updateIndexManual);
 app.get('/plan', memory.readPlan);
 
@@ -93,6 +94,7 @@ app.get('/docs', (req, res) => {
       "POST /version/list",
       "POST /list",
       "POST /updateIndex",
+      "POST /chat/setup",
       "GET /debug/index",
       "GET /ping",
       "GET /docs"
