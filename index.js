@@ -12,9 +12,12 @@ app.use(bodyParser.json());
 
 app.post('/saveMemory', memory.saveMemory);
 app.post('/readMemory', memory.readMemory);
+app.get('/memory', memory.readMemoryGET);
 app.post('/setMemoryRepo', memory.setMemoryRepo);
 app.post('/saveLessonPlan', memory.saveLessonPlan);
+app.post('/saveMemoryWithIndex', memory.saveMemoryWithIndex);
 
+app.post('/getToken', memory.getToken);
 app.post('/saveNote', memory.saveNote);
 app.post('/getContextSnapshot', memory.getContextSnapshot);
 app.post('/createUserProfile', memory.createUserProfile);
@@ -26,6 +29,7 @@ app.post('/saveContext', memory.saveContext);
 app.post('/chat/setup', memory.chatSetupCommand);
 app.post('/updateIndex', memory.updateIndexManual);
 app.get('/plan', memory.readPlan);
+app.get('/profile', memory.readProfile);
 
 app.post('/list', async (req, res) => {
   try {
@@ -77,28 +81,31 @@ app.get('/ping', (req, res) => {
 // Автодокументация
 app.get('/docs', (req, res) => {
   res.json({
-    endpoints: [
-      "POST /saveMemory",
-      "GET /readMemory",
-      "POST /readMemory",
-      "POST /setMemoryRepo",
-      "POST /saveLessonPlan",
-      "POST /saveNote",
-      "POST /getContextSnapshot",
-      "POST /createUserProfile",
-      "POST /setToken",
-      "GET /token/status",
-      "GET /readContext",
-      "POST /saveContext",
+      endpoints: [
+        "POST /saveMemory",
+        "GET /memory",
+        "POST /readMemory",
+        "POST /setMemoryRepo",
+        "POST /saveLessonPlan",
+        "POST /saveMemoryWithIndex",
+        "POST /saveNote",
+        "POST /getContextSnapshot",
+        "POST /createUserProfile",
+        "POST /setToken",
+        "POST /getToken",
+        "GET /token/status",
+        "GET /readContext",
+        "POST /saveContext",
       "POST /version/commit",
       "POST /version/rollback",
       "POST /version/list",
       "POST /list",
       "POST /updateIndex",
-      "POST /chat/setup",
-      "GET /debug/index",
-      "GET /ping",
-      "GET /docs"
-    ]
+        "POST /chat/setup",
+        "GET /profile",
+        "GET /debug/index",
+        "GET /ping",
+        "GET /docs"
+      ]
   });
 });

@@ -1,90 +1,64 @@
 openapi: 3.1.0
 info:
   title: Sofia Memory Plugin
-  description: |
-    Save and retrieve memory for the Sofia tutor using GitHub.
-    Provides endpoints to save and load memory files such as lessons, training plans, and student context.
   version: "1.0.0"
 servers:
   - url: https://sofia-memory.onrender.com
-
 paths:
-  /save:
+  /saveMemory:
     post:
-      summary: Save memory content to GitHub
+      summary: Save memory content
       operationId: saveMemory
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/SaveMemoryRequest"
+              $ref: '#/components/schemas/SaveMemoryRequest'
       responses:
         '200':
-          description: Memory saved successfully
-
-  /read:
+          description: Saved
+  /readMemory:
     post:
-      summary: Read memory content from GitHub
+      summary: Read memory content
       operationId: readMemory
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/ReadMemoryRequest"
+              $ref: '#/components/schemas/ReadMemoryRequest'
       responses:
         '200':
-          description: Memory read successfully
-
-  /readMemory:
+          description: File contents
+  /memory:
     get:
-      summary: Read memory content using GET
+      summary: Read memory file via query
       operationId: readMemoryGET
       parameters:
-        - name: repo
-          in: query
-          required: true
+        - in: query
+          name: repo
           schema:
             type: string
-        - name: token
-          in: query
-          required: true
+        - in: query
+          name: token
           schema:
             type: string
-        - name: filename
-          in: query
-          required: true
+        - in: query
+          name: filename
+          schema:
+            type: string
+        - in: query
+          name: userId
           schema:
             type: string
       responses:
         '200':
-          description: Memory read successfully
-
-  /readContext:
-    get:
-      summary: Read conversation context
-      operationId: readContext
-      responses:
-        '200':
-          description: Context read successfully
-  /saveContext:
+          description: File contents
+  /setMemoryRepo:
     post:
-      summary: Save conversation context
-      operationId: saveContext
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/SaveContextRequest"
-      responses:
-        '200':
-          description: Context saved successfully
-  /setToken:
-    post:
-      summary: Store GitHub token for future requests
-      operationId: setToken
+      summary: Set repository for a user
+      operationId: setMemoryRepo
       requestBody:
         required: true
         content:
@@ -92,27 +66,74 @@ paths:
             schema:
               type: object
               properties:
-                token:
+                repoUrl:
+                  type: string
+                userId:
                   type: string
       responses:
         '200':
-          description: Token stored
-
-  /tokenStatus:
-    get:
-      summary: Check if a token is stored on the server
-      operationId: tokenStatus
+          description: Repo stored
+  /saveLessonPlan:
+    post:
+      summary: Update learning plan
+      operationId: saveLessonPlan
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SaveLessonPlanRequest'
       responses:
         '200':
-          description: Token status
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  connected:
-                    type: boolean
-
+          description: Plan updated
+  /saveMemoryWithIndex:
+    post:
+      summary: Save memory and update index
+      operationId: saveMemoryWithIndex
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SaveMemoryRequest'
+      responses:
+        '200':
+          description: Saved
+  /getToken:
+    post:
+      summary: Get stored GitHub token
+      operationId: getToken
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                userId:
+                  type: string
+      responses:
+        '200':
+          description: Token value
+  /plan:
+    get:
+      summary: Read current plan
+      operationId: readPlan
+      responses:
+        '200':
+          description: Plan data
+  /profile:
+    get:
+      summary: Read stored profile
+      operationId: readProfile
+      parameters:
+        - in: query
+          name: userId
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Profile data
 components:
   schemas:
     SaveMemoryRequest:
@@ -120,17 +141,12 @@ components:
       properties:
         repo:
           type: string
-          example: redvampir/sofia-memory-plugin
         token:
           type: string
-          description: GitHub personal access token (required if repo is provided)
         filename:
           type: string
-          example: memory/test.md
         content:
           type: string
-          example: Тестовый контент
-
     ReadMemoryRequest:
       type: object
       properties:
@@ -138,17 +154,20 @@ components:
           type: string
         token:
           type: string
-          description: GitHub personal access token (required if repo is provided)
         filename:
           type: string
-          example: memory/test.md
-
-    SaveContextRequest:
+    SaveLessonPlanRequest:
       type: object
       properties:
-        repo:
+        title:
           type: string
-        content:
+        summary:
           type: string
-
-
+        projectFiles:
+          type: array
+          items:
+            type: string
+        plannedLessons:
+          type: array
+          items:
+            type: string

@@ -1,159 +1,139 @@
 openapi: 3.1.0
 info:
   title: Sofia Memory Plugin
-  description: |
-    Save and retrieve memory for the Sofia tutor using GitHub.
-    Provides endpoints to save and load memory files such as lessons, training plans, and student context.
   version: "1.0.0"
 servers:
   - url: https://sofia-memory.onrender.com
-
 paths:
-  /save:
+  /saveMemory:
     post:
-      summary: Save memory content to GitHub
+      summary: Save memory content
       operationId: saveMemory
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/SaveMemoryRequest"
+              $ref: '#/components/schemas/SaveMemoryRequest'
       responses:
         '200':
-          description: Memory saved successfully
-
-  /read:
+          description: Saved
+  /readMemory:
     post:
-      summary: Read memory content from GitHub
+      summary: Read memory content
       operationId: readMemory
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/ReadMemoryRequest"
+              $ref: '#/components/schemas/ReadMemoryRequest'
       responses:
         '200':
-          description: Memory read successfully
-
-  /list:
-    post:
-      summary: List memory files in a directory
-      operationId: listMemoryFiles
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/ListMemoryRequest"
-      responses:
-        "200":
-          description: List of files returned successfully
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  status:
-                    type: string
-                  files:
-                    type: array
-                    items:
-                      type: string
-
-  /saveLessonPlan:
-    post:
-      summary: Update learning plan with completed lesson
-      operationId: saveLessonPlan
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/SaveLessonPlanRequest"
-      responses:
-        "200":
-          description: Plan updated successfully
-
-  /updateIndex:
-    post:
-      summary: Manually update index.json
-      operationId: updateIndexManual
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/UpdateIndexRequest"
-      responses:
-        "200":
-          description: Index file updated successfully
-
-  /plan:
+          description: File contents
+  /memory:
     get:
-      summary: Read current plan information
-      operationId: readPlan
+      summary: Read memory file via query
+      operationId: readMemoryGET
+      parameters:
+        - in: query
+          name: repo
+          schema:
+            type: string
+        - in: query
+          name: token
+          schema:
+            type: string
+        - in: query
+          name: filename
+          schema:
+            type: string
+        - in: query
+          name: userId
+          schema:
+            type: string
       responses:
-        "200":
-          description: Current plan contents
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  status:
-                    type: string
-                  plan:
-                    type: object
-
-  /setToken:
+        '200':
+          description: File contents
+  /setMemoryRepo:
     post:
-      summary: Store GitHub token on the server
-      operationId: setToken
+      summary: Set repository for a user
+      operationId: setMemoryRepo
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
               type: object
               properties:
-                token:
+                repoUrl:
+                  type: string
+                userId:
                   type: string
       responses:
-        "200":
-          description: Token stored
-
-  /token/status:
-    get:
-      summary: Check if a token is stored on the server
-      operationId: tokenStatus
+        '200':
+          description: Repo stored
+  /saveLessonPlan:
+    post:
+      summary: Update learning plan
+      operationId: saveLessonPlan
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SaveLessonPlanRequest'
       responses:
-        "200":
-          description: Token status
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  connected:
-                    type: boolean
-
-  /tokenStatus:
-    get:
-      summary: Check if a token is stored on the server
-      operationId: tokenStatus
+        '200':
+          description: Plan updated
+  /saveMemoryWithIndex:
+    post:
+      summary: Save memory and update index
+      operationId: saveMemoryWithIndex
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SaveMemoryRequest'
       responses:
-        "200":
-          description: Token status
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  connected:
-                    type: boolean
-
+        '200':
+          description: Saved
+  /getToken:
+    post:
+      summary: Get stored GitHub token
+      operationId: getToken
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                userId:
+                  type: string
+      responses:
+        '200':
+          description: Token value
+  /plan:
+    get:
+      summary: Read current plan
+      operationId: readPlan
+      responses:
+        '200':
+          description: Plan data
+  /profile:
+    get:
+      summary: Read stored profile
+      operationId: readProfile
+      parameters:
+        - in: query
+          name: userId
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Profile data
 components:
   schemas:
     SaveMemoryRequest:
@@ -161,17 +141,12 @@ components:
       properties:
         repo:
           type: string
-          example: redvampir/sofia-memory-plugin
         token:
           type: string
-          description: GitHub personal access token (required if repo is provided)
         filename:
           type: string
-          example: memory/test.md
         content:
           type: string
-          example: Тестовый контент
-
     ReadMemoryRequest:
       type: object
       properties:
@@ -179,25 +154,8 @@ components:
           type: string
         token:
           type: string
-          description: GitHub personal access token (required if repo is provided)
         filename:
           type: string
-          example: memory/test.md
-
-    ListMemoryRequest:
-      type: object
-      properties:
-        repo:
-          type: string
-        token:
-          type: string
-        path:
-          type: string
-      required:
-        - repo
-        - token
-        - path
-
     SaveLessonPlanRequest:
       type: object
       properties:
@@ -213,37 +171,3 @@ components:
           type: array
           items:
             type: string
-
-    IndexEntry:
-      type: object
-      properties:
-        path:
-          type: string
-        type:
-          type: string
-          description: >-
-            Category of the file. For code or asset files the value can be
-            'projectFile'.
-        title:
-          type: string
-        description:
-          type: string
-        lastModified:
-          type: string
-      required:
-        - path
-        - type
-
-    UpdateIndexRequest:
-      type: object
-      properties:
-        entries:
-          type: array
-          items:
-            $ref: '#/components/schemas/IndexEntry'
-        repo:
-          type: string
-        token:
-          type: string
-      required:
-        - entries
