@@ -20,7 +20,7 @@ function writeFileSafe(filePath, data) {
   try {
     ensureDir(filePath);
     fs.writeFileSync(filePath, data, 'utf-8');
-    console.log('[writeFileSafe] wrote', filePath);
+    logDebug('[writeFileSafe] wrote', filePath);
   } catch (e) {
     console.error(`[writeFileSafe] Error writing ${filePath}`, e.message);
     throw e;
@@ -44,8 +44,9 @@ function normalizeMemoryPath(p) {
 async function githubWriteFileSafe(token, repo, relPath, data, message, attempts = 2) {
   for (let i = 1; i <= attempts; i++) {
     try {
+      ensureDir(path.join(__dirname, path.dirname(relPath)));
       await github.writeFile(token, repo, relPath, data, message);
-      console.log('[githubWriteFileSafe] pushed', relPath);
+      logDebug('[githubWriteFileSafe] pushed', relPath);
       return;
     } catch (e) {
       console.error(`[githubWriteFileSafe] attempt ${i} failed for ${relPath}`, e.message);
@@ -290,6 +291,44 @@ function ensureContext() {
   }
 }
 
+async function updatePlan({ done = [], upcoming = [] } = {}, repo, token) {
+  ensureDir(planFilename);
+  const relPath = path.relative(__dirname, planFilename);
+  let plan = { done: [], upcoming: [] };
+
+  if (fs.existsSync(planFilename)) {
+    try {
+      const local = fs.readFileSync(planFilename, 'utf-8');
+      plan = deepMerge(plan, JSON.parse(local), '');
+    } catch {}
+  }
+
+  if (repo && token) {
+    try {
+      const remote = await github.readFile(token, repo, relPath);
+      plan = deepMerge(plan, JSON.parse(remote), '');
+    } catch (e) {
+      if (e.response?.status !== 404) console.error('[updatePlan] GitHub read error', e.message);
+    }
+  }
+
+  plan.done = Array.from(new Set([...(plan.done || []), ...done]));
+  plan.upcoming = Array.from(new Set([...(plan.upcoming || []), ...upcoming]));
+  plan.upcoming = plan.upcoming.filter(t => !plan.done.includes(t));
+
+  writeFileSafe(planFilename, JSON.stringify(plan, null, 2));
+
+  if (repo && token) {
+    try {
+      await githubWriteFileSafe(token, repo, relPath, JSON.stringify(plan, null, 2), 'update plan');
+    } catch (e) {
+      console.error('[updatePlan] GitHub write error', e.message);
+    }
+  }
+
+  return plan;
+}
+
 function loadPlan() {
   ensureDir(planFilename);
   const existed = fs.existsSync(planFilename);
@@ -327,14 +366,6 @@ async function savePlan(repo, token) {
   await rebuildIndex(repo, token);
 }
 
-(async () => {
-  try {
-    await loadPlan();
-    await rebuildIndex();
-  } catch (e) {
-    console.error('[init] startup error', e.message);
-  }
-})();
 
 function getToken(req) {
   if (req.body && req.body.token) return req.body.token;
@@ -732,9 +763,6 @@ async function saveMemory(req, res) {
       lastModified: new Date().toISOString(),
     });
     logDebug('[saveMemory] index updated', normalizedFilename);
-    if (!planCache) loadPlan();
-    planCache = updatePlanFromIndex(planCache);
-    await savePlan(effectiveRepo, token);
   } catch (e) {
     console.error('[saveMemory] index update error', e.message);
   }
@@ -782,20 +810,10 @@ async function saveLessonPlan(req, res) {
   const token = getToken(req);
   console.log('[saveLessonPlan]', new Date().toISOString(), title);
   const effectiveRepo = repo || memoryConfig.getRepoUrl();
-
-  if (!planCache) loadPlan();
-  if (title) {
-    if (!planCache.completedLessons.includes(title)) {
-      planCache.completedLessons.push(title);
-    }
-  }
-  if (Array.isArray(plannedLessons) && plannedLessons.length > 0) {
-    planCache.nextLesson = plannedLessons[0];
-  }
-
-  planCache = updatePlanFromIndex(planCache);
-  await savePlan(effectiveRepo, token);
-  res.json({ status: 'success', action: 'saveLessonPlan', plan: planCache });
+  const done = title ? [title] : [];
+  const upcoming = Array.isArray(plannedLessons) ? plannedLessons : [];
+  const plan = await updatePlan({ done, upcoming }, effectiveRepo, token);
+  res.json({ status: 'success', action: 'saveLessonPlan', plan });
 }
 
 function saveNote(req, res) {
@@ -834,11 +852,14 @@ function tokenStatus(req, res) {
 
 function readPlan(req, res) {
   try {
-    loadPlan();
+    ensureDir(planFilename);
+    const content = fs.existsSync(planFilename) ? fs.readFileSync(planFilename, 'utf-8') : '{}';
+    const plan = JSON.parse(content || '{}');
+    res.json({ status: 'success', plan });
   } catch (e) {
     console.error('[readPlan] failed to load plan', e.message);
+    res.status(500).json({ status: 'error', message: e.message });
   }
-  res.json({ status: 'success', plan: planCache });
 }
 
 async function saveContext(req, res) {
@@ -943,5 +964,6 @@ module.exports = {
   scanMemoryFolderRecursively,
   updateIndexEntry,
   rebuildIndex,
-  updateIndexManual
+  updateIndexManual,
+  updatePlan
 };
