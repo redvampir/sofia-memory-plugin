@@ -152,22 +152,23 @@ async function removeEntry(p) {
   indexData = indexData.filter(e => e.path !== p);
 }
 
-async function saveIndex(repo, token, userId) {
+async function saveIndex(token, repo, userId) {
   if (!indexData) await loadIndex();
-  const finalRepo = repo || memoryConfig.getRepoUrl(userId);
   const finalToken = token || tokenStore.getToken(userId);
+  const finalRepo = repo || memoryConfig.getRepoUrl(userId);
 
   let remoteData = [];
   if (finalRepo && finalToken) {
     try {
-      const remote = await github.readFile(finalToken, finalRepo, 'memory/index.json');
-      remoteData = JSON.parse(remote);
+      const remoteRaw = await github.readFile(finalToken, finalRepo, 'memory/index.json');
+      const remote = JSON.parse(remoteRaw);
+      remoteData = remote;
     } catch (e) {
       if (e.response?.status !== 404) console.error('[indexManager] GitHub read error', e.message);
     }
   }
 
-  indexData = await mergeIndex(remoteData || [], indexData || []);
+  indexData = await mergeIndex(remoteData, indexData || []);
   ensureDir(indexPath);
   try {
     fs.writeFileSync(indexPath, JSON.stringify(indexData, null, 2), 'utf-8');
@@ -206,7 +207,7 @@ async function saveMemoryWithIndex(userId, repo, token, filename, content) {
     type: inferTypeFromPath(normalized),
     lastModified: new Date().toISOString()
   });
-  await saveIndex(finalRepo, finalToken, userId);
+  await saveIndex(finalToken, finalRepo, userId);
   console.log(`[Memory] Saved and indexed: ${normalized}`);
   return normalized;
 }

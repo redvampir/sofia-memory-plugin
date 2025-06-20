@@ -785,7 +785,7 @@ async function saveMemory(req, res) {
         type: inferTypeFromPath(normalizedFilename),
         lastModified: new Date().toISOString()
       });
-      await indexManager.saveIndex(effectiveRepo, token);
+      await indexManager.saveIndex(token, effectiveRepo);
       console.log(`[index] Updated for ${normalizedFilename}`);
     }
   } catch (e) {
