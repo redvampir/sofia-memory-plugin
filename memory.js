@@ -1021,5 +1021,8 @@ module.exports = {
   rebuildIndex,
   updateIndexManual,
   updatePlan,
-  chatSetupCommand
+  chatSetupCommand,
+  githubWriteFileSafe,
+  generateTitleFromPath,
+  inferTypeFromPath
 };
