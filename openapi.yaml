@@ -37,29 +37,122 @@ paths:
         '200':
           description: Memory read successfully
 
-  /readMemory:
-    get:
-      summary: Read memory content using GET
-      operationId: readMemoryGET
-      parameters:
-        - name: repo
-          in: query
-          required: true
-          schema:
-            type: string
-        - name: token
-          in: query
-          required: true
-          schema:
-            type: string
-        - name: filename
-          in: query
-          required: true
-          schema:
-            type: string
+  /list:
+    post:
+      summary: List memory files in a directory
+      operationId: listMemoryFiles
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ListMemoryRequest"
       responses:
-        '200':
-          description: Memory read successfully
+        "200":
+          description: List of files returned successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  files:
+                    type: array
+                    items:
+                      type: string
+
+  /saveLessonPlan:
+    post:
+      summary: Update learning plan with completed lesson
+      operationId: saveLessonPlan
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SaveLessonPlanRequest"
+      responses:
+        "200":
+          description: Plan updated successfully
+
+  /updateIndex:
+    post:
+      summary: Manually update index.json
+      operationId: updateIndexManual
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateIndexRequest"
+      responses:
+        "200":
+          description: Index file updated successfully
+
+  /plan:
+    get:
+      summary: Read current plan information
+      operationId: readPlan
+      responses:
+        "200":
+          description: Current plan contents
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  plan:
+                    type: object
+
+  /setToken:
+    post:
+      summary: Store GitHub token on the server
+      operationId: setToken
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                token:
+                  type: string
+      responses:
+        "200":
+          description: Token stored
+
+  /token/status:
+    get:
+      summary: Check if a token is stored on the server
+      operationId: tokenStatus
+      responses:
+        "200":
+          description: Token status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  connected:
+                    type: boolean
+
+  /tokenStatus:
+    get:
+      summary: Check if a token is stored on the server
+      operationId: tokenStatus
+      responses:
+        "200":
+          description: Token status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  connected:
+                    type: boolean
 
 components:
   schemas:
@@ -71,6 +164,7 @@ components:
           example: redvampir/sofia-memory-plugin
         token:
           type: string
+          description: GitHub personal access token (required if repo is provided)
         filename:
           type: string
           example: memory/test.md
@@ -85,6 +179,71 @@ components:
           type: string
         token:
           type: string
+          description: GitHub personal access token (required if repo is provided)
         filename:
           type: string
           example: memory/test.md
+
+    ListMemoryRequest:
+      type: object
+      properties:
+        repo:
+          type: string
+        token:
+          type: string
+        path:
+          type: string
+      required:
+        - repo
+        - token
+        - path
+
+    SaveLessonPlanRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        summary:
+          type: string
+        projectFiles:
+          type: array
+          items:
+            type: string
+        plannedLessons:
+          type: array
+          items:
+            type: string
+
+    IndexEntry:
+      type: object
+      properties:
+        path:
+          type: string
+        type:
+          type: string
+          description: >-
+            Category of the file. For code or asset files the value can be
+            'projectFile'.
+        title:
+          type: string
+        description:
+          type: string
+        lastModified:
+          type: string
+      required:
+        - path
+        - type
+
+    UpdateIndexRequest:
+      type: object
+      properties:
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/IndexEntry'
+        repo:
+          type: string
+        token:
+          type: string
+      required:
+        - entries

@@ -98,6 +98,21 @@ paths:
         '200':
           description: Token stored
 
+  /tokenStatus:
+    get:
+      summary: Check if a token is stored on the server
+      operationId: tokenStatus
+      responses:
+        '200':
+          description: Token status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  connected:
+                    type: boolean
+
 components:
   schemas:
     SaveMemoryRequest:
@@ -108,6 +123,7 @@ components:
           example: redvampir/sofia-memory-plugin
         token:
           type: string
+          description: GitHub personal access token (required if repo is provided)
         filename:
           type: string
           example: memory/test.md
@@ -122,6 +138,7 @@ components:
           type: string
         token:
           type: string
+          description: GitHub personal access token (required if repo is provided)
         filename:
           type: string
           example: memory/test.md
