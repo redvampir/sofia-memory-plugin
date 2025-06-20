@@ -97,6 +97,16 @@ async function loadIndex() {
 
 async function addOrUpdateEntry(entry) {
   if (!entry || !entry.path) return;
+  const p = entry.path.replace(/\\/g, '/');
+  if (!p.startsWith('memory/')) return;
+  if (p.includes('/sofia-memory-plugin/')) return;
+  if (p.includes('__tests__')) return;
+  if (
+    p.includes('context.md') ||
+    p.includes('test.md') ||
+    p.includes('test.txt')
+  )
+    return;
   if (!indexData) await loadIndex();
   const idx = indexData.findIndex(e => e.path === entry.path);
   const base = { lastModified: new Date().toISOString() };
