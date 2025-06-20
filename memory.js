@@ -45,12 +45,39 @@ function normalizeMemoryPath(p) {
   return path.posix.join('memory', rel);
 }
 
+function generateTitleFromPath(p) {
+  const base = path.basename(p, path.extname(p));
+  return base.charAt(0).toUpperCase() + base.slice(1);
+}
+
+function inferTypeFromPath(p) {
+  const lower = p.toLowerCase();
+  if (lower.includes('plan')) return 'plan';
+  if (lower.includes('profile')) return 'profile';
+  if (lower.includes('lesson')) return 'lesson';
+  if (lower.includes('notes')) return 'note';
+  return 'file';
+}
+
 async function githubWriteFileSafe(token, repo, relPath, data, message, attempts = 2) {
   for (let i = 1; i <= attempts; i++) {
     try {
       ensureDir(path.join(__dirname, path.dirname(relPath)));
       await github.writeFile(token, repo, relPath, data, message);
       logDebug('[githubWriteFileSafe] pushed', relPath);
+      if (
+        relPath.startsWith('memory/') &&
+        relPath !== 'memory/index.json'
+      ) {
+        await indexManager.addOrUpdateEntry({
+          path: relPath,
+          title: generateTitleFromPath(relPath),
+          type: inferTypeFromPath(relPath),
+          lastModified: new Date().toISOString()
+        });
+        await indexManager.saveIndex(repo, token);
+        console.log(`[index] Updated for ${relPath}`);
+      }
       return;
     } catch (e) {
       console.error(`[githubWriteFileSafe] attempt ${i} failed for ${relPath}`, e.message);
@@ -761,6 +788,16 @@ async function saveMemory(req, res) {
       lastModified: new Date().toISOString(),
     }, userId);
     logDebug('[saveMemory] index updated', normalizedFilename);
+    if (normalizedFilename.startsWith('memory/') && normalizedFilename !== 'memory/index.json') {
+      await indexManager.addOrUpdateEntry({
+        path: normalizedFilename,
+        title: generateTitleFromPath(normalizedFilename),
+        type: inferTypeFromPath(normalizedFilename),
+        lastModified: new Date().toISOString()
+      });
+      await indexManager.saveIndex(effectiveRepo, token);
+      console.log(`[index] Updated for ${normalizedFilename}`);
+    }
   } catch (e) {
     console.error('[saveMemory] index update error', e.message);
   }
