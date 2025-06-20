@@ -65,19 +65,6 @@ async function githubWriteFileSafe(token, repo, relPath, data, message, attempts
       ensureDir(path.join(__dirname, path.dirname(relPath)));
       await github.writeFile(token, repo, relPath, data, message);
       logDebug('[githubWriteFileSafe] pushed', relPath);
-      if (
-        relPath.startsWith('memory/') &&
-        relPath !== 'memory/index.json'
-      ) {
-        await indexManager.addOrUpdateEntry({
-          path: relPath,
-          title: generateTitleFromPath(relPath),
-          type: inferTypeFromPath(relPath),
-          lastModified: new Date().toISOString()
-        });
-        await indexManager.saveIndex(repo, token);
-        console.log(`[index] Updated for ${relPath}`);
-      }
       return;
     } catch (e) {
       console.error(`[githubWriteFileSafe] attempt ${i} failed for ${relPath}`, e.message);
