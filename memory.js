@@ -46,16 +46,19 @@ function normalizeMemoryPath(p) {
 }
 
 function generateTitleFromPath(p) {
-  const base = path.basename(p, path.extname(p));
-  return base.charAt(0).toUpperCase() + base.slice(1);
+  return p
+    .split('/')
+    .pop()
+    .replace(/\..+$/, '')
+    .replace(/[-_]/g, ' ')
+    .replace(/\b\w/g, l => l.toUpperCase());
 }
 
 function inferTypeFromPath(p) {
-  const lower = p.toLowerCase();
-  if (lower.includes('plan')) return 'plan';
-  if (lower.includes('profile')) return 'profile';
-  if (lower.includes('lesson')) return 'lesson';
-  if (lower.includes('notes')) return 'note';
+  if (p.includes('plan')) return 'plan';
+  if (p.includes('profile')) return 'profile';
+  if (p.includes('lesson')) return 'lesson';
+  if (p.includes('note')) return 'note';
   return 'file';
 }
 
