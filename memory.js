@@ -215,8 +215,7 @@ function sanitizeIndex(entries) {
     if (EXCLUDED.has(normalized)) return;
     const abs = path.join(__dirname, normalized);
     if (!fs.existsSync(abs)) {
-      console.warn(`[sanitizeIndex] missing file ${normalized}, removing`);
-      return;
+      console.warn(`[sanitizeIndex] missing file ${normalized}, keeping entry`);
     }
     const existing = map.get(normalized);
     if (!existing || new Date(e.lastModified || 0) > new Date(existing.lastModified || 0)) {
