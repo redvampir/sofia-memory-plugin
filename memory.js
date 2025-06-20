@@ -811,6 +811,10 @@ async function readMemory(req, res) {
       return res.json({ status: 'success', action: 'readMemory', content });
     } catch (e) {
       console.error('GitHub read error', e.message);
+      if (e.response?.status === 404) {
+        return res.status(404).json({ status: 'error', message: 'File not found in repository' });
+      }
+      return res.status(500).json({ status: 'error', message: 'Failed to read file from GitHub' });
     }
   }
 
