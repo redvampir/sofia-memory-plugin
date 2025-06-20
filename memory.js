@@ -311,32 +311,101 @@ function ensureContext() {
   }
 }
 
-async function updatePlan({ token, repo, updateFn }) {
-  const relPath = "memory/plan.md";
-  const absPath = path.join(__dirname, relPath);
-  let existing = { done: [], upcoming: [] };
+function parsePlanFile(md) {
+  const lines = md.split(/\r?\n/);
+  let section = null;
+  const result = {
+    lines,
+    done: [],
+    upcoming: [],
+    doneStart: -1,
+    doneEnd: -1,
+    upcomingStart: -1,
+    upcomingEnd: -1
+  };
 
-  try {
-    const raw = await github.readFile(token, repo, relPath);
-    existing = JSON.parse(raw);
-  } catch (e) {
-    console.warn("[updatePlan] No existing plan or failed to parse, starting new");
-    if (fs.existsSync(absPath)) {
-      try {
-        const local = fs.readFileSync(absPath, "utf-8");
-        existing = JSON.parse(local);
-      } catch {}
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const header = line.match(/^##\s*(.+)/);
+    if (header) {
+      const name = header[1].toLowerCase();
+      if (section === 'done') result.doneEnd = i;
+      if (section === 'upcoming') result.upcomingEnd = i;
+      if (name.startsWith('completed')) {
+        section = 'done';
+        result.doneStart = i + 1;
+      } else if (name.startsWith('upcoming')) {
+        section = 'upcoming';
+        result.upcomingStart = i + 1;
+      } else {
+        section = null;
+      }
+      continue;
+    }
+
+    if (/^[-*]\s+/.test(line)) {
+      const item = line.replace(/^[-*]\s+/, '').replace(/^✅\s*/, '').trim();
+      if (section === 'done') result.done.push(item);
+      if (section === 'upcoming') result.upcoming.push(item);
     }
   }
 
-  const updated = updateFn(existing);
+  if (section === 'done') result.doneEnd = lines.length;
+  if (section === 'upcoming') result.upcomingEnd = lines.length;
+  return result;
+}
 
-  ensureDir(absPath);
-  writeFileSafe(absPath, JSON.stringify(updated, null, 2));
+function buildPlanFile(parsed, done, upcoming) {
+  const lines = parsed.lines.slice();
 
-  await githubWriteFileSafe(token, repo, relPath, JSON.stringify(updated, null, 2), "update plan.md");
+  const doneLines = done.map(t => `- ✅ ${t}`);
+  if (parsed.doneStart >= 0) {
+    lines.splice(parsed.doneStart, parsed.doneEnd - parsed.doneStart, ...doneLines);
+  } else {
+    lines.push('## Completed Lessons', ...doneLines, '');
+  }
 
-  console.log("[updatePlan] ✅ plan.md updated");
+  const upcomingLines = upcoming.map(t => `- ${t}`);
+  if (parsed.upcomingStart >= 0) {
+    lines.splice(parsed.upcomingStart, parsed.upcomingEnd - parsed.upcomingStart, ...upcomingLines);
+  } else {
+    lines.push('## Upcoming Lessons', ...upcomingLines, '');
+  }
+
+  return lines.join('\n');
+}
+
+async function updatePlan({ token, repo, updateFn }) {
+  const relPath = 'memory/plan.md';
+  const absPath = path.join(__dirname, relPath);
+
+  let md = '';
+  if (repo && token) {
+    try {
+      md = await github.readFile(token, repo, relPath);
+    } catch (e) {
+      logDebug('[updatePlan] no remote plan', e.message);
+    }
+  }
+  if (!md && fs.existsSync(absPath)) {
+    md = fs.readFileSync(absPath, 'utf-8');
+  }
+  if (!md) {
+    md = '# Learning Plan\n\n## Completed Lessons\n\n## Upcoming Lessons\n';
+  }
+
+  const parsed = parsePlanFile(md);
+  const current = { done: parsed.done.slice(), upcoming: parsed.upcoming.slice() };
+  const updated = updateFn ? updateFn(current) : current;
+
+  const newMd = buildPlanFile(parsed, updated.done || [], updated.upcoming || []);
+
+  writeFileSafe(absPath, newMd);
+  if (repo && token) {
+    await githubWriteFileSafe(token, repo, relPath, newMd, 'update plan.md');
+  }
+
+  console.log('[updatePlan] ✅ plan.md updated');
   return updated;
 }
 
