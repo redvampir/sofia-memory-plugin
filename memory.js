@@ -131,10 +131,62 @@ async function updateOrInsertJsonEntry(filePath, newData, matchKey, repo, token)
 }
 
 const contextFilename = path.join(__dirname, 'memory', 'context.md');
-const planFilename = path.join(__dirname, 'memory', 'plan.json');
+const planFilename = path.join(__dirname, 'memory', 'plan.md');
 const indexFilename = path.join(__dirname, 'memory', 'index.json');
 
 let planCache = null;
+
+function parsePlanMarkdown(md) {
+  const plan = { completedLessons: [], requestedClarifications: [], nextLesson: '' };
+  const lines = md.split(/\r?\n/);
+  let section = '';
+  for (const line of lines) {
+    if (/^##\s+Completed Lessons/i.test(line)) { section = 'completed'; continue; }
+    if (/^##\s+Requested Clarifications/i.test(line)) { section = 'clar'; continue; }
+    if (/^##\s+Progress/i.test(line)) { section = 'progress'; continue; }
+    if (/^-\s+/.test(line) && section === 'completed') {
+      plan.completedLessons.push(line.replace(/^-\s+/, '').trim());
+    } else if (/^-\s+/.test(line) && section === 'clar') {
+      plan.requestedClarifications.push(line.replace(/^-\s+/, '').trim());
+    } else if (section === 'progress') {
+      const m = line.match(/Next lesson:\s*(.*)/i);
+      if (m) plan.nextLesson = m[1].trim();
+    }
+  }
+  return plan;
+}
+
+function planToMarkdown(plan) {
+  const completed = (plan.completedLessons || [])
+    .map(t => `- ${t}`)
+    .join('\n');
+  const clar = (plan.requestedClarifications || [])
+    .map(t => `- ${t}`)
+    .join('\n');
+  return `# Learning Plan (Sofia Tutor)\n\n## Completed Lessons\n${completed}\n\n## Requested Clarifications\n${clar}\n\n## Progress\nCompleted: ${(plan.completedLessons || []).length} lessons  \nNext lesson: ${plan.nextLesson || ''}\n`;
+}
+
+function updatePlanFromIndex(plan) {
+  if (!fs.existsSync(indexFilename)) return plan;
+  let data = [];
+  try {
+    data = JSON.parse(fs.readFileSync(indexFilename, 'utf-8'));
+  } catch (e) {
+    data = [];
+  }
+  const lessons = data.filter(e => e.type === 'lesson');
+  lessons.sort((a, b) => {
+    if (a.lastModified && b.lastModified) {
+      return new Date(a.lastModified) - new Date(b.lastModified);
+    }
+    return (a.path || '').localeCompare(b.path || '');
+  });
+  lessons.forEach(l => {
+    const title = l.title || path.basename(l.path || '');
+    if (!plan.completedLessons.includes(title)) plan.completedLessons.push(title);
+  });
+  return plan;
+}
 
 function detectLanguage() {
   const envLang = (process.env.LANG || '').toLowerCase();
@@ -153,31 +205,38 @@ function ensureContext() {
 
 function loadPlan() {
   ensureDir(planFilename);
-  if (!fs.existsSync(planFilename)) {
-    const newPlan = {
-      start_date: new Date().toISOString().split('T')[0],
-      language: detectLanguage(),
-      lessons_completed: [],
-      project_files: [],
-      planned_lessons: [],
-      requires_context: true
-    };
-    writeFileSafe(planFilename, JSON.stringify(newPlan, null, 2));
-    planCache = newPlan;
-    rebuildIndex().catch(e => console.error('[loadPlan] rebuild error', e.message));
-  } else {
+  const existed = fs.existsSync(planFilename);
+  let plan;
+  if (existed) {
     try {
       const content = fs.readFileSync(planFilename, 'utf-8');
-      planCache = JSON.parse(content);
+      plan = parsePlanMarkdown(content);
     } catch (e) {
-      planCache = {};
+      plan = { completedLessons: [], requestedClarifications: [], nextLesson: '' };
     }
+  } else {
+    plan = { completedLessons: [], requestedClarifications: [], nextLesson: '' };
+  }
+
+  plan = updatePlanFromIndex(plan);
+  writeFileSafe(planFilename, planToMarkdown(plan));
+  planCache = plan;
+  if (!existed) {
+    rebuildIndex().catch(e => console.error('[loadPlan] rebuild error', e.message));
   }
 }
 
 async function savePlan(repo, token) {
   if (!planCache) loadPlan();
-  planCache = await updateOrInsertJsonEntry(planFilename, planCache, 'title', repo, token);
+  const md = planToMarkdown(planCache);
+  writeFileSafe(planFilename, md);
+  if (repo && token) {
+    try {
+      await githubWriteFileSafe(token, repo, path.relative(__dirname, planFilename), md, 'update plan');
+    } catch (e) {
+      console.error('GitHub write plan error', e.message);
+    }
+  }
   await rebuildIndex(repo, token);
 }
 
@@ -203,7 +262,7 @@ function categorizeMemoryFile(name) {
   const lower = name.toLowerCase();
   const ext = path.extname(lower);
 
-  if (lower === 'plan.json' || lower.endsWith('plan.json')) return 'plan';
+  if (lower === 'plan.md' || lower.endsWith('plan.md')) return 'plan';
   if (lower.includes('lesson')) return 'lesson';
   if (lower.includes('note')) return 'note';
   if (lower.includes('context')) return 'context';
@@ -620,28 +679,17 @@ async function saveLessonPlan(req, res) {
   const effectiveRepo = repo || memoryConfig.getRepoUrl();
 
   if (!planCache) loadPlan();
-
-  const updates = {};
-  if (title || summary) {
-    updates.lessons_completed = [
-      {
-        title: title || `lesson_${planCache.lessons_completed.length + 1}`,
-        date: new Date().toISOString().split('T')[0],
-        summary: summary || ''
-      }
-    ];
+  if (title) {
+    if (!planCache.completedLessons.includes(title)) {
+      planCache.completedLessons.push(title);
+    }
+  }
+  if (Array.isArray(plannedLessons) && plannedLessons.length > 0) {
+    planCache.nextLesson = plannedLessons[0];
   }
 
-  if (Array.isArray(projectFiles)) {
-    updates.project_files = projectFiles;
-  }
-
-  if (Array.isArray(plannedLessons)) {
-    updates.planned_lessons = plannedLessons;
-  }
-
-  planCache = await updateOrInsertJsonEntry(planFilename, updates, 'title', effectiveRepo, token);
-  await rebuildIndex(effectiveRepo, token);
+  planCache = updatePlanFromIndex(planCache);
+  await savePlan(effectiveRepo, token);
   res.json({ status: 'success', action: 'saveLessonPlan', plan: planCache });
 }
 
