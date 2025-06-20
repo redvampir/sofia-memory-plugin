@@ -1,6 +1,12 @@
 
 const axios = require('axios');
 
+function normalizeRepo(repo) {
+  if (!repo) return repo;
+  const match = repo.match(/github\.com[:\/](.+?)(?:\.git)?$/);
+  return match ? match[1] : repo;
+}
+
 exports.validateToken = async function (token) {
   try {
     const res = await axios.get('https://api.github.com/user', {
@@ -13,8 +19,9 @@ exports.validateToken = async function (token) {
 };
 
 exports.repoExists = async function (token, repo) {
+  const normalized = normalizeRepo(repo);
   try {
-    const res = await axios.get(`https://api.github.com/repos/${repo}`, {
+    const res = await axios.get(`https://api.github.com/repos/${normalized}`, {
       headers: { Authorization: `token ${token}` }
     });
     return res.status === 200;
@@ -24,13 +31,15 @@ exports.repoExists = async function (token, repo) {
 };
 
 exports.readFile = async function(token, repo, filePath) {
-  const url = `https://api.github.com/repos/${repo}/contents/${encodeURIComponent(filePath)}`;
+  const normalized = normalizeRepo(repo);
+  const url = `https://api.github.com/repos/${normalized}/contents/${encodeURIComponent(filePath)}`;
   const res = await axios.get(url, { headers: { Authorization: `token ${token}` } });
   return Buffer.from(res.data.content, 'base64').toString('utf-8');
 };
 
 exports.writeFile = async function(token, repo, filePath, content, message) {
-  const url = `https://api.github.com/repos/${repo}/contents/${encodeURIComponent(filePath)}`;
+  const normalized = normalizeRepo(repo);
+  const url = `https://api.github.com/repos/${normalized}/contents/${encodeURIComponent(filePath)}`;
   let sha = undefined;
   try {
     const res = await axios.get(url, { headers: { Authorization: `token ${token}` } });
