@@ -60,6 +60,21 @@ async function githubWriteFileSafe(token, repo, relPath, data, message, attempts
   }
 }
 
+async function mergeIndex(remoteData, localData) {
+  const map = new Map();
+
+  [...remoteData, ...localData].forEach(entry => {
+    if (!entry?.path) return;
+    const existing = map.get(entry.path) || {};
+    map.set(entry.path, {
+      ...existing,
+      ...entry,
+      lastModified: new Date().toISOString()
+    });
+  });
+
+  return Array.from(map.values());
+}
 async function loadIndex() {
   if (indexData) return indexData;
   if (!fs.existsSync(indexPath)) {
@@ -116,7 +131,7 @@ async function saveIndex(repo, token) {
     }
   }
 
-  indexData = deepMerge(remoteData || [], indexData || [], 'path');
+  indexData = await mergeIndex(remoteData || [], indexData || []);
   ensureDir(indexPath);
   try {
     fs.writeFileSync(indexPath, JSON.stringify(indexData, null, 2), 'utf-8');
@@ -136,4 +151,4 @@ async function saveIndex(repo, token) {
   }
 }
 
-module.exports = { loadIndex, addOrUpdateEntry, removeEntry, saveIndex };
+module.exports = { loadIndex, addOrUpdateEntry, removeEntry, saveIndex, mergeIndex };
