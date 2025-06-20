@@ -378,7 +378,7 @@ async function savePlan(repo, token) {
 }
 
 
-function getToken(req) {
+function extractToken(req) {
   if (req.body && req.body.token) return req.body.token;
   const auth = req.headers['authorization'];
   if (auth && auth.startsWith('token ')) return auth.slice(6);
@@ -703,7 +703,7 @@ async function updateIndexFileManually(newEntries, repo, token, userId) {
 async function saveMemory(req, res) {
   console.log('[saveMemory] called');
   const { repo, filename, content, userId } = req.body;
-  const token = getToken(req);
+  const token = extractToken(req);
   const effectiveRepo = repo || memoryConfig.getRepoUrl(userId);
   console.log('[saveMemory]', new Date().toISOString(), effectiveRepo, filename);
 
@@ -796,7 +796,7 @@ async function saveMemory(req, res) {
 
 async function readMemory(req, res) {
   const { repo, filename, userId } = req.body;
-  const token = getToken(req);
+  const token = extractToken(req);
   const effectiveRepo = repo || memoryConfig.getRepoUrl(userId);
   console.log('[readMemory]', new Date().toISOString(), effectiveRepo, filename);
 
@@ -831,7 +831,7 @@ function setMemoryRepo(req, res) {
 
 async function saveLessonPlan(req, res) {
   const { title, summary, projectFiles, plannedLessons, repo, userId } = req.body;
-  const token = getToken(req);
+  const token = extractToken(req);
   console.log('[saveLessonPlan]', new Date().toISOString(), title);
   const effectiveRepo = repo || memoryConfig.getRepoUrl(userId);
   const done = title ? [title] : [];
@@ -899,7 +899,7 @@ function readPlan(req, res) {
 
 async function saveContext(req, res) {
   const { repo, content, userId } = req.body;
-  const token = getToken(req);
+  const token = extractToken(req);
   console.log('[saveContext]', new Date().toISOString(), repo);
 
   ensureContext();
@@ -927,7 +927,7 @@ async function saveContext(req, res) {
 
 async function readContext(req, res) {
   const { repo, userId } = req.body;
-  const token = getToken(req);
+  const token = extractToken(req);
   console.log('[readContext]', new Date().toISOString(), repo);
 
   ensureContext();
@@ -976,7 +976,7 @@ async function listMemoryFiles(repo, token, dirPath) {
 
 async function updateIndexManual(req, res) {
   const { entries, repo, userId } = req.body;
-  const token = getToken(req);
+  const token = extractToken(req);
   const effectiveRepo = repo || memoryConfig.getRepoUrl(userId);
   console.log('[updateIndexManual]', new Date().toISOString());
   const result = await updateIndexFileManually(entries, effectiveRepo, token, userId);
@@ -998,17 +998,64 @@ function chatSetupCommand(req, res) {
   });
 }
 
+async function readMemoryGET(req, res) {
+  req.body = {
+    repo: req.query.repo,
+    filename: req.query.filename,
+    userId: req.query.userId,
+    token: req.query.token
+  };
+  return readMemory(req, res);
+}
+
+async function saveMemoryWithIndex(req, res) {
+  const { userId, repo, token, filename, content } = req.body;
+  try {
+    const pathSaved = await indexManager.saveMemoryWithIndex(
+      userId,
+      repo,
+      token || extractToken(req),
+      filename,
+      content
+    );
+    res.json({ status: 'success', path: pathSaved });
+  } catch (e) {
+    res.status(500).json({ status: 'error', message: e.message });
+  }
+}
+
+function getToken(req, res) {
+  const userId = req.body && req.body.userId;
+  const token = tokenStore.getToken(userId);
+  res.json({ token: token || null });
+}
+
+function readProfile(req, res) {
+  const userId = req.query.userId || (req.body && req.body.userId);
+  const filePath = path.join(__dirname, 'memory', 'profile.json');
+  if (fs.existsSync(filePath)) {
+    const data = fs.readFileSync(filePath, 'utf-8');
+    res.type('application/json').send(data);
+  } else {
+    res.status(404).json({ status: 'error', message: 'Profile not found' });
+  }
+}
+
 module.exports = {
   saveMemory,
   readMemory,
+  readMemoryGET,
   setMemoryRepo,
   saveLessonPlan,
+  saveMemoryWithIndex,
   saveNote,
   getContextSnapshot,
   createUserProfile,
   setToken,
+  getToken,
   tokenStatus,
   readPlan,
+  readProfile,
   saveContext,
   readContext,
   listMemoryFiles,
