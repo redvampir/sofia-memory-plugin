@@ -1,27 +1,4 @@
 [
-  {
-    "path": "memory/context.md",
-    "type": "context",
-    "title": "Sofia Context",
-    "description": " The conversation context will be stored here.",
-    "lastModified": "2025-06-20T06:37:30.489Z"
-  },
-  {
-    "path": "memory/plan.md",
-    "type": "plan",
-    "title": "Learning Plan",
-    "description": " ## Completed Topics",
-    "lastModified": "2025-06-20T06:39:45.153Z"
-  },
-  {
-    "path": "memory/test.md",
-    "type": "lesson",
-    "description": "",
-    "lastModified": "2025-06-20T06:37:30.489Z"
-  },
-  {
-    "path": "memory/test.txt",
-    "type": "lesson",
-    "lastModified": "2025-06-20T06:37:30.489Z"
-  }
+  { "path": "memory/test.md", "title": "Test lesson", "lastModified": "2025-06-20T06:37:30.489Z" },
+  { "path": "memory/test.txt", "title": "Text lesson", "lastModified": "2025-06-20T06:37:30.489Z" }
 ]

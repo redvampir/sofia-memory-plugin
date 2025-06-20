@@ -7,6 +7,40 @@ const memoryConfig = require('./memoryConfig');
 const indexPath = path.join(__dirname, 'memory', 'index.json');
 let indexData = null;
 
+function isObject(val) {
+  return val && typeof val === 'object' && !Array.isArray(val);
+}
+
+function deepMerge(target, source, matchKey) {
+  if (Array.isArray(target) && Array.isArray(source)) {
+    const result = [...target];
+    source.forEach(item => {
+      if (matchKey && isObject(item)) {
+        const idx = result.findIndex(e => isObject(e) && e[matchKey] === item[matchKey]);
+        if (idx >= 0) {
+          result[idx] = deepMerge(result[idx], item, matchKey);
+        } else {
+          result.push(item);
+        }
+      } else if (!result.includes(item)) {
+        result.push(item);
+      }
+    });
+    return result;
+  } else if (isObject(target) && isObject(source)) {
+    const out = { ...target };
+    Object.keys(source).forEach(k => {
+      if (k in target) {
+        out[k] = deepMerge(target[k], source[k], matchKey);
+      } else {
+        out[k] = source[k];
+      }
+    });
+    return out;
+  }
+  return source;
+}
+
 function ensureDir(filePath) {
   const dir = path.dirname(filePath);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
@@ -15,6 +49,7 @@ function ensureDir(filePath) {
 async function githubWriteFileSafe(token, repo, relPath, data, message, attempts = 2) {
   for (let i = 1; i <= attempts; i++) {
     try {
+      ensureDir(path.join(__dirname, path.dirname(relPath)));
       await github.writeFile(token, repo, relPath, data, message);
       if (process.env.DEBUG) console.log(`[indexManager] pushed ${relPath}`);
       return;
@@ -57,6 +92,7 @@ async function addOrUpdateEntry(entry) {
     indexData.push({ ...entry, ...base });
     if (process.env.DEBUG) console.log(`[indexManager] Added entry ${entry.path}`);
   }
+  await saveIndex();
 }
 
 async function removeEntry(p) {
@@ -66,6 +102,21 @@ async function removeEntry(p) {
 
 async function saveIndex(repo, token) {
   if (!indexData) await loadIndex();
+  const finalRepo = repo || memoryConfig.getRepoUrl();
+  const finalToken = token || tokenStore.getToken();
+
+  let remoteData = [];
+  if (finalRepo && finalToken) {
+    try {
+      const rel = path.relative(__dirname, indexPath);
+      const remote = await github.readFile(finalToken, finalRepo, rel);
+      remoteData = JSON.parse(remote);
+    } catch (e) {
+      if (e.response?.status !== 404) console.error('[indexManager] GitHub read error', e.message);
+    }
+  }
+
+  indexData = deepMerge(remoteData || [], indexData || [], 'path');
   ensureDir(indexPath);
   try {
     fs.writeFileSync(indexPath, JSON.stringify(indexData, null, 2), 'utf-8');
@@ -73,9 +124,6 @@ async function saveIndex(repo, token) {
   } catch (e) {
     console.error('[indexManager] local write error', e.message);
   }
-
-  const finalRepo = repo || memoryConfig.getRepoUrl();
-  const finalToken = token || tokenStore.getToken();
 
   if (finalRepo && finalToken) {
     try {
