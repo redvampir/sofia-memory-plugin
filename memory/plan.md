@@ -1,11 +1,10 @@
-# Learning Plan (Sofia Tutor)
+# Learning Plan
 
-## Completed Lessons
+## Completed Topics
+- test.md
+- test.txt
+
+## Clarified or Expanded Topics
 
 
-## Requested Clarifications
-
-
-## Progress
-Completed: 0 lessons  
-Next lesson: 
+## Progress: 2 / 2 lessons complete

@@ -29,13 +29,15 @@ function writeFileSafe(filePath, data) {
 
 function normalizeMemoryPath(p) {
   if (!p) return 'memory/';
-  // support Windows style paths and remove leading prefixes
+  // support Windows-style separators and remove leading prefixes
   let rel = p.replace(/\\+/g, '/');
   rel = path.posix
     .normalize(rel)
     .replace(/^(\.\/)+/, '')
     .replace(/^\/+/, '');
-  if (rel.startsWith('memory/')) rel = rel.slice('memory/'.length);
+  while (rel.startsWith('memory/')) {
+    rel = rel.slice('memory/'.length);
+  }
   return path.posix.join('memory', rel);
 }
 
@@ -163,7 +165,15 @@ function planToMarkdown(plan) {
   const clar = (plan.requestedClarifications || [])
     .map(t => `- ${t}`)
     .join('\n');
-  return `# Learning Plan (Sofia Tutor)\n\n## Completed Lessons\n${completed}\n\n## Requested Clarifications\n${clar}\n\n## Progress\nCompleted: ${(plan.completedLessons || []).length} lessons  \nNext lesson: ${plan.nextLesson || ''}\n`;
+  const total = plan.totalLessons || (plan.completedLessons || []).length;
+  return (
+    `# Learning Plan\n\n` +
+    `## Completed Topics\n${completed}\n\n` +
+    `## Clarified or Expanded Topics\n${clar}\n\n` +
+    `## Progress: ${plan.completedLessons.length} / ${total} lessons complete` +
+    (plan.nextLesson ? `\nNext lesson: ${plan.nextLesson}` : '') +
+    `\n`
+  );
 }
 
 function updatePlanFromIndex(plan) {
@@ -185,6 +195,7 @@ function updatePlanFromIndex(plan) {
     const title = l.title || path.basename(l.path || '');
     if (!plan.completedLessons.includes(title)) plan.completedLessons.push(title);
   });
+  plan.totalLessons = lessons.length;
   return plan;
 }
 
@@ -255,7 +266,7 @@ function getToken(req) {
   if (auth && auth.startsWith('token ')) return auth.slice(6);
   const stored = tokenStore.getToken();
   if (stored) return stored;
-  return process.env.GITHUB_TOKEN || null;
+  return null;
 }
 
 function categorizeMemoryFile(name) {
@@ -630,6 +641,9 @@ async function saveMemory(req, res) {
       lastModified: new Date().toISOString(),
     });
     logDebug('[saveMemory] index updated', normalizedFilename);
+    if (!planCache) loadPlan();
+    planCache = updatePlanFromIndex(planCache);
+    await savePlan(effectiveRepo, token);
   } catch (e) {
     console.error('[saveMemory] index update error', e.message);
   }
@@ -728,7 +742,11 @@ function tokenStatus(req, res) {
 }
 
 function readPlan(req, res) {
-  if (!planCache) loadPlan();
+  try {
+    loadPlan();
+  } catch (e) {
+    console.error('[readPlan] failed to load plan', e.message);
+  }
   res.json({ status: 'success', plan: planCache });
 }
 
