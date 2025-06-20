@@ -46,6 +46,18 @@ function ensureDir(filePath) {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 }
 
+function readLocalIndex() {
+  if (!fs.existsSync(indexPath)) return [];
+  try {
+    const raw = fs.readFileSync(indexPath, 'utf-8');
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (e) {
+    console.warn('[indexManager] failed to read local index', e.message);
+    return [];
+  }
+}
+
 function normalizeMemoryPath(p) {
   if (!p) return 'memory/';
   let rel = p.replace(/\\+/g, '/');
@@ -168,7 +180,9 @@ async function saveIndex(token, repo, userId) {
     }
   }
 
-  indexData = await mergeIndex(remoteData, indexData || []);
+  const diskData = readLocalIndex();
+  indexData = await mergeIndex(diskData, indexData || []);
+  indexData = await mergeIndex(remoteData, indexData);
   ensureDir(indexPath);
   try {
     fs.writeFileSync(indexPath, JSON.stringify(indexData, null, 2), 'utf-8');
