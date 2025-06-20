@@ -291,42 +291,33 @@ function ensureContext() {
   }
 }
 
-async function updatePlan({ done = [], upcoming = [] } = {}, repo, token) {
-  ensureDir(planFilename);
-  const relPath = path.relative(__dirname, planFilename);
-  let plan = { done: [], upcoming: [] };
+async function updatePlan({ token, repo, updateFn }) {
+  const relPath = "memory/plan.md";
+  const absPath = path.join(__dirname, relPath);
+  let existing = { done: [], upcoming: [] };
 
-  if (fs.existsSync(planFilename)) {
-    try {
-      const local = fs.readFileSync(planFilename, 'utf-8');
-      plan = deepMerge(plan, JSON.parse(local), '');
-    } catch {}
-  }
-
-  if (repo && token) {
-    try {
-      const remote = await github.readFile(token, repo, relPath);
-      plan = deepMerge(plan, JSON.parse(remote), '');
-    } catch (e) {
-      if (e.response?.status !== 404) console.error('[updatePlan] GitHub read error', e.message);
+  try {
+    const raw = await github.readFile(token, repo, relPath);
+    existing = JSON.parse(raw);
+  } catch (e) {
+    console.warn("[updatePlan] No existing plan or failed to parse, starting new");
+    if (fs.existsSync(absPath)) {
+      try {
+        const local = fs.readFileSync(absPath, "utf-8");
+        existing = JSON.parse(local);
+      } catch {}
     }
   }
 
-  plan.done = Array.from(new Set([...(plan.done || []), ...done]));
-  plan.upcoming = Array.from(new Set([...(plan.upcoming || []), ...upcoming]));
-  plan.upcoming = plan.upcoming.filter(t => !plan.done.includes(t));
+  const updated = updateFn(existing);
 
-  writeFileSafe(planFilename, JSON.stringify(plan, null, 2));
+  ensureDir(absPath);
+  writeFileSafe(absPath, JSON.stringify(updated, null, 2));
 
-  if (repo && token) {
-    try {
-      await githubWriteFileSafe(token, repo, relPath, JSON.stringify(plan, null, 2), 'update plan');
-    } catch (e) {
-      console.error('[updatePlan] GitHub write error', e.message);
-    }
-  }
+  await githubWriteFileSafe(token, repo, relPath, JSON.stringify(updated, null, 2), "update plan.md");
 
-  return plan;
+  console.log("[updatePlan] ✅ plan.md updated");
+  return updated;
 }
 
 function loadPlan() {
@@ -812,7 +803,16 @@ async function saveLessonPlan(req, res) {
   const effectiveRepo = repo || memoryConfig.getRepoUrl();
   const done = title ? [title] : [];
   const upcoming = Array.isArray(plannedLessons) ? plannedLessons : [];
-  const plan = await updatePlan({ done, upcoming }, effectiveRepo, token);
+  const plan = await updatePlan({
+    token,
+    repo: effectiveRepo,
+    updateFn: (plan) => {
+      plan.done = [...new Set([...plan.done, ...done])];
+      plan.upcoming = plan.upcoming.filter(l => !done.includes(l));
+      plan.upcoming = [...new Set([...plan.upcoming, ...upcoming])];
+      return plan;
+    }
+  });
   res.json({ status: 'success', action: 'saveLessonPlan', plan });
 }
 
