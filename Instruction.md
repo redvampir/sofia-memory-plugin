@@ -1,1 +1,1 @@
-11. If context is incomplete, GPT automatically calls `restoreContext()` to reload plan, profile, and lesson from memory.
+11. GPT must call `restoreContext()` when context is lost. If `TEST_MODE` is enabled, confirm with the user before restoring.
