@@ -115,10 +115,10 @@ async function removeEntry(p) {
   indexData = indexData.filter(e => e.path !== p);
 }
 
-async function saveIndex(repo, token) {
+async function saveIndex(repo, token, userId) {
   if (!indexData) await loadIndex();
-  const finalRepo = repo || memoryConfig.getRepoUrl();
-  const finalToken = token || tokenStore.getToken();
+  const finalRepo = repo || memoryConfig.getRepoUrl(userId);
+  const finalToken = token || tokenStore.getToken(userId);
 
   let remoteData = [];
   if (finalRepo && finalToken) {

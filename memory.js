@@ -11,6 +11,10 @@ function logDebug(...args) {
   if (DEBUG) console.log(...args);
 }
 
+function getUserId(req) {
+  return (req.body && req.body.userId) || null;
+}
+
 function ensureDir(filePath) {
   const dir = path.dirname(filePath);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
@@ -362,8 +366,11 @@ function getToken(req) {
   if (req.body && req.body.token) return req.body.token;
   const auth = req.headers['authorization'];
   if (auth && auth.startsWith('token ')) return auth.slice(6);
-  const stored = tokenStore.getToken();
-  if (stored) return stored;
+  const userId = getUserId(req);
+  if (userId) {
+    const stored = tokenStore.getToken(userId);
+    if (stored) return stored;
+  }
   return null;
 }
 
@@ -428,7 +435,7 @@ function saveIndex(data) {
   writeFileSafe(indexFilename, JSON.stringify(data, null, 2));
 }
 
-async function updateIndexFile(entry, repo, token) {
+async function updateIndexFile(entry, repo, token, userId) {
   const data = await fetchIndex(repo, token);
   const idx = data.findIndex(i => i.path === entry.path);
   if (idx >= 0) {
@@ -439,11 +446,11 @@ async function updateIndexFile(entry, repo, token) {
     console.log('[updateIndexFile] added', entry.path);
   }
   const clean = sanitizeIndex(deduplicateEntries(data));
-  await persistIndex(clean, repo, token);
+  await persistIndex(clean, repo, token, userId);
   return clean;
 }
 
-async function updateIndexFromPath(relPath, repo, token) {
+async function updateIndexFromPath(relPath, repo, token, userId) {
   const fullPath = path.join(__dirname, relPath);
   if (!fs.existsSync(fullPath)) return;
   const meta = extractMeta(fullPath);
@@ -453,7 +460,7 @@ async function updateIndexFromPath(relPath, repo, token) {
     ...meta
   };
 
-  await updateIndexFile(entry, repo, token);
+  await updateIndexFile(entry, repo, token, userId);
 }
 
 async function scanMemoryFolderRecursively(repo, token, basePath = 'memory') {
@@ -532,7 +539,7 @@ async function fetchIndex(repo, token) {
   return Array.from(map.values());
 }
 
-async function persistIndex(data, repo, token) {
+async function persistIndex(data, repo, token, userId) {
   const clean = sanitizeIndex(data);
   ensureDir(indexFilename);
   try {
@@ -542,8 +549,8 @@ async function persistIndex(data, repo, token) {
     console.error('[persistIndex] local write error', e.message);
   }
 
-  const finalRepo = repo || memoryConfig.getRepoUrl();
-  const finalToken = token || tokenStore.getToken();
+  const finalRepo = repo || (userId ? memoryConfig.getRepoUrl(userId) : memoryConfig.getRepoUrl());
+  const finalToken = token || (userId ? tokenStore.getToken(userId) : null);
 
   if (finalRepo && finalToken) {
     try {
@@ -561,7 +568,7 @@ async function persistIndex(data, repo, token) {
   }
 }
 
-async function updateIndexEntry(repo, token, { path: filePath, type, title, description, lastModified }) {
+async function updateIndexEntry(repo, token, { path: filePath, type, title, description, lastModified }, userId) {
   if (!filePath) return null;
 
   const normalized = normalizeMemoryPath(filePath);
@@ -606,7 +613,7 @@ async function updateIndexEntry(repo, token, { path: filePath, type, title, desc
   indexData.length = 0;
   indexData.push(...deduped);
 
-  await persistIndex(indexData, repo, token);
+  await persistIndex(indexData, repo, token, userId);
   if (op === 'skipped') {
     logDebug('[updateIndexEntry] skipped', normalized, 'no changes detected');
   } else {
@@ -642,7 +649,7 @@ function scanMemoryDir(dirPath) {
   return results;
 }
 
-async function rebuildIndex(repo, token) {
+async function rebuildIndex(repo, token, userId) {
   const paths = await scanMemoryFolderRecursively(repo, token);
   const entries = [];
   for (const rel of paths) {
@@ -658,17 +665,17 @@ async function rebuildIndex(repo, token) {
   }
 
   const clean = sanitizeIndex(deduplicateEntries(entries));
-  await persistIndex(clean, repo, token);
+  await persistIndex(clean, repo, token, userId);
   return clean;
 }
 
-async function updateIndexFileManually(newEntries, repo, token) {
+async function updateIndexFileManually(newEntries, repo, token, userId) {
   if (!Array.isArray(newEntries)) return [];
   const results = [];
   for (const entry of newEntries) {
     if (!entry.path) continue;
     try {
-      const updated = await updateIndexEntry(repo, token, entry);
+      const updated = await updateIndexEntry(repo, token, entry, userId);
       if (updated) results.push(updated);
     } catch (e) {
       console.error('[updateIndexFileManually]', e.message);
@@ -679,9 +686,9 @@ async function updateIndexFileManually(newEntries, repo, token) {
 
 async function saveMemory(req, res) {
   console.log('[saveMemory] called');
-  const { repo, filename, content } = req.body;
+  const { repo, filename, content, userId } = req.body;
   const token = getToken(req);
-  const effectiveRepo = repo || memoryConfig.getRepoUrl();
+  const effectiveRepo = repo || memoryConfig.getRepoUrl(userId);
   console.log('[saveMemory]', new Date().toISOString(), effectiveRepo, filename);
 
   if (!filename || content === undefined) {
@@ -752,7 +759,7 @@ async function saveMemory(req, res) {
       title: meta.title,
       description: meta.description,
       lastModified: new Date().toISOString(),
-    });
+    }, userId);
     logDebug('[saveMemory] index updated', normalizedFilename);
   } catch (e) {
     console.error('[saveMemory] index update error', e.message);
@@ -762,9 +769,9 @@ async function saveMemory(req, res) {
 }
 
 async function readMemory(req, res) {
-  const { repo, filename } = req.body;
+  const { repo, filename, userId } = req.body;
   const token = getToken(req);
-  const effectiveRepo = repo || memoryConfig.getRepoUrl();
+  const effectiveRepo = repo || memoryConfig.getRepoUrl(userId);
   console.log('[readMemory]', new Date().toISOString(), effectiveRepo, filename);
 
   const normalizedFilename = normalizeMemoryPath(filename);
@@ -790,17 +797,17 @@ async function readMemory(req, res) {
 }
 
 function setMemoryRepo(req, res) {
-  const { repoUrl } = req.body;
-  console.log('[setMemoryRepo]', repoUrl);
-  memoryConfig.setRepoUrl(repoUrl);
+  const { repoUrl, userId } = req.body;
+  console.log('[setMemoryRepo]', userId, repoUrl);
+  memoryConfig.setRepoUrl(userId, repoUrl);
   res.json({ status: 'success', repo: repoUrl });
 }
 
 async function saveLessonPlan(req, res) {
-  const { title, summary, projectFiles, plannedLessons, repo } = req.body;
+  const { title, summary, projectFiles, plannedLessons, repo, userId } = req.body;
   const token = getToken(req);
   console.log('[saveLessonPlan]', new Date().toISOString(), title);
-  const effectiveRepo = repo || memoryConfig.getRepoUrl();
+  const effectiveRepo = repo || memoryConfig.getRepoUrl(userId);
   const done = title ? [title] : [];
   const upcoming = Array.isArray(plannedLessons) ? plannedLessons : [];
   const plan = await updatePlan({
@@ -835,18 +842,20 @@ function createUserProfile(req, res) {
 
 function setToken(req, res) {
   const token = req.body && req.body.token ? req.body.token : '';
+  const userId = req.body && req.body.userId;
   if (token) {
-    console.log('[setToken] token updated');
+    console.log('[setToken] token updated for', userId);
   } else {
-    console.log('[setToken] token cleared or missing');
+    console.log('[setToken] token cleared or missing for', userId);
   }
-  tokenStore.setToken(token);
+  if (userId) tokenStore.setToken(userId, token);
   res.json({ status: 'success', action: 'setToken', connected: !!token });
 }
 
 function tokenStatus(req, res) {
-  const token = tokenStore.getToken();
-  console.log('[tokenStatus]', !!token);
+  const userId = req.query.userId || (req.body && req.body.userId);
+  const token = userId ? tokenStore.getToken(userId) : null;
+  console.log('[tokenStatus]', userId, !!token);
   res.json({ connected: !!token });
 }
 
@@ -863,7 +872,7 @@ function readPlan(req, res) {
 }
 
 async function saveContext(req, res) {
-  const { repo, content } = req.body;
+  const { repo, content, userId } = req.body;
   const token = getToken(req);
   console.log('[saveContext]', new Date().toISOString(), repo);
 
@@ -871,16 +880,18 @@ async function saveContext(req, res) {
   const data = content || '';
   writeFileSafe(contextFilename, data);
 
-  if (repo && token) {
+  const effectiveRepo = repo || memoryConfig.getRepoUrl(userId);
+
+  if (effectiveRepo && token) {
     try {
-      await githubWriteFileSafe(token, repo, 'memory/context.md', data, 'update context');
+      await githubWriteFileSafe(token, effectiveRepo, 'memory/context.md', data, 'update context');
     } catch (e) {
       console.error('GitHub write context error', e.message);
     }
   }
 
   try {
-    await rebuildIndex(repo, token);
+    await rebuildIndex(effectiveRepo, token, userId);
   } catch (e) {
     console.error('[saveContext] rebuild error', e.message);
   }
@@ -889,15 +900,17 @@ async function saveContext(req, res) {
 }
 
 async function readContext(req, res) {
-  const { repo } = req.body;
+  const { repo, userId } = req.body;
   const token = getToken(req);
   console.log('[readContext]', new Date().toISOString(), repo);
 
   ensureContext();
 
-  if (repo && token) {
+  const effectiveRepo = repo || memoryConfig.getRepoUrl(userId);
+
+  if (effectiveRepo && token) {
     try {
-      const content = await github.readFile(token, repo, 'memory/context.md');
+      const content = await github.readFile(token, effectiveRepo, 'memory/context.md');
       return res.json({ status: 'success', content });
     } catch (e) {
       console.error('GitHub read context error', e.message);
@@ -936,12 +949,32 @@ async function listMemoryFiles(repo, token, dirPath) {
 }
 
 async function updateIndexManual(req, res) {
-  const { entries, repo } = req.body;
+  const { entries, repo, userId } = req.body;
   const token = getToken(req);
-  const effectiveRepo = repo || memoryConfig.getRepoUrl();
+  const effectiveRepo = repo || memoryConfig.getRepoUrl(userId);
   console.log('[updateIndexManual]', new Date().toISOString());
-  const result = await updateIndexFileManually(entries, effectiveRepo, token);
+  const result = await updateIndexFileManually(entries, effectiveRepo, token, userId);
   res.json({ status: 'success', entries: result });
+}
+
+function chatSetupCommand(req, res) {
+  const text = req.body && req.body.text ? req.body.text : '';
+  const regex = /set memory for (\S+) repo (https:\/\/github\.com\/[^\s]+\.git) token (ghp_[A-Za-z0-9]+)/i;
+  const match = text.match(regex);
+  if (!match) {
+    return res.status(400).json({ status: 'error', message: 'Invalid command' });
+  }
+  const [, userId, repoUrl, token] = match;
+  if (!/^ghp_[A-Za-z0-9]+$/.test(token) || !/^https:\/\/github\.com\/[\w.-]+\/[\w.-]+\.git$/.test(repoUrl)) {
+    return res.status(400).json({ status: 'error', message: 'Invalid repo or token format' });
+  }
+  tokenStore.setToken(userId, token);
+  memoryConfig.setRepoUrl(userId, repoUrl);
+  return res.json({
+    status: 'success',
+    message: `Memory configured for user: ${userId}`,
+    repo: repoUrl
+  });
 }
 
 module.exports = {
@@ -965,5 +998,6 @@ module.exports = {
   updateIndexEntry,
   rebuildIndex,
   updateIndexManual,
-  updatePlan
+  updatePlan,
+  chatSetupCommand
 };

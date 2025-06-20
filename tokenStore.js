@@ -2,44 +2,59 @@ const fs = require('fs');
 const path = require('path');
 
 const cacheDir = path.join(__dirname, '.cache');
-const tokenFile = path.join(cacheDir, 'token.txt');
-let storedToken = null;
+const tokensDir = path.join(cacheDir, 'tokens');
+const tokenCache = {};
 
 function ensureDir() {
-  if (!fs.existsSync(cacheDir)) {
-    fs.mkdirSync(cacheDir, { recursive: true });
+  if (!fs.existsSync(tokensDir)) {
+    fs.mkdirSync(tokensDir, { recursive: true });
   }
 }
 
-function loadToken() {
-  if (storedToken !== null) return storedToken;
-  if (fs.existsSync(tokenFile)) {
+function tokenPath(userId) {
+  return path.join(tokensDir, `${userId}.txt`);
+}
+
+function loadToken(userId) {
+  if (Object.prototype.hasOwnProperty.call(tokenCache, userId)) {
+    return tokenCache[userId];
+  }
+  const file = tokenPath(userId);
+  if (fs.existsSync(file)) {
     try {
-      const data = fs.readFileSync(tokenFile, 'utf-8').trim();
-      storedToken = data || null;
+      const data = fs.readFileSync(file, 'utf-8').trim();
+      tokenCache[userId] = data || null;
     } catch (e) {
-      storedToken = null;
+      tokenCache[userId] = null;
     }
+  } else {
+    tokenCache[userId] = null;
   }
-  return storedToken;
+  return tokenCache[userId];
 }
 
-function saveToken(token) {
+function saveToken(userId, token) {
   ensureDir();
+  const file = tokenPath(userId);
   try {
     if (token) {
-      fs.writeFileSync(tokenFile, token, 'utf-8');
-    } else if (fs.existsSync(tokenFile)) {
-      fs.unlinkSync(tokenFile);
+      fs.writeFileSync(file, token, 'utf-8');
+    } else if (fs.existsSync(file)) {
+      fs.unlinkSync(file);
     }
   } catch (e) {
-    console.error('[tokenStore] failed to save token', e.message);
+    console.error(`[tokenStore] failed to save token for ${userId}`, e.message);
   }
 }
 
-exports.setToken = (token) => {
-  storedToken = token || null;
-  saveToken(token);
+exports.setToken = (userId, token) => {
+  tokenCache[userId] = token || null;
+  saveToken(userId, token);
 };
 
-exports.getToken = () => loadToken();
+exports.getToken = userId => loadToken(userId);
+
+exports.getAllUsers = () => {
+  if (!fs.existsSync(tokensDir)) return [];
+  return fs.readdirSync(tokensDir).map(f => path.basename(f, '.txt'));
+};
