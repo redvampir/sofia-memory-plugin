@@ -959,21 +959,16 @@ async function updateIndexManual(req, res) {
 
 function chatSetupCommand(req, res) {
   const text = req.body && req.body.text ? req.body.text : '';
-  const regex = /set memory for (\S+) repo (https:\/\/github\.com\/[^\s]+\.git) token (ghp_[A-Za-z0-9]+)/i;
-  const match = text.match(regex);
-  if (!match) {
+  const { parseUserMemorySetup } = require('./utils');
+  const parsed = parseUserMemorySetup(text);
+  if (!parsed) {
     return res.status(400).json({ status: 'error', message: 'Invalid command' });
   }
-  const [, userId, repoUrl, token] = match;
-  if (!/^ghp_[A-Za-z0-9]+$/.test(token) || !/^https:\/\/github\.com\/[\w.-]+\/[\w.-]+\.git$/.test(repoUrl)) {
-    return res.status(400).json({ status: 'error', message: 'Invalid repo or token format' });
-  }
-  tokenStore.setToken(userId, token);
-  memoryConfig.setRepoUrl(userId, repoUrl);
+  const { userId, repo } = parsed;
   return res.json({
     status: 'success',
     message: `Memory configured for user: ${userId}`,
-    repo: repoUrl
+    repo
   });
 }
 
