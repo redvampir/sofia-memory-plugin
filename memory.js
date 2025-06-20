@@ -132,6 +132,39 @@ async function updateOrInsertJsonEntry(filePath, newData, matchKey, repo, token)
   return updated;
 }
 
+async function fileExistsInRepo(repo, token, relPath) {
+  if (!repo || !token) return true;
+  try {
+    await github.readFile(token, repo, relPath);
+    return true;
+  } catch (e) {
+    if (e.response?.status === 404) return false;
+    console.error('[fileExistsInRepo] GitHub check failed', e.message);
+    return true;
+  }
+}
+
+function deduplicateEntries(entries) {
+  const map = new Map();
+  const result = [];
+  entries.forEach(e => {
+    const base = path
+      .basename(e.path)
+      .toLowerCase()
+      .replace(/\.[^.]+$/, '');
+    const key = (e.title || '').toLowerCase() || base.replace(/[-_].*/, '');
+    if (map.has(key)) {
+      console.warn(
+        `[deduplicateEntries] duplicate ${e.path} ignored; matches ${map.get(key).path}`
+      );
+    } else {
+      map.set(key, e);
+      result.push(e);
+    }
+  });
+  return result;
+}
+
 const contextFilename = path.join(__dirname, 'memory', 'context.md');
 const planFilename = path.join(__dirname, 'memory', 'plan.md');
 const indexFilename = path.join(__dirname, 'memory', 'index.json');
@@ -340,9 +373,9 @@ async function updateIndexFile(entry, repo, token) {
     data.push(entry);
     console.log('[updateIndexFile] added', entry.path);
   }
-
-  await persistIndex(data, repo, token);
-  return data;
+  const clean = deduplicateEntries(data);
+  await persistIndex(clean, repo, token);
+  return clean;
 }
 
 async function updateIndexFromPath(relPath, repo, token) {
@@ -385,7 +418,17 @@ async function scanMemoryFolderRecursively(repo, token, basePath = 'memory') {
 
   const rootPath = path.join(__dirname, basePath);
   if (fs.existsSync(rootPath)) walk(rootPath);
-  return files;
+
+  const verified = [];
+  for (const rel of files) {
+    // eslint-disable-next-line no-await-in-loop
+    if (await fileExistsInRepo(repo, token, rel)) {
+      verified.push(rel);
+    } else {
+      console.warn(`[scanMemoryFolderRecursively] ${rel} not found in repo`);
+    }
+  }
+  return verified;
 }
 
 async function fetchIndex(repo, token) {
@@ -492,7 +535,8 @@ async function updateIndexEntry(repo, token, { path: filePath, type, title, desc
     const p = path.posix.normalize(e.path);
     dedupMap.set(p, { ...dedupMap.get(p), ...e });
   });
-  const deduped = Array.from(dedupMap.values());
+  let deduped = Array.from(dedupMap.values());
+  deduped = deduplicateEntries(deduped);
   indexData.length = 0;
   indexData.push(...deduped);
 
@@ -534,10 +578,11 @@ function scanMemoryDir(dirPath) {
 
 async function rebuildIndex(repo, token) {
   const paths = await scanMemoryFolderRecursively(repo, token);
+  const entries = [];
   for (const rel of paths) {
     const abs = path.join(__dirname, rel);
     const meta = extractMeta(abs);
-    await updateIndexEntry(repo, token, {
+    entries.push({
       path: rel,
       type: categorizeMemoryFile(path.basename(rel)),
       title: meta.title,
@@ -546,7 +591,9 @@ async function rebuildIndex(repo, token) {
     });
   }
 
-  return fetchIndex(repo, token);
+  const clean = deduplicateEntries(entries);
+  await persistIndex(clean, repo, token);
+  return clean;
 }
 
 async function updateIndexFileManually(newEntries, repo, token) {
