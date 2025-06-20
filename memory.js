@@ -165,6 +165,45 @@ function deduplicateEntries(entries) {
   return result;
 }
 
+// Files that should never appear in the index or lesson plan
+const EXCLUDED = new Set([
+  'memory/index.json',
+  'memory/plan.md',
+  'memory/context.md',
+  'memory/test.md',
+  'memory/test.txt'
+]);
+
+function readIndexSafe() {
+  if (!fs.existsSync(indexFilename)) return [];
+  try {
+    const content = fs.readFileSync(indexFilename, 'utf-8');
+    const data = JSON.parse(content);
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
+}
+
+function sanitizeIndex(entries) {
+  const map = new Map();
+  entries.forEach(e => {
+    if (!e || !e.path) return;
+    const normalized = normalizeMemoryPath(e.path);
+    if (EXCLUDED.has(normalized)) return;
+    const abs = path.join(__dirname, normalized);
+    if (!fs.existsSync(abs)) {
+      console.warn(`[sanitizeIndex] missing file ${normalized}, removing`);
+      return;
+    }
+    const existing = map.get(normalized);
+    if (!existing || new Date(e.lastModified || 0) > new Date(existing.lastModified || 0)) {
+      map.set(normalized, { ...existing, ...e, path: normalized });
+    }
+  });
+  return Array.from(map.values());
+}
+
 const contextFilename = path.join(__dirname, 'memory', 'context.md');
 const planFilename = path.join(__dirname, 'memory', 'plan.md');
 const indexFilename = path.join(__dirname, 'memory', 'index.json');
@@ -209,25 +248,29 @@ function planToMarkdown(plan) {
   );
 }
 
+function getLessonEntries() {
+  const raw = sanitizeIndex(readIndexSafe());
+  return raw.filter(e => e.type === 'lesson');
+}
+
 function updatePlanFromIndex(plan) {
-  if (!fs.existsSync(indexFilename)) return plan;
-  let data = [];
-  try {
-    data = JSON.parse(fs.readFileSync(indexFilename, 'utf-8'));
-  } catch (e) {
-    data = [];
-  }
-  const lessons = data.filter(e => e.type === 'lesson');
-  lessons.sort((a, b) => {
-    if (a.lastModified && b.lastModified) {
-      return new Date(a.lastModified) - new Date(b.lastModified);
-    }
-    return (a.path || '').localeCompare(b.path || '');
-  });
-  lessons.forEach(l => {
-    const title = l.title || path.basename(l.path || '');
-    if (!plan.completedLessons.includes(title)) plan.completedLessons.push(title);
-  });
+  const lessons = getLessonEntries();
+  const titles = new Set();
+  plan.completedLessons = [];
+  lessons
+    .sort((a, b) => {
+      if (a.lastModified && b.lastModified) {
+        return new Date(a.lastModified) - new Date(b.lastModified);
+      }
+      return (a.path || '').localeCompare(b.path || '');
+    })
+    .forEach(l => {
+      const title = l.title || path.basename(l.path || '');
+      if (!titles.has(title)) {
+        titles.add(title);
+        plan.completedLessons.push(title);
+      }
+    });
   plan.totalLessons = lessons.length;
   return plan;
 }
@@ -373,7 +416,7 @@ async function updateIndexFile(entry, repo, token) {
     data.push(entry);
     console.log('[updateIndexFile] added', entry.path);
   }
-  const clean = deduplicateEntries(data);
+  const clean = sanitizeIndex(deduplicateEntries(data));
   await persistIndex(clean, repo, token);
   return clean;
 }
@@ -468,9 +511,10 @@ async function fetchIndex(repo, token) {
 }
 
 async function persistIndex(data, repo, token) {
+  const clean = sanitizeIndex(data);
   ensureDir(indexFilename);
   try {
-    writeFileSafe(indexFilename, JSON.stringify(data, null, 2));
+    writeFileSafe(indexFilename, JSON.stringify(clean, null, 2));
     console.log('[persistIndex] local index saved');
   } catch (e) {
     console.error('[persistIndex] local write error', e.message);
@@ -485,7 +529,7 @@ async function persistIndex(data, repo, token) {
         finalToken,
         finalRepo,
         path.relative(__dirname, indexFilename),
-        JSON.stringify(data, null, 2),
+        JSON.stringify(clean, null, 2),
         'update index.json'
       );
       console.log('[persistIndex] pushed index to GitHub');
@@ -536,7 +580,7 @@ async function updateIndexEntry(repo, token, { path: filePath, type, title, desc
     dedupMap.set(p, { ...dedupMap.get(p), ...e });
   });
   let deduped = Array.from(dedupMap.values());
-  deduped = deduplicateEntries(deduped);
+  deduped = sanitizeIndex(deduplicateEntries(deduped));
   indexData.length = 0;
   indexData.push(...deduped);
 
@@ -591,7 +635,7 @@ async function rebuildIndex(repo, token) {
     });
   }
 
-  const clean = deduplicateEntries(entries);
+  const clean = sanitizeIndex(deduplicateEntries(entries));
   await persistIndex(clean, repo, token);
   return clean;
 }
