@@ -4,6 +4,11 @@ const github = require('./githubClient');
 const tokenStore = require('./tokenStore');
 const memoryConfig = require('./memoryConfig');
 const indexManager = require('./indexManager');
+const {
+  parseMarkdownStructure,
+  mergeMarkdownTrees,
+  serializeMarkdownTree
+} = require('./markdownMergeEngine.ts');
 
 const DEBUG = process.env.DEBUG === 'true';
 
@@ -787,6 +792,38 @@ async function saveMemory(req, res) {
   let writeErr = null;
   let gitErr = null;
 
+  let finalContent = content;
+  const isMarkdown = normalizedFilename.endsWith('.md');
+  if (isMarkdown) {
+    try {
+      const indexEntries = await fetchIndex(effectiveRepo, token);
+      const entry = indexEntries.find(
+        (e) => e.path === normalizedFilename && e.type === 'plan'
+      );
+      if (entry) {
+        let existing = '';
+        if (effectiveRepo && token) {
+          try {
+            existing = await github.readFile(token, effectiveRepo, normalizedFilename);
+          } catch (e) {
+            logDebug('[saveMemory] no remote file', e.message);
+          }
+        }
+        if (!existing && fs.existsSync(filePath)) {
+          existing = fs.readFileSync(filePath, 'utf-8');
+        }
+        if (existing) {
+          const baseTree = parseMarkdownStructure(existing);
+          const newTree = parseMarkdownStructure(content);
+          const merged = mergeMarkdownTrees(baseTree, newTree);
+          finalContent = serializeMarkdownTree(merged);
+        }
+      }
+    } catch (e) {
+      console.error('[saveMemory] markdown merge failed', e.message);
+    }
+  }
+
   if (filename.trim().endsWith('.json')) {
     try {
       const data = JSON.parse(content);
@@ -797,7 +834,7 @@ async function saveMemory(req, res) {
     }
   } else {
     try {
-      writeFileSafe(filePath, content);
+      writeFileSafe(filePath, finalContent);
       console.log('[saveMemory] wrote', normalizedFilename);
     } catch (e) {
       console.error('[saveMemory] local write failed', e.message);
@@ -816,7 +853,7 @@ async function saveMemory(req, res) {
             token,
             effectiveRepo,
             normalizedFilename,
-            content,
+            finalContent,
             `update ${filename}`
           );
           console.log('[saveMemory] pushed to GitHub', normalizedFilename);

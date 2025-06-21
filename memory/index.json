@@ -13,5 +13,10 @@
     "path": "memory/lessons/04_example.md",
     "type": "lesson",
     "title": "Example Lesson"
+  },
+  {
+    "path": "memory/plan_checklist.md",
+    "type": "plan",
+    "title": "Plan Checklist"
   }
 ]
