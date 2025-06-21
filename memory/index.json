@@ -1,5 +1,17 @@
-{
-  "plan": "memory/plan.md",
-  "profile": "memory/profile.md",
-  "currentLesson": "memory/lessons/04_example.md"
-}
+[
+  {
+    "path": "memory/plan.md",
+    "type": "plan",
+    "title": "Learning Plan"
+  },
+  {
+    "path": "memory/profile.md",
+    "type": "profile",
+    "title": "Profile"
+  },
+  {
+    "path": "memory/lessons/04_example.md",
+    "type": "lesson",
+    "title": "Example Lesson"
+  }
+]
