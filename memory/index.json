@@ -1,10 +1,5 @@
 [
   {
-    "path": "memory/plan.md",
-    "type": "plan",
-    "title": "Learning Plan"
-  },
-  {
     "path": "memory/profile.md",
     "type": "profile",
     "title": "Profile"
@@ -16,7 +11,9 @@
   },
   {
     "path": "memory/plan_checklist.md",
-    "type": "plan",
-    "title": "Plan Checklist"
+    "type": "lesson",
+    "title": "Plan Checklist",
+    "description": "- [ ] Example task - [x] Не затирать index.json при обновлении",
+    "lastModified": "2025-06-21T17:07:51.894Z"
   }
 ]
