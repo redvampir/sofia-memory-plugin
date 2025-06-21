@@ -2,18 +2,20 @@
   {
     "path": "memory/profile.md",
     "type": "profile",
-    "title": "Profile"
+    "title": "Profile",
+    "lastModified": "2025-06-21T17:07:52.802Z"
   },
   {
     "path": "memory/lessons/04_example.md",
     "type": "lesson",
-    "title": "Example Lesson"
+    "title": "Example Lesson",
+    "lastModified": "2025-06-21T17:07:52.802Z"
   },
   {
     "path": "memory/plan_checklist.md",
-    "type": "lesson",
+    "type": "plan",
     "title": "Plan Checklist",
     "description": "- [ ] Example task - [x] Не затирать index.json при обновлении",
-    "lastModified": "2025-06-21T17:07:51.894Z"
+    "lastModified": "2025-06-21T17:07:52.802Z"
   }
 ]
