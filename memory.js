@@ -824,28 +824,26 @@ async function saveMemory(req, res) {
   const isMarkdown = normalizedFilename.endsWith('.md');
   if (isMarkdown) {
     try {
-      const indexEntries = await fetchIndex(effectiveRepo, effectiveToken);
-      const entry = indexEntries.find(
-        (e) => e.path === normalizedFilename && e.type === 'plan'
-      );
-      if (entry) {
-        let existing = '';
-        if (effectiveRepo && effectiveToken) {
-          try {
-            existing = await github.readFile(effectiveToken, effectiveRepo, normalizedFilename);
-          } catch (e) {
-            logDebug('[saveMemory] no remote file', e.message);
-          }
+      let existing = '';
+      if (effectiveRepo && effectiveToken) {
+        try {
+          existing = await github.readFile(
+            effectiveToken,
+            effectiveRepo,
+            normalizedFilename
+          );
+        } catch (e) {
+          logDebug('[saveMemory] no remote file', e.message);
         }
-        if (!existing && fs.existsSync(filePath)) {
-          existing = fs.readFileSync(filePath, 'utf-8');
-        }
-        if (existing) {
-          const baseTree = parseMarkdownStructure(existing);
-          const newTree = parseMarkdownStructure(content);
-          const merged = mergeMarkdownTrees(baseTree, newTree);
-          finalContent = serializeMarkdownTree(merged);
-        }
+      }
+      if (!existing && fs.existsSync(filePath)) {
+        existing = fs.readFileSync(filePath, 'utf-8');
+      }
+      if (existing) {
+        const baseTree = parseMarkdownStructure(existing);
+        const newTree = parseMarkdownStructure(content);
+        const merged = mergeMarkdownTrees(baseTree, newTree);
+        finalContent = serializeMarkdownTree(merged);
       }
     } catch (e) {
       console.error('[saveMemory] markdown merge failed', e.message);
