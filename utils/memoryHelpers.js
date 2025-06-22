@@ -1,9 +1,9 @@
 const path = require('path');
 const rootConfig = require('../rootConfig');
-const tokenStore = require('../tokenStore');
-const memoryConfig = require('../memoryConfig');
+const tokenStore = require('./tokenStore');
+const memoryConfig = require('./memoryConfig');
 const { normalizeMemoryPath } = require('./fileUtils');
-const { detectMarkdownCategory } = require('../markdownCategory');
+const { detectMarkdownCategory } = require('../core/markdownCategory');
 
 const DEBUG = process.env.DEBUG === 'true';
 

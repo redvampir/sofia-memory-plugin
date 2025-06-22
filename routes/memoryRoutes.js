@@ -1,7 +1,7 @@
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
-const github = require('../githubClient');
+const github = require('../utils/githubClient');
 const router = express.Router();
 
 const {
@@ -16,11 +16,11 @@ const {
   planFilename,
   indexFilename,
 } = require('../core/memoryOperations');
-const indexManager = require('../indexManager');
-const memoryConfig = require('../memoryConfig');
-const tokenStore = require('../tokenStore');
+const indexManager = require('../core/indexManager');
+const memoryConfig = require('../utils/memoryConfig');
+const tokenStore = require('../utils/tokenStore');
 const { generateTitleFromPath, inferTypeFromPath, normalizeMemoryPath, ensureDir } = require('../utils/fileUtils');
-const { parseMarkdownStructure, mergeMarkdownTrees, serializeMarkdownTree } = require('../markdownMergeEngine.ts');
+const { parseMarkdownStructure, mergeMarkdownTrees, serializeMarkdownTree } = require('../core/markdownMergeEngine.ts');
 const { getRepoInfo, extractToken, categorizeMemoryFile, logDebug } = require('../utils/memoryHelpers');
 const { logError } = require('../utils/errorHandler');
 
@@ -300,7 +300,7 @@ router.get('/readContext', readContext);
 router.post('/saveContext', saveContext);
 router.post('/chat/setup', (req, res) => {
   const text = req.body && req.body.text ? req.body.text : '';
-  const { parseUserMemorySetup } = require('../utils');
+  const { parseUserMemorySetup } = require('../utils/utils');
   const parsed = parseUserMemorySetup(text);
   if (!parsed) return res.status(400).json({ status: 'error', message: 'Invalid command' });
   const { userId, repo } = parsed;

@@ -1,5 +1,5 @@
 const { githubWriteFileSafe } = require('./core/memoryOperations');
-const { addOrUpdateEntry, saveIndex } = require('./indexManager');
+const { addOrUpdateEntry, saveIndex } = require('./core/indexManager');
 const { generateTitleFromPath, inferTypeFromPath } = require('./utils/fileUtils');
 
 async function saveMemoryWithIndex(userId, repo, token, filename, content) {

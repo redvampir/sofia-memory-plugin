@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const assert = require('assert');
-const editor = require('../markdownFileEditor');
+const editor = require('../core/markdownFileEditor');
 
 const tmpDir = path.join(__dirname, 'tmp_file_editor');
 if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir);

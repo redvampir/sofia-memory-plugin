@@ -1,5 +1,5 @@
 const assert = require('assert');
-const { parseMarkdownStructure, mergeMarkdownTrees, serializeMarkdownTree } = require('../markdownMergeEngine.ts');
+const { parseMarkdownStructure, mergeMarkdownTrees, serializeMarkdownTree } = require('../core/markdownMergeEngine.ts');
 
 (function run(){
   // 1. translated text replacement

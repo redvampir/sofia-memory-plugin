@@ -2,8 +2,8 @@ process.env.NO_GIT = "true";
 const fs = require('fs');
 const path = require('path');
 const assert = require('assert');
-const instructions = require('../instructionsManager');
-const repoCfg = require('../instructionsRepoConfig');
+const instructions = require('../core/instructionsManager');
+const repoCfg = require('../utils/instructionsRepoConfig');
 
 async function run() {
   repoCfg.setPluginRepoConfig('pluginRepo', null);

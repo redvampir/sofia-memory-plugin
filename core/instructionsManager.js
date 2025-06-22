@@ -2,13 +2,13 @@ const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
 const simpleGit = require('simple-git');
-const github = require('./githubClient');
-const repoConfig = require('./instructionsRepoConfig');
+const github = require('../utils/githubClient');
+const repoConfig = require('../utils/instructionsRepoConfig');
 const mdEditor = require('./markdownEditor');
 const validator = require('./markdownValidator');
 const mdFileEditor = require('./markdownFileEditor');
-const { ensureDir, normalizeMemoryPath } = require('./utils/fileUtils');
-const { logError } = require('./utils/errorHandler');
+const { ensureDir, normalizeMemoryPath } = require('../utils/fileUtils');
+const { logError } = require('../utils/errorHandler');
 
 const git = simpleGit();
 const SKIP_GIT = process.env.NO_GIT === "true";
@@ -16,7 +16,7 @@ const SKIP_GIT = process.env.NO_GIT === "true";
 const DEFAULT_REPO = 'Test-Sofia';
 const DEFAULT_FILE = 'Instructions.md';
 
-const BASE_DIR = path.join(__dirname, 'memory', 'instructions');
+const BASE_DIR = path.join(__dirname, '..', 'memory', 'instructions');
 const HISTORY_DIR = path.join(BASE_DIR, 'history');
 const DEV_DIR = path.join(BASE_DIR, 'dev');
 
@@ -185,7 +185,7 @@ async function edit(version, newContent, opts = {}) {
 
 async function updateMarkdownFile(relPath, newContent, opts = {}) {
   const normalized = normalizeMemoryPath(relPath);
-  const abs = path.join(__dirname, normalized);
+  const abs = path.join(__dirname, '..', normalized);
   const devMode = opts.devMode;
   const dest = devMode
     ? path.join(path.dirname(abs), 'dev', path.basename(abs))

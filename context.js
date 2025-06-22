@@ -1,8 +1,8 @@
 const fs = require('fs');
 const path = require('path');
-const github = require('./githubClient');
-const tokenStore = require('./tokenStore');
-const memoryConfig = require('./memoryConfig');
+const github = require('./utils/githubClient');
+const tokenStore = require('./utils/tokenStore');
+const memoryConfig = require('./utils/memoryConfig');
 
 /**
  * Helper to read a file either from GitHub or local disk.

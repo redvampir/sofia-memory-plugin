@@ -5,7 +5,7 @@ const validator = require('./markdownValidator');
 function createBackup(filePath) {
   if (!fs.existsSync(filePath)) return null;
 
-  const backupsDir = path.join(__dirname, 'memory', '_backups');
+  const backupsDir = path.join(__dirname, '..', 'memory', '_backups');
   if (!fs.existsSync(backupsDir)) fs.mkdirSync(backupsDir, { recursive: true });
 
   const base = path.basename(filePath);
