@@ -8,6 +8,7 @@ const mdEditor = require('./markdownEditor');
 const validator = require('./markdownValidator');
 const mdFileEditor = require('./markdownFileEditor');
 const { ensureDir, normalizeMemoryPath } = require('./utils/fileUtils');
+const { logError } = require('./utils/errorHandler');
 
 const git = simpleGit();
 const SKIP_GIT = process.env.NO_GIT === "true";
@@ -54,8 +55,9 @@ async function loadFromGitHub(repo = DEFAULT_REPO, token, file = DEFAULT_FILE, v
   const dest = versionPath(version);
   const check = validator.validateMarkdownSyntax(content, dest);
   if (!check.valid) {
-    console.error(
-      `[loadFromGitHub] ${check.message} at line ${check.line} in '${path.basename(dest)}'`
+    logError(
+      'loadFromGitHub',
+      new Error(`${check.message} at line ${check.line} in '${path.basename(dest)}'`)
     );
     return '';
   }
@@ -157,8 +159,9 @@ async function edit(version, newContent, opts = {}) {
   if (!devMode) saveHistory(version);
   const check = validator.validateMarkdownSyntax(newContent, dest);
   if (!check.valid) {
-    console.error(
-      `[edit] ${check.message} at line ${check.line} in '${path.basename(dest)}'`
+    logError(
+      'edit instructions',
+      new Error(`${check.message} at line ${check.line} in '${path.basename(dest)}'`)
     );
     return null;
   }
@@ -191,8 +194,9 @@ async function updateMarkdownFile(relPath, newContent, opts = {}) {
   const oldContent = fs.existsSync(abs) ? fs.readFileSync(abs, 'utf-8') : '';
   const check = validator.validateMarkdownSyntax(newContent, dest);
   if (!check.valid) {
-    console.error(
-      `[updateMarkdownFile] ${check.message} at line ${check.line} in '${path.basename(dest)}'`
+    logError(
+      'updateMarkdownFile',
+      new Error(`${check.message} at line ${check.line} in '${path.basename(dest)}'`)
     );
     return null;
   }

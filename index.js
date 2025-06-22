@@ -15,13 +15,13 @@ app.post('/list', async (req, res) => {
   try {
     const { repo, token, path: dirPath } = req.body;
     if (!repo || !token || !dirPath) {
-      return res.status(400).json({ error: 'Missing repo, token, or path' });
+      return res.status(400).json({ status: 'error', message: 'Missing repo, token, or path' });
     }
 
     const fileList = await listMemoryFiles(repo, token, dirPath);
     return res.json({ status: 'success', files: fileList });
   } catch (error) {
-    return res.status(500).json({ error: error.message });
+    return res.status(500).json({ status: 'error', message: error.message });
   }
 });
 
@@ -37,7 +37,7 @@ app.get('/', (req, res) => {
 app.get('/debug/index', (req, res) => {
   const indexPath = path.join(__dirname, 'memory', 'index.json');
   if (!fs.existsSync(indexPath)) {
-    return res.status(404).send('index.json not found');
+    return res.status(404).json({ status: 'error', message: 'index.json not found' });
   }
   const data = fs.readFileSync(indexPath, 'utf-8');
   res.type('text/plain').send(data);

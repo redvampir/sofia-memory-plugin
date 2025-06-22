@@ -10,6 +10,7 @@ const {
   generateTitleFromPath,
   inferTypeFromPath
 } = require('./utils/fileUtils');
+const { logError } = require('./utils/errorHandler');
 
 const indexPath = path.join(__dirname, 'memory', 'index.json');
 let indexData = null;
@@ -36,7 +37,7 @@ async function githubWriteFileSafe(token, repo, relPath, data, message, attempts
       if (process.env.DEBUG) console.log(`[indexManager] pushed ${relPath}`);
       return;
     } catch (e) {
-      console.error(`[indexManager] GitHub write attempt ${i} failed`, e.message);
+      logError(`indexManager write attempt ${i}`, e);
       if (i === attempts) throw e;
     }
   }
@@ -119,7 +120,7 @@ async function saveIndex(token, repo, userId) {
       const remote = JSON.parse(remoteRaw);
       remoteData = remote;
     } catch (e) {
-      if (e.response?.status !== 404) console.error('[indexManager] GitHub read error', e.message);
+      if (e.response?.status !== 404) logError('indexManager GitHub read', e);
     }
   }
 
@@ -131,7 +132,7 @@ async function saveIndex(token, repo, userId) {
     fs.writeFileSync(indexPath, JSON.stringify(indexData, null, 2), 'utf-8');
     if (process.env.DEBUG) console.log('[indexManager] index saved locally');
   } catch (e) {
-    console.error('[indexManager] local write error', e.message);
+    logError('indexManager local write', e);
   }
 
   if (finalRepo && finalToken) {
@@ -145,7 +146,7 @@ async function saveIndex(token, repo, userId) {
       );
       if (process.env.DEBUG) console.log('[indexManager] \u2714 index.json pushed');
     } catch (e) {
-      console.error('[indexManager] failed to push index to GitHub', e.message);
+      logError('indexManager push index', e);
     }
   }
 }
