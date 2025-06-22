@@ -2,11 +2,23 @@ const express = require('express');
 const path = require('path');
 const fs = require('fs');
 const bodyParser = require('body-parser');
+
+// basic CORS middleware without external dependency
+function allowCors(req, res, next) {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  if (req.method === 'OPTIONS') {
+    res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+    return res.sendStatus(200);
+  }
+  next();
+}
 const memoryRoutes = require("./routes/memoryRoutes");
 const { listMemoryFiles } = require("./core/memoryOperations");
 const versioning = require('./versioning');
 
 const app = express();
+app.use(allowCors);
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(bodyParser.json());
 app.use(memoryRoutes);
@@ -62,6 +74,7 @@ app.get('/docs', (req, res) => {
         "POST /saveMemory",
         "GET /memory",
         "POST /readMemory",
+        "POST /read",
         "POST /setMemoryRepo",
         "POST /saveLessonPlan",
         "POST /saveMemoryWithIndex",
