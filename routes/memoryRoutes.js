@@ -62,7 +62,7 @@ async function saveMemory(req, res) {
       if (existing) {
         const baseTree = parseMarkdownStructure(existing);
         const newTree = parseMarkdownStructure(content);
-        const merged = mergeMarkdownTrees(baseTree, newTree);
+        const merged = mergeMarkdownTrees(baseTree, newTree, { dedupe: true });
         finalContent = serializeMarkdownTree(merged);
       }
     } catch (e) {
