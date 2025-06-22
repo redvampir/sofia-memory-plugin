@@ -3,6 +3,7 @@ const path = require('path');
 const { execSync } = require('child_process');
 const simpleGit = require('simple-git');
 const github = require('./githubClient');
+const repoConfig = require('./instructionsRepoConfig');
 
 const git = simpleGit();
 const SKIP_GIT = process.env.NO_GIT === "true";
@@ -28,6 +29,12 @@ function versionPath(version) {
   return path.join(BASE_DIR, `${version}.md`);
 }
 
+function syncCurrent() {
+  const src = versionPath(currentVersion);
+  const dest = path.join(BASE_DIR, 'current.md');
+  if (fs.existsSync(src)) fs.copyFileSync(src, dest);
+}
+
 function saveHistory(version) {
   const src = versionPath(version);
   if (!fs.existsSync(src)) return;
@@ -38,6 +45,11 @@ function saveHistory(version) {
 
 async function loadFromGitHub(repo = DEFAULT_REPO, token, file = DEFAULT_FILE, version = 'base') {
   ensureStructure();
+  if (!repo || !token) {
+    const cfg = repoConfig.getActiveRepoConfig();
+    repo = repo || cfg.repo;
+    token = token || cfg.token;
+  }
   const content = await github.readFile(token, repo, file);
   const dest = versionPath(version);
   fs.writeFileSync(dest, content, 'utf-8');
@@ -45,7 +57,48 @@ async function loadFromGitHub(repo = DEFAULT_REPO, token, file = DEFAULT_FILE, v
     await git.add(dest);
     await git.commit(`load instructions ${version} from ${repo}/${file}`);
   }
+  syncCurrent();
   return content;
+}
+
+async function load(version = 'base', file = DEFAULT_FILE) {
+  ensureStructure();
+  const dest = versionPath(version);
+  if (fs.existsSync(dest)) {
+    currentVersion = version;
+    syncCurrent();
+    return getCurrentInstructions();
+  }
+  const student = repoConfig.getStudentRepoConfig();
+  if (student.repo && student.token) {
+    try {
+      repoConfig.setRepoContext('student');
+      const c = await loadFromGitHub(student.repo, student.token, file, version);
+      currentVersion = version;
+      return c;
+    } catch (e) {
+      console.warn('[instructionsManager] student load failed', e.message);
+    }
+  }
+  const plugin = repoConfig.getPluginRepoConfig();
+  if (plugin.repo && plugin.token) {
+    repoConfig.setRepoContext('plugin');
+    try {
+      const c = await loadFromGitHub(plugin.repo, plugin.token, file, version);
+      currentVersion = version;
+      return c;
+    } catch (e) {
+      console.warn('[instructionsManager] plugin load failed', e.message);
+    }
+  }
+  const basePath = versionPath('base');
+  if (fs.existsSync(basePath)) {
+    fs.copyFileSync(basePath, dest);
+    currentVersion = version;
+    syncCurrent();
+    return getCurrentInstructions();
+  }
+  throw new Error('Instructions not found');
 }
 
 function getCurrentVersion() {
@@ -63,6 +116,7 @@ function switchVersion(version) {
   if (!fs.existsSync(p)) throw new Error(`Missing instructions for ${version}`);
   currentVersion = version;
   console.log(`[instructionsManager] switched to ${version}`);
+  syncCurrent();
   return getCurrentInstructions();
 }
 
@@ -87,6 +141,10 @@ async function edit(version, newContent, opts = {}) {
   const devMode = opts.devMode;
   const dest = devMode ? path.join(DEV_DIR, `${version}.md`) : versionPath(version);
   const oldContent = fs.existsSync(versionPath(version)) ? fs.readFileSync(versionPath(version), 'utf-8') : '';
+  const ctx = repoConfig.getRepoContext();
+  if (ctx === 'plugin' && !devMode) {
+    throw new Error('Plugin instructions are read-only');
+  }
 
   if (!devMode) saveHistory(version);
   fs.writeFileSync(dest, newContent, 'utf-8');
@@ -101,6 +159,7 @@ async function edit(version, newContent, opts = {}) {
     await git.add(dest);
     await git.commit(`update ${version} instructions`);
   }
+  syncCurrent();
   return dest;
 }
 
@@ -119,15 +178,22 @@ async function rollback(version, historyFile) {
   if (!fs.existsSync(file)) throw new Error('History file not found');
   const content = fs.readFileSync(file, 'utf-8');
   await edit(version, content);
+  syncCurrent();
   return content;
 }
 
 module.exports = {
   loadFromGitHub,
+  load,
   switchVersion,
   getCurrentInstructions,
   edit,
   rollback,
   listHistory,
   getCurrentVersion,
+  syncCurrent,
+  setRepoContext: repoConfig.setRepoContext,
+  getRepoContext: repoConfig.getRepoContext,
+  setPluginRepoConfig: repoConfig.setPluginRepoConfig,
+  setStudentRepoConfig: repoConfig.setStudentRepoConfig,
 };
