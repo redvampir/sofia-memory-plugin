@@ -5,6 +5,7 @@ const tokenStore = require('./tokenStore');
 const memoryConfig = require('./memoryConfig');
 const indexManager = require('./indexManager');
 const rootConfig = require('./rootConfig');
+const mdEditor = require('./markdownEditor');
 const {
   parseMarkdownStructure,
   mergeMarkdownTrees,
@@ -1206,5 +1207,9 @@ module.exports = {
   chatSetupCommand,
   githubWriteFileSafe,
   generateTitleFromPath,
-  inferTypeFromPath
+  inferTypeFromPath,
+  markdownEditor: mdEditor,
+  markChecklistItem: mdEditor.markChecklistItem,
+  insertSection: mdEditor.insertSection,
+  createBackup: mdEditor.createBackup
 };
