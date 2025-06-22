@@ -74,6 +74,13 @@ function parseMarkdownStructure(content) {
       };
       parent.children.push(itemNode);
       stack.push(itemNode);
+      continue;
+    }
+
+    if (line.trim() !== '') {
+      const para = { type: 'paragraph', level: 0, text: line.trim(), children: [] };
+      const parent = stack[stack.length - 1];
+      parent.children.push(para);
     }
   }
 
@@ -145,6 +152,8 @@ function serializeMarkdownTree(tree) {
         if (node.children) walk(node.children);
       } else if (node.type === 'list') {
         if (node.children) walk(node.children);
+      } else if (node.type === 'paragraph') {
+        lines.push(node.text);
       }
     }
   };

@@ -8,7 +8,31 @@ const {
   mergeMarkdownTrees
 } = require('./markdownMergeEngine.ts');
 
+function ensureDir(p) {
+  const dir = path.dirname(p);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+}
+
+function createScaffold(filePath) {
+  ensureDir(filePath);
+  const name = path.basename(filePath).toLowerCase();
+  let title = 'Document';
+  if (name.includes('checklist')) title = 'Plan Checklist';
+  else if (name.includes('plan')) title = 'Plan';
+  else if (name.includes('instruction')) title = 'Instructions';
+  else if (name.includes('note')) title = 'Notes';
+  const lines = [`# ${title}`, '', '## Unsorted'];
+  fs.writeFileSync(filePath, lines.join('\n'), 'utf-8');
+}
+
+function ensureFile(filePath) {
+  if (!fs.existsSync(filePath)) {
+    createScaffold(filePath);
+  }
+}
+
 function loadTree(filePath) {
+  ensureFile(filePath);
   validator.checkFileExists(filePath);
   const raw = fs.readFileSync(filePath, 'utf-8');
   validator.validateMarkdownSyntax(raw, filePath);
@@ -46,14 +70,19 @@ function findHeadingPath(nodes, pathArr, level = 0) {
   return null;
 }
 
-function addTask(filePath, heading, taskText, checked = false) {
-  const tree = loadTree(filePath);
+function getOrCreateHeading(tree, heading) {
   let h = findHeading(tree, heading);
   if (!h) {
     h = { type: 'heading', level: 2, text: heading, children: [] };
     tree.push(h);
   }
   if (!h.children) h.children = [];
+  return h;
+}
+
+function addTask(filePath, heading, taskText, checked = false) {
+  const tree = loadTree(filePath);
+  let h = getOrCreateHeading(tree, heading);
   const exists = (n) =>
     n.type === 'list' && n.children.some((c) => c.type === 'item' && c.text === taskText);
   if (!h.children.find(exists)) {
@@ -89,8 +118,7 @@ function removeTask(filePath, heading, taskText) {
 function toggleTaskStatus(filePath, heading, taskText, checked = true) {
   const tree = loadTree(filePath);
   const h = findHeading(tree, heading);
-  if (!h || !h.children) return { updated: false, message: 'heading not found' };
-
+  let target = h && h.children ? h : null;
   let modified = false;
   const walk = nodes => {
     for (const n of nodes) {
@@ -103,9 +131,18 @@ function toggleTaskStatus(filePath, heading, taskText, checked = true) {
       if (n.children) walk(n.children);
     }
   };
-  walk(h.children);
+  if (target) walk(target.children);
 
-  if (!modified) return { updated: false, message: 'no changes made' };
+  if (!modified) {
+    const unsorted = getOrCreateHeading(tree, 'Unsorted');
+    unsorted.children.push({
+      type: 'list',
+      level: 0,
+      text: '',
+      children: [{ type: 'item', level: 0, text: taskText, checked }]
+    });
+    return writeTree(filePath, tree);
+  }
   return writeTree(filePath, tree);
 }
 
@@ -129,7 +166,16 @@ function updateTaskText(filePath, heading, oldText, newText) {
   };
   walk(h.children);
 
-  if (!modified) return { updated: false, message: 'task not found or unchanged' };
+  if (!modified) {
+    const unsorted = getOrCreateHeading(tree, 'Unsorted');
+    unsorted.children.push({
+      type: 'list',
+      level: 0,
+      text: '',
+      children: [{ type: 'item', level: 0, text: newText, checked: false }]
+    });
+    return writeTree(filePath, tree);
+  }
   return writeTree(filePath, tree);
 }
 
@@ -188,10 +234,11 @@ function removeSection(filePath, heading) {
 
 function translateContent(filePath, map) {
   const tree = loadTree(filePath);
+  const isCode = txt => /`[^`]+`/.test(txt) || /\w+\.[A-Za-z0-9]+$/.test(txt);
   const walk = nodes => {
     for (const n of nodes) {
       if (n.type === 'heading' || n.type === 'item') {
-        if (map[n.text]) n.text = map[n.text];
+        if (!isCode(n.text) && map[n.text]) n.text = map[n.text];
       }
       if (n.children) walk(n.children);
     }
