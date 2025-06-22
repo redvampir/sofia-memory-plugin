@@ -1,5 +1,6 @@
 
 const axios = require('axios');
+const { logError } = require('./utils/errorHandler');
 
 function normalizeRepo(repo) {
   if (!repo) return repo;
@@ -14,6 +15,7 @@ exports.validateToken = async function (token) {
     });
     return { valid: true, user: res.data.login };
   } catch (e) {
+    logError('validateToken', e);
     return { valid: false, error: e.message };
   }
 };
@@ -26,6 +28,7 @@ exports.repoExists = async function (token, repo) {
     });
     return res.status === 200;
   } catch (e) {
+    logError('repoExists', e);
     return false;
   }
 };

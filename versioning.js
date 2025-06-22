@@ -7,7 +7,7 @@ exports.commitInstructions = async (req, res) => {
     await instructions.edit(version, content);
     res.json({ status: 'success', version });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ status: 'error', message: e.message });
   }
 };
 
@@ -19,7 +19,7 @@ exports.rollbackInstructions = async (req, res) => {
     await instructions.rollback(version, file);
     res.json({ status: 'success', restored: file });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ status: 'error', message: e.message });
   }
 };
 

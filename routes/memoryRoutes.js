@@ -22,6 +22,7 @@ const tokenStore = require('../tokenStore');
 const { generateTitleFromPath, inferTypeFromPath, normalizeMemoryPath, ensureDir } = require('../utils/fileUtils');
 const { parseMarkdownStructure, mergeMarkdownTrees, serializeMarkdownTree } = require('../markdownMergeEngine.ts');
 const { getRepoInfo, extractToken, categorizeMemoryFile, logDebug } = require('../utils/memoryHelpers');
+const { logError } = require('../utils/errorHandler');
 
 function setMemoryRepo(req, res) {
   const { repoUrl, userId } = req.body;
@@ -66,7 +67,7 @@ async function saveMemory(req, res) {
         finalContent = serializeMarkdownTree(merged);
       }
     } catch (e) {
-      console.error('[saveMemory] markdown merge failed', e.message);
+      logError('saveMemory markdown merge', e);
     }
   }
 
@@ -75,7 +76,7 @@ async function saveMemory(req, res) {
       const data = JSON.parse(content);
       await updateOrInsertJsonEntry(filePath, data, null, effectiveRepo, effectiveToken);
     } catch (e) {
-      console.error('[saveMemory] invalid JSON', e.message);
+      logError('saveMemory invalid JSON', e);
       return res.status(400).json({ status: 'error', message: 'Invalid JSON' });
     }
   } else {
@@ -92,7 +93,7 @@ async function saveMemory(req, res) {
       try {
         await githubWriteFileSafe(effectiveToken, effectiveRepo, normalizedFilename, finalContent, `update ${filename}`);
       } catch (e) {
-        console.error('GitHub write error', e.message);
+        logError('GitHub write', e);
         return res.status(500).json({ status: 'error', message: e.message });
       }
     }
@@ -186,14 +187,14 @@ async function saveContext(req, res) {
     try {
       await githubWriteFileSafe(effectiveToken, effectiveRepo, 'memory/context.md', content || '', 'update context');
     } catch (e) {
-      console.error('GitHub write context error', e.message);
+      logError('GitHub write context', e);
     }
   }
 
   try {
     await rebuildIndex(effectiveRepo, effectiveToken, userId);
   } catch (e) {
-    console.error('[saveContext] rebuild error', e.message);
+    logError('saveContext rebuild', e);
   }
 
   res.json({ status: 'success', action: 'saveContext' });
@@ -211,7 +212,7 @@ async function readContext(req, res) {
       const content = await github.readFile(effectiveToken, effectiveRepo, 'memory/context.md');
       return res.json({ status: 'success', content });
     } catch (e) {
-      console.error('GitHub read context error', e.message);
+      logError('GitHub read context', e);
     }
   }
 
