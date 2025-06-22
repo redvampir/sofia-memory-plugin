@@ -1,5 +1,6 @@
-const { githubWriteFileSafe, generateTitleFromPath, inferTypeFromPath } = require('./memory');
+const { githubWriteFileSafe } = require('./memory');
 const { addOrUpdateEntry, saveIndex } = require('./indexManager');
+const { generateTitleFromPath, inferTypeFromPath } = require('./utils/fileUtils');
 
 async function saveMemoryWithIndex(userId, repo, token, filename, content) {
   // Step 1: Save file to GitHub

@@ -7,6 +7,7 @@ const repoConfig = require('./instructionsRepoConfig');
 const mdEditor = require('./markdownEditor');
 const validator = require('./markdownValidator');
 const mdFileEditor = require('./markdownFileEditor');
+const { ensureDir, normalizeMemoryPath } = require('./utils/fileUtils');
 
 const git = simpleGit();
 const SKIP_GIT = process.env.NO_GIT === "true";
@@ -19,10 +20,6 @@ const HISTORY_DIR = path.join(BASE_DIR, 'history');
 const DEV_DIR = path.join(BASE_DIR, 'dev');
 
 let currentVersion = 'base';
-
-function ensureDir(dir) {
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-}
 
 function ensureStructure() {
   [BASE_DIR, HISTORY_DIR, DEV_DIR].forEach(ensureDir);
@@ -182,11 +179,6 @@ async function edit(version, newContent, opts = {}) {
   return dest;
 }
 
-function normalizeMemoryPath(p) {
-  let rel = p.replace(/\\+/g, '/');
-  rel = rel.replace(/^\/?memory\/?/, '');
-  return path.join('memory', rel);
-}
 
 async function updateMarkdownFile(relPath, newContent, opts = {}) {
   const normalized = normalizeMemoryPath(relPath);
