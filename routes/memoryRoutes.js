@@ -306,6 +306,30 @@ function readProfile(req, res) {
   }
 }
 
+async function save(req, res) {
+  const { repo, token, filename, content } = req.body || {};
+  if (!repo || !token || !filename || content === undefined) {
+    return res
+      .status(400)
+      .json({ status: 'error', message: 'Missing repo, token, filename or content' });
+  }
+
+  try {
+    const check = await github.validateToken(token);
+    if (!check.valid) {
+      return res.status(401).json({ status: 'error', message: 'Invalid GitHub token' });
+    }
+
+    const normalized = normalizeMemoryPath(filename);
+    await github.writeFileSafe(token, repo, normalized, content, `Update ${normalized}`);
+    res.json({ status: 'ok' });
+  } catch (e) {
+    logError('save endpoint', e);
+    res.status(500).json({ status: 'error', message: e.message });
+  }
+}
+
+router.post('/save', save);
 router.post('/saveMemory', saveMemory);
 router.post('/readMemory', readMemory);
 router.post('/read', readMemory); // legacy route
