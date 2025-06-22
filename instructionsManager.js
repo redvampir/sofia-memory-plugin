@@ -4,6 +4,7 @@ const { execSync } = require('child_process');
 const simpleGit = require('simple-git');
 const github = require('./githubClient');
 const repoConfig = require('./instructionsRepoConfig');
+const mdEditor = require('./markdownEditor');
 
 const git = simpleGit();
 const SKIP_GIT = process.env.NO_GIT === "true";
@@ -52,6 +53,7 @@ async function loadFromGitHub(repo = DEFAULT_REPO, token, file = DEFAULT_FILE, v
   }
   const content = await github.readFile(token, repo, file);
   const dest = versionPath(version);
+  mdEditor.createBackup(dest);
   fs.writeFileSync(dest, content, 'utf-8');
   if (!SKIP_GIT) {
     await git.add(dest);
@@ -147,6 +149,7 @@ async function edit(version, newContent, opts = {}) {
   }
 
   if (!devMode) saveHistory(version);
+  mdEditor.createBackup(dest);
   fs.writeFileSync(dest, newContent, 'utf-8');
 
   if (devMode) {
