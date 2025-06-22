@@ -13,6 +13,11 @@ function checkFileExists(filePath) {
 
 function validateMarkdownSyntax(content, filePath) {
   const lines = Array.isArray(content) ? content : content.split(/\r?\n/);
+  if (lines.length === 1 && lines[0].trim() === '') {
+    console.warn('⚠️ Warning: File exists but is empty. No content to validate.');
+    return true;
+  }
+
   let valid = true;
   for (const line of lines) {
     const t = line.trim();

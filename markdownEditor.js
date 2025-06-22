@@ -57,6 +57,12 @@ function markChecklistItem(filePath, heading, itemText, checked = true) {
     filePath
   );
 
+  const current = lines[idx];
+  if (/^[-*]\s+\[[xX]\]/.test(current) && checked) {
+    console.log('ℹ️ Info: Task already marked as complete. No update necessary.');
+    return false;
+  }
+
   createBackup(filePath);
   lines[idx] = `- [${checked ? 'x' : ' '}] ${itemText}`;
   fs.writeFileSync(filePath, lines.join('\n'), 'utf-8');
