@@ -5,6 +5,19 @@ info:
 servers:
   - url: https://sofia-memory.onrender.com
 paths:
+  /save:
+    post:
+      summary: Save file to repository
+      operationId: save
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SaveMemoryRequest'
+      responses:
+        '200':
+          description: Saved
   /saveMemory:
     post:
       summary: Save memory content

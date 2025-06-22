@@ -71,6 +71,7 @@ app.get('/ping', (req, res) => {
 app.get('/docs', (req, res) => {
   res.json({
       endpoints: [
+        "POST /save",
         "POST /saveMemory",
         "GET /memory",
         "POST /readMemory",
