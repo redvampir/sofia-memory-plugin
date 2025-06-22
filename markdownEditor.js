@@ -92,8 +92,36 @@ function insertSection(filePath, heading, contentLines) {
   return true;
 }
 
+function updateMarkdownFile({ filePath, startMarker, endMarker, newContent, strictMode = true }) {
+  validator.checkFileExists(filePath);
+  const raw = fs.readFileSync(filePath, 'utf-8');
+  const lines = raw.split(/\r?\n/);
+  validator.validateMarkdownSyntax(lines, filePath);
+
+  const startIdx = lines.findIndex(l => l.includes(startMarker));
+  const endIdx = lines.findIndex((l, i) => i > startIdx && l.includes(endMarker));
+
+  if (startIdx === -1 || endIdx === -1) {
+    if (strictMode) {
+      throw new Error(`\u274c Error: Markers not found in '${path.basename(filePath)}'`);
+    }
+    return false;
+  }
+
+  const before = lines.slice(0, startIdx + 1);
+  const after = lines.slice(endIdx);
+  const newLines = Array.isArray(newContent) ? newContent : newContent.split(/\r?\n/);
+  const finalLines = before.concat(newLines, after);
+  validator.validateMarkdownSyntax(finalLines, filePath);
+
+  createBackup(filePath);
+  fs.writeFileSync(filePath, finalLines.join('\n'), 'utf-8');
+  return true;
+}
+
 module.exports = {
   createBackup,
   markChecklistItem,
-  insertSection
+  insertSection,
+  updateMarkdownFile
 };
