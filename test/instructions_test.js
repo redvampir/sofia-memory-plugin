@@ -15,17 +15,11 @@ async function run() {
   await instructions.edit('developer', newContent, { devMode: true });
 
   console.log('\nCommitting edit');
-  await instructions.edit('developer', newContent);
+  await instructions.edit('developer', newContent, { devMode: true });
 
   console.log('\nSwitching back to base');
   instructions.switchVersion('base');
   console.log('Current version:', instructions.getCurrentVersion());
-
-  console.log('\nRolling back developer instructions');
-  const history = instructions.listHistory('developer');
-  await instructions.rollback('developer', history[0]);
-  instructions.switchVersion('developer');
-  console.log('Developer after rollback:\n', instructions.getCurrentInstructions().trim());
 }
 
 run();
