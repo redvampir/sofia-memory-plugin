@@ -63,8 +63,15 @@ function markChecklistItem(filePath, heading, itemText, checked = true) {
     return false;
   }
 
-  createBackup(filePath);
   lines[idx] = `- [${checked ? 'x' : ' '}] ${itemText}`;
+  const check = validator.validateMarkdownSyntax(lines, filePath);
+  if (!check.valid) {
+    console.error(
+      `[markChecklistItem] ${check.message} at line ${check.line} in '${path.basename(filePath)}'`
+    );
+    return false;
+  }
+  createBackup(filePath);
   fs.writeFileSync(filePath, lines.join('\n'), 'utf-8');
   return true;
 }
@@ -77,17 +84,31 @@ function insertSection(filePath, heading, contentLines) {
 
   let hIdx = validator.findHeadingIndex(lines, heading);
   if (hIdx === -1) {
-    createBackup(filePath);
     lines.push(`## ${heading}`);
     lines.push(...contentLines);
+    const check = validator.validateMarkdownSyntax(lines, filePath);
+    if (!check.valid) {
+      console.error(
+        `[insertSection] ${check.message} at line ${check.line} in '${path.basename(filePath)}'`
+      );
+      return false;
+    }
+    createBackup(filePath);
     fs.writeFileSync(filePath, lines.join('\n'), 'utf-8');
     return true;
   }
 
   let idx = hIdx + 1;
   while (idx < lines.length && !/^#/.test(lines[idx])) idx++;
-  createBackup(filePath);
   lines.splice(idx, 0, ...contentLines);
+  const check = validator.validateMarkdownSyntax(lines, filePath);
+  if (!check.valid) {
+    console.error(
+      `[insertSection] ${check.message} at line ${check.line} in '${path.basename(filePath)}'`
+    );
+    return false;
+  }
+  createBackup(filePath);
   fs.writeFileSync(filePath, lines.join('\n'), 'utf-8');
   return true;
 }
@@ -112,7 +133,13 @@ function updateMarkdownFile({ filePath, startMarker, endMarker, newContent, stri
   const after = lines.slice(endIdx);
   const newLines = Array.isArray(newContent) ? newContent : newContent.split(/\r?\n/);
   const finalLines = before.concat(newLines, after);
-  validator.validateMarkdownSyntax(finalLines, filePath);
+  const check = validator.validateMarkdownSyntax(finalLines, filePath);
+  if (!check.valid) {
+    console.error(
+      `[updateMarkdownFile] ${check.message} at line ${check.line} in '${path.basename(filePath)}'`
+    );
+    return false;
+  }
 
   createBackup(filePath);
   fs.writeFileSync(filePath, finalLines.join('\n'), 'utf-8');
@@ -207,6 +234,13 @@ function insertAtAnchor({
     lines.splice(insertIdx, 0, ...toInsert);
   }
 
+  const check = validator.validateMarkdownSyntax(lines, filePath);
+  if (!check.valid) {
+    console.error(
+      `[insertAtAnchor] ${check.message} at line ${check.line} in '${path.basename(filePath)}'`
+    );
+    return false;
+  }
   createBackup(filePath);
   fs.writeFileSync(filePath, lines.join('\n'), 'utf-8');
   return true;
@@ -294,6 +328,13 @@ function deduplicateMarkdown({
 
   if (toRemove.length) {
     toRemove.sort((a, b) => b - a).forEach(idx => lines.splice(idx, 1));
+    const check = validator.validateMarkdownSyntax(lines, filePath);
+    if (!check.valid) {
+      console.error(
+        `[deduplicateMarkdown] ${check.message} at line ${check.line} in '${path.basename(filePath)}'`
+      );
+      return false;
+    }
     createBackup(filePath);
     fs.writeFileSync(filePath, lines.join('\n'), 'utf-8');
     return true;

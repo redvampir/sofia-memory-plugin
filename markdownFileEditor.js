@@ -42,7 +42,13 @@ function loadTree(filePath) {
 
 function writeTree(filePath, tree) {
   const content = serializeMarkdownTree(tree);
-  validator.validateMarkdownSyntax(content, filePath);
+  const check = validator.validateMarkdownSyntax(content, filePath);
+  if (!check.valid) {
+    console.error(
+      `[writeTree] ${check.message} at line ${check.line} in '${path.basename(filePath)}'`
+    );
+    return { updated: false, message: 'validation failed', backupPath: null };
+  }
   const backup = mdEditor.createBackup(filePath);
   fs.writeFileSync(filePath, content, 'utf-8');
   return { updated: true, message: 'file updated', backupPath: backup };

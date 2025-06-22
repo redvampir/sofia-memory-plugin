@@ -7,6 +7,7 @@ const indexManager = require('./indexManager');
 const rootConfig = require('./rootConfig');
 const mdEditor = require('./markdownEditor');
 const fileEditor = require('./markdownFileEditor');
+const validator = require('./markdownValidator');
 const {
   parseMarkdownStructure,
   mergeMarkdownTrees,
@@ -53,6 +54,17 @@ function writeFileSafe(filePath, data) {
   try {
     ensureDir(filePath);
     if (filePath.toLowerCase().endsWith('.md')) {
+      const check = validator.validateMarkdownSyntax(data, filePath);
+      if (!check.valid) {
+        const backup = mdEditor.createBackup(filePath);
+        console.error(
+          `[writeFileSafe] ${check.message} at line ${check.line} in '${path.basename(filePath)}'`
+        );
+        if (backup) {
+          console.error(`[writeFileSafe] You can restore from: ${backup}`);
+        }
+        return;
+      }
       mdEditor.createBackup(filePath);
     }
     fs.writeFileSync(filePath, data, 'utf-8');
