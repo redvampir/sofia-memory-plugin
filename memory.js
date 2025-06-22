@@ -50,7 +50,7 @@ function ensureDir(filePath) {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 }
 
-function writeFileSafe(filePath, data) {
+function writeFileSafe(filePath, data, force = false) {
   try {
     ensureDir(filePath);
     if (filePath.toLowerCase().endsWith('.md')) {
@@ -63,7 +63,7 @@ function writeFileSafe(filePath, data) {
         if (backup) {
           console.error(`[writeFileSafe] You can restore from: ${backup}`);
         }
-        return;
+        if (!force) return;
       }
       mdEditor.createBackup(filePath);
     }

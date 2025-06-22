@@ -33,6 +33,30 @@ function validateMarkdownSyntax(content, filePath) {
       return { valid: false, line: i + 1, message: 'Invalid header format' };
     }
 
+    if (/^\s*\[[ xX]\]/.test(t)) {
+      return {
+        valid: false,
+        line: i + 1,
+        message: "Invalid list item: missing '-' or '*'"
+      };
+    }
+
+    if (/^[-*]\s*\[[ xX]\](?!\s)/.test(t)) {
+      return {
+        valid: false,
+        line: i + 1,
+        message: 'Checkbox format broken: use "- [ ] text"'
+      };
+    }
+
+    if (/^[-*][^\s\[]/.test(t)) {
+      return {
+        valid: false,
+        line: i + 1,
+        message: 'Invalid list item: missing space after bullet'
+      };
+    }
+
     if (/^[-*]\s*\[/.test(t) && !/^[-*]\s+\[[ xX]\]\s+.+/.test(t)) {
       return { valid: false, line: i + 1, message: 'Malformed checklist item' };
     }
