@@ -179,6 +179,107 @@ function updateTaskText(filePath, heading, oldText, newText) {
   return writeTree(filePath, tree);
 }
 
+function findItem(nodes, text) {
+  for (const [i, n] of nodes.entries()) {
+    if (n.type === 'item' && n.text === text) return { node: n, index: i, parent: nodes };
+    if (n.children) {
+      const found = findItem(n.children, text);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+function getOrCreateList(node, level) {
+  if (level === undefined) {
+    if (node.type === 'item') level = (node.level || 0) + 1;
+    else if (node.type === 'list') level = node.level;
+    else level = 0;
+  }
+  if (!node.children) node.children = [];
+  let list = node.children.find(c => c.type === 'list' && c.level === level);
+  if (!list) {
+    list = { type: 'list', level, text: '', children: [] };
+    node.children.push(list);
+  }
+  return list;
+}
+
+function insertTask(filePath, heading, taskText, opts = {}) {
+  const tree = loadTree(filePath);
+  const h = getOrCreateHeading(tree, heading);
+  let targetNode = h;
+  if (opts.parent) {
+    const parentFound = findItem(h.children, opts.parent);
+    if (parentFound) {
+      targetNode = parentFound.node;
+    } else {
+      const list = getOrCreateList(h);
+      const pItem = { type: 'item', level: list.level, text: opts.parent, checked: false, children: [] };
+      list.children.push(pItem);
+      targetNode = pItem;
+    }
+  }
+
+  const list = getOrCreateList(targetNode);
+  if (list.children.some(c => c.type === 'item' && c.text === taskText)) {
+    const existing = list.children.find(c => c.type === 'item' && c.text === taskText);
+    if (opts.checked !== undefined) existing.checked = opts.checked;
+    return writeTree(filePath, tree);
+  }
+
+  const item = { type: 'item', level: list.level, text: taskText, checked: opts.checked ?? false };
+
+  let idx = list.children.length;
+  if (opts.before) {
+    const i = list.children.findIndex(c => c.type === 'item' && c.text === opts.before);
+    if (i >= 0) idx = i;
+  } else if (opts.after) {
+    const i = list.children.findIndex(c => c.type === 'item' && c.text === opts.after);
+    if (i >= 0) idx = i + 1;
+  }
+
+  list.children.splice(idx, 0, item);
+  return writeTree(filePath, tree);
+}
+
+function updateChecklistItem(filePath, heading, itemText, opts = {}) {
+  const tree = loadTree(filePath);
+  const h = findHeading(tree, heading);
+  if (!h) return { updated: false, message: 'heading not found' };
+  const found = findItem(h.children, itemText);
+  if (!found) return { updated: false, message: 'item not found' };
+  if (opts.newText) found.node.text = opts.newText;
+  if (opts.checked !== undefined) found.node.checked = opts.checked;
+  return writeTree(filePath, tree);
+}
+
+function removeTaskMatch(filePath, heading, match) {
+  const tree = loadTree(filePath);
+  const h = findHeading(tree, heading);
+  if (!h) return { updated: false, message: 'heading not found' };
+  const matcher = typeof match === 'string' ? t => t.includes(match) : t => match.test(t);
+  const remove = nodes => {
+    for (let i = nodes.length - 1; i >= 0; i--) {
+      const n = nodes[i];
+      if (n.type === 'item' && matcher(n.text)) {
+        nodes.splice(i, 1);
+        continue;
+      }
+      if (n.children) remove(n.children);
+      if (n.type === 'list' && (!n.children || n.children.length === 0)) {
+        nodes.splice(i, 1);
+      }
+    }
+  };
+  remove(h.children);
+  return writeTree(filePath, tree);
+}
+
+function addSubTask(filePath, heading, parentText, subTaskText, checked = false) {
+  return insertTask(filePath, heading, subTaskText, { parent: parentText, checked });
+}
+
 function addSection(filePath, heading, lines) {
   const tree = loadTree(filePath);
   let h = findHeading(tree, heading);
@@ -348,6 +449,10 @@ module.exports = {
   removeTask,
   toggleTaskStatus,
   updateTaskText,
+  insertTask,
+  updateChecklistItem,
+  removeTaskMatch,
+  addSubTask,
   addSection,
   addSectionPath,
   removeSection,
