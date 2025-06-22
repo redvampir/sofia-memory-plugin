@@ -119,9 +119,103 @@ function updateMarkdownFile({ filePath, startMarker, endMarker, newContent, stri
   return true;
 }
 
+function insertAtAnchor({
+  filePath,
+  content,
+  heading,
+  level,
+  tag,
+  occurrence = 1,
+  position = 'after',
+  skipIfExists = false,
+  prepend = false,
+  append = false,
+  checkDistance = 5
+}) {
+  validator.checkFileExists(filePath);
+  const raw = fs.readFileSync(filePath, 'utf-8');
+  const lines = raw.split(/\r?\n/);
+  validator.validateMarkdownSyntax(lines, filePath);
+
+  const newLines = Array.isArray(content) ? content : content.split(/\r?\n/);
+
+  let anchorIdx = -1;
+  let count = 0;
+
+  if (tag) {
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].includes(tag)) {
+        count++;
+        if (count === occurrence) {
+          anchorIdx = i;
+          break;
+        }
+      }
+    }
+  } else {
+    for (let i = 0; i < lines.length; i++) {
+      const m = lines[i].match(/^(#{1,6})\s+(.*)$/);
+      if (m) {
+        const lvl = m[1].length;
+        const text = m[2].trim();
+        if ((level === undefined || lvl === level) && (!heading || text === heading)) {
+          count++;
+          if (count === occurrence) {
+            anchorIdx = i;
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  if (anchorIdx === -1) {
+    throw new Error(`\u274c Error: Anchor not found in '${path.basename(filePath)}'`);
+  }
+
+  if (skipIfExists) {
+    const start = Math.max(0, anchorIdx - checkDistance);
+    const end = Math.min(lines.length, anchorIdx + checkDistance);
+    const area = lines.slice(start, end).join('\n');
+    if (area.includes(newLines.join('\n'))) {
+      return false;
+    }
+  }
+
+  let insertIdx = position === 'before' ? anchorIdx : anchorIdx + 1;
+
+  if (append || prepend) {
+    const targetIdx = position === 'before' ? anchorIdx - 1 : anchorIdx;
+    if (targetIdx < 0 || targetIdx >= lines.length) {
+      append = prepend = false;
+    } else {
+      const text = Array.isArray(content) ? content.join('') : content;
+      const sep = lines[targetIdx].endsWith(' ') || text.startsWith(' ') ? '' : ' ';
+      if (append) lines[targetIdx] = lines[targetIdx] + sep + text;
+      else lines[targetIdx] = text + sep + lines[targetIdx];
+    }
+  }
+
+  if (!append && !prepend) {
+    const toInsert = [...newLines];
+    if (insertIdx > 0 && lines[insertIdx - 1].trim() !== '' && toInsert[0].trim() !== '') {
+      toInsert.unshift('');
+    }
+    if (insertIdx < lines.length && lines[insertIdx].trim() !== '' && toInsert[toInsert.length - 1].trim() !== '') {
+      toInsert.push('');
+    }
+    lines.splice(insertIdx, 0, ...toInsert);
+  }
+
+  createBackup(filePath);
+  fs.writeFileSync(filePath, lines.join('\n'), 'utf-8');
+  return true;
+}
+
 module.exports = {
   createBackup,
   markChecklistItem,
   insertSection,
-  updateMarkdownFile
+  updateMarkdownFile,
+  insertAtAnchor
 };
