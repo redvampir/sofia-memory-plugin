@@ -1,5 +1,5 @@
 const path = require('path');
-const rootConfig = require('../rootConfig');
+const rootConfig = require('../config');
 const tokenStore = require('./tokenStore');
 const memoryConfig = require('./memoryConfig');
 const { normalizeMemoryPath } = require('./fileUtils');

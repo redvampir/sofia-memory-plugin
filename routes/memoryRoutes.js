@@ -6,7 +6,6 @@ const router = express.Router();
 
 const {
   writeFileSafe,
-  githubWriteFileSafe,
   updateOrInsertJsonEntry,
   updateIndexEntry,
   updatePlan,
@@ -91,7 +90,13 @@ async function saveMemory(req, res) {
         return res.status(401).json({ status: 'error', message: 'Missing GitHub token' });
       }
       try {
-        await githubWriteFileSafe(effectiveToken, effectiveRepo, normalizedFilename, finalContent, `update ${filename}`);
+        await github.writeFileSafe(
+          effectiveToken,
+          effectiveRepo,
+          normalizedFilename,
+          finalContent,
+          `update ${filename}`
+        );
       } catch (e) {
         logError('GitHub write', e);
         return res.status(500).json({ status: 'error', message: e.message });
@@ -185,7 +190,13 @@ async function saveContext(req, res) {
 
   if (effectiveRepo && effectiveToken) {
     try {
-      await githubWriteFileSafe(effectiveToken, effectiveRepo, 'memory/context.md', content || '', 'update context');
+      await github.writeFileSafe(
+        effectiveToken,
+        effectiveRepo,
+        'memory/context.md',
+        content || '',
+        'update context'
+      );
     } catch (e) {
       logError('GitHub write context', e);
     }
