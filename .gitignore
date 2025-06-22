@@ -2,5 +2,5 @@ node_modules/
 .cache/
 token.json
 memory/_backups/
-test/tmp*/
+tests/tmp*/
 
