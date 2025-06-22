@@ -1,5 +1,5 @@
 process.env.NO_GIT = "true";
-const instructions = require('../instructionsManager');
+const instructions = require('../core/instructionsManager');
 
 async function run() {
   console.log('Current version:', instructions.getCurrentVersion());

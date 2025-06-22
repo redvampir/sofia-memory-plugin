@@ -1,18 +1,18 @@
 const fs = require('fs');
 const path = require('path');
-const github = require('./githubClient');
-const tokenStore = require('./tokenStore');
-const memoryConfig = require('./memoryConfig');
+const github = require('../utils/githubClient');
+const tokenStore = require('../utils/tokenStore');
+const memoryConfig = require('../utils/memoryConfig');
 const {
   ensureDir,
   deepMerge,
   normalizeMemoryPath,
   generateTitleFromPath,
   inferTypeFromPath
-} = require('./utils/fileUtils');
-const { logError } = require('./utils/errorHandler');
+} = require('../utils/fileUtils');
+const { logError } = require('../utils/errorHandler');
 
-const indexPath = path.join(__dirname, 'memory', 'index.json');
+const indexPath = path.join(__dirname, '..', 'memory', 'index.json');
 let indexData = null;
 
 function readLocalIndex() {
@@ -32,7 +32,7 @@ function readLocalIndex() {
 async function githubWriteFileSafe(token, repo, relPath, data, message, attempts = 2) {
   for (let i = 1; i <= attempts; i++) {
     try {
-      ensureDir(path.join(__dirname, path.dirname(relPath)));
+      ensureDir(path.join(__dirname, '..', path.dirname(relPath)));
       await github.writeFile(token, repo, relPath, data, message);
       if (process.env.DEBUG) console.log(`[indexManager] pushed ${relPath}`);
       return;

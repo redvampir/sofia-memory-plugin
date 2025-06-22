@@ -1,4 +1,4 @@
-const instructions = require('./instructionsManager');
+const instructions = require('./core/instructionsManager');
 
 exports.commitInstructions = async (req, res) => {
   try {

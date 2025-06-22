@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const { detectMarkdownCategory } = require('../markdownCategory');
+const { detectMarkdownCategory } = require('../core/markdownCategory');
 
 function ensureDir(p) {
   const dir = path.extname(p) ? path.dirname(p) : p;

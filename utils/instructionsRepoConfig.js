@@ -1,8 +1,8 @@
 const fs = require('fs');
 const path = require('path');
-const rootConfig = require('./config');
+const rootConfig = require('../config');
 
-const cacheDir = path.join(__dirname, '.cache');
+const cacheDir = path.join(__dirname, '..', '.cache');
 const configFile = path.join(cacheDir, 'instructionsRepo.json');
 
 const initialPlugin = rootConfig.getPluginRepo();

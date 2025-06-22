@@ -1,6 +1,6 @@
 
 const axios = require('axios');
-const { logError } = require('./utils/errorHandler');
+const { logError } = require('./errorHandler');
 
 function normalizeRepo(repo) {
   if (!repo) return repo;

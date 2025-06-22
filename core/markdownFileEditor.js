@@ -7,7 +7,7 @@ const {
   serializeMarkdownTree,
   mergeMarkdownTrees
 } = require('./markdownMergeEngine.ts');
-const { ensureDir } = require('./utils/fileUtils');
+const { ensureDir } = require('../utils/fileUtils');
 
 function createScaffold(filePath) {
   ensureDir(filePath);
