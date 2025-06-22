@@ -1,0 +1,312 @@
+const express = require('express');
+const path = require('path');
+const fs = require('fs');
+const github = require('../githubClient');
+const router = express.Router();
+
+const {
+  writeFileSafe,
+  githubWriteFileSafe,
+  updateOrInsertJsonEntry,
+  updateIndexEntry,
+  updatePlan,
+  rebuildIndex,
+  updateIndexFileManually,
+  contextFilename,
+  planFilename,
+  indexFilename,
+} = require('../core/memoryOperations');
+const indexManager = require('../indexManager');
+const memoryConfig = require('../memoryConfig');
+const tokenStore = require('../tokenStore');
+const { generateTitleFromPath, inferTypeFromPath, normalizeMemoryPath, ensureDir } = require('../utils/fileUtils');
+const { parseMarkdownStructure, mergeMarkdownTrees, serializeMarkdownTree } = require('../markdownMergeEngine.ts');
+const { getRepoInfo, extractToken, categorizeMemoryFile, logDebug } = require('../utils/memoryHelpers');
+
+function setMemoryRepo(req, res) {
+  const { repoUrl, userId } = req.body;
+  memoryConfig.setRepoUrl(userId, repoUrl);
+  res.json({ status: 'success', repo: repoUrl });
+}
+
+async function saveMemory(req, res) {
+  const { repo, filename, content, userId } = req.body;
+  const token = extractToken(req);
+  const { repo: effectiveRepo, token: effectiveToken } = getRepoInfo(filename, userId, repo, token);
+
+  if (!filename || content === undefined) {
+    return res.status(400).json({ status: 'error', message: 'Missing required fields.' });
+  }
+
+  const normalizedFilename = normalizeMemoryPath(filename);
+  const filePath = path.join(__dirname, '..', normalizedFilename);
+  ensureDir(filePath);
+
+  let finalContent = content;
+  const isMarkdown = normalizedFilename.endsWith('.md');
+  if (isMarkdown) {
+    try {
+      let existing = '';
+      if (effectiveRepo && effectiveToken) {
+        try {
+          existing = await fs.promises.readFile(filePath, 'utf-8');
+        } catch {}
+        try {
+          existing = await github.readFile(effectiveToken, effectiveRepo, normalizedFilename);
+        } catch (e) {
+          logDebug('[saveMemory] no remote file', e.message);
+        }
+      } else if (fs.existsSync(filePath)) {
+        existing = fs.readFileSync(filePath, 'utf-8');
+      }
+      if (existing) {
+        const baseTree = parseMarkdownStructure(existing);
+        const newTree = parseMarkdownStructure(content);
+        const merged = mergeMarkdownTrees(baseTree, newTree);
+        finalContent = serializeMarkdownTree(merged);
+      }
+    } catch (e) {
+      console.error('[saveMemory] markdown merge failed', e.message);
+    }
+  }
+
+  if (filename.trim().endsWith('.json')) {
+    try {
+      const data = JSON.parse(content);
+      await updateOrInsertJsonEntry(filePath, data, null, effectiveRepo, effectiveToken);
+    } catch (e) {
+      console.error('[saveMemory] invalid JSON', e.message);
+      return res.status(400).json({ status: 'error', message: 'Invalid JSON' });
+    }
+  } else {
+    try {
+      writeFileSafe(filePath, finalContent);
+    } catch (e) {
+      return res.status(500).json({ status: 'error', message: e.message });
+    }
+
+    if (effectiveRepo) {
+      if (!effectiveToken) {
+        return res.status(401).json({ status: 'error', message: 'Missing GitHub token' });
+      }
+      try {
+        await githubWriteFileSafe(effectiveToken, effectiveRepo, normalizedFilename, finalContent, `update ${filename}`);
+      } catch (e) {
+        console.error('GitHub write error', e.message);
+        return res.status(500).json({ status: 'error', message: e.message });
+      }
+    }
+  }
+
+  const meta = fs.existsSync(filePath) ? fs.statSync(filePath) : { mtime: new Date() };
+  await updateIndexEntry(effectiveRepo, effectiveToken, {
+    path: normalizedFilename,
+    type: categorizeMemoryFile(path.basename(normalizedFilename)),
+    title: generateTitleFromPath(normalizedFilename),
+    description: '',
+    lastModified: meta.mtime.toISOString(),
+  }, userId);
+
+  if (normalizedFilename.startsWith('memory/') && normalizedFilename !== 'memory/index.json') {
+    await indexManager.addOrUpdateEntry({
+      path: normalizedFilename,
+      title: generateTitleFromPath(normalizedFilename),
+      type: inferTypeFromPath(normalizedFilename),
+      lastModified: new Date().toISOString(),
+    });
+    await indexManager.saveIndex(effectiveToken, effectiveRepo, userId);
+  }
+
+  res.json({ status: 'success', action: 'saveMemory', filePath: normalizedFilename });
+}
+
+async function readMemory(req, res) {
+  const { repo, filename, userId } = req.body;
+  const token = extractToken(req);
+  const { repo: effectiveRepo, token: effectiveToken } = getRepoInfo(filename, userId, repo, token);
+
+  const normalizedFilename = normalizeMemoryPath(filename);
+  const filePath = path.join(__dirname, '..', normalizedFilename);
+
+  if (effectiveRepo) {
+    if (!effectiveToken) return res.status(401).json({ status: 'error', message: 'Missing GitHub token' });
+    try {
+      const content = await github.readFile(effectiveToken, effectiveRepo, normalizedFilename);
+      return res.json({ status: 'success', content });
+    } catch (e) {
+      return res.status(500).json({ status: 'error', message: e.message });
+    }
+  }
+
+  if (!fs.existsSync(filePath)) return res.status(404).json({ status: 'error', message: 'File not found.' });
+  const content = fs.readFileSync(filePath, 'utf-8');
+  res.json({ status: 'success', content });
+}
+
+function readMemoryGET(req, res) {
+  req.body = {
+    repo: req.query.repo,
+    filename: req.query.filename,
+    userId: req.query.userId,
+    token: req.query.token,
+  };
+  return readMemory(req, res);
+}
+
+async function saveLessonPlan(req, res) {
+  const { title, plannedLessons, repo, userId } = req.body;
+  const token = extractToken(req);
+  const { repo: effectiveRepo, token: effectiveToken } = getRepoInfo('memory/plan.md', userId, repo, token);
+  const done = title ? [title] : [];
+  const upcoming = Array.isArray(plannedLessons) ? plannedLessons : [];
+
+  const plan = await updatePlan({
+    token: effectiveToken,
+    repo: effectiveRepo,
+    userId,
+    updateFn: p => {
+      p.done = [...new Set([...p.done, ...done])];
+      p.upcoming = p.upcoming.filter(l => !done.includes(l));
+      p.upcoming = [...new Set([...p.upcoming, ...upcoming])];
+      return p;
+    },
+  });
+  res.json({ status: 'success', action: 'saveLessonPlan', plan });
+}
+
+async function saveContext(req, res) {
+  const { repo, content, userId } = req.body;
+  const token = extractToken(req);
+  const { repo: effectiveRepo, token: effectiveToken } = getRepoInfo('memory/context.md', userId, repo, token);
+
+  ensureDir(contextFilename);
+  writeFileSafe(contextFilename, content || '');
+
+  if (effectiveRepo && effectiveToken) {
+    try {
+      await githubWriteFileSafe(effectiveToken, effectiveRepo, 'memory/context.md', content || '', 'update context');
+    } catch (e) {
+      console.error('GitHub write context error', e.message);
+    }
+  }
+
+  try {
+    await rebuildIndex(effectiveRepo, effectiveToken, userId);
+  } catch (e) {
+    console.error('[saveContext] rebuild error', e.message);
+  }
+
+  res.json({ status: 'success', action: 'saveContext' });
+}
+
+async function readContext(req, res) {
+  const { repo, userId } = req.body;
+  const token = extractToken(req);
+  const { repo: effectiveRepo, token: effectiveToken } = getRepoInfo('memory/context.md', userId, repo, token);
+
+  ensureDir(contextFilename);
+
+  if (effectiveRepo && effectiveToken) {
+    try {
+      const content = await github.readFile(effectiveToken, effectiveRepo, 'memory/context.md');
+      return res.json({ status: 'success', content });
+    } catch (e) {
+      console.error('GitHub read context error', e.message);
+    }
+  }
+
+  const content = fs.existsSync(contextFilename) ? fs.readFileSync(contextFilename, 'utf-8') : '';
+  res.json({ status: 'success', content });
+}
+
+async function updateIndexManual(req, res) {
+  const { entries, repo, userId } = req.body;
+  const token = extractToken(req);
+  const { repo: effectiveRepo, token: effectiveToken } = getRepoInfo('memory/index.json', userId, repo, token);
+  const result = await updateIndexFileManually(entries, effectiveRepo, effectiveToken, userId);
+  res.json({ status: 'success', entries: result });
+}
+
+function getToken(req, res) {
+  const userId = req.body && req.body.userId;
+  const token = tokenStore.getToken(userId);
+  res.json({ token: token || null });
+}
+
+function setToken(req, res) {
+  const token = req.body && req.body.token ? req.body.token : '';
+  const userId = req.body && req.body.userId;
+  if (userId) tokenStore.setToken(userId, token);
+  res.json({ status: 'success', action: 'setToken', connected: !!token });
+}
+
+function tokenStatus(req, res) {
+  const userId = req.query.userId || (req.body && req.body.userId);
+  const token = userId ? tokenStore.getToken(userId) : null;
+  res.json({ connected: !!token });
+}
+
+function readPlan(req, res) {
+  try {
+    ensureDir(planFilename);
+    const content = fs.existsSync(planFilename) ? fs.readFileSync(planFilename, 'utf-8') : '{}';
+    const plan = JSON.parse(content || '{}');
+    res.json({ status: 'success', plan });
+  } catch (e) {
+    res.status(500).json({ status: 'error', message: e.message });
+  }
+}
+
+function readProfile(req, res) {
+  const filePath = path.join(__dirname, '..', 'memory', 'profile.json');
+  if (fs.existsSync(filePath)) {
+    const data = fs.readFileSync(filePath, 'utf-8');
+    res.type('application/json').send(data);
+  } else {
+    res.status(404).json({ status: 'error', message: 'Profile not found' });
+  }
+}
+
+router.post('/saveMemory', saveMemory);
+router.post('/readMemory', readMemory);
+router.get('/memory', readMemoryGET);
+router.post('/setMemoryRepo', setMemoryRepo);
+router.post('/saveLessonPlan', saveLessonPlan);
+router.post('/saveMemoryWithIndex', async (req, res) => {
+  const { userId, repo, token, filename, content } = req.body;
+  const { repo: effectiveRepo, token: effectiveToken } = getRepoInfo(filename, userId, repo, token || extractToken(req));
+  try {
+    const pathSaved = await indexManager.saveMemoryWithIndex(
+      userId,
+      effectiveRepo,
+      effectiveToken,
+      filename,
+      content
+    );
+    res.json({ status: 'success', path: pathSaved });
+  } catch (e) {
+    res.status(500).json({ status: 'error', message: e.message });
+  }
+});
+router.post('/getToken', getToken);
+router.post('/saveNote', (req, res) => res.json({ status: 'success', action: 'saveNote' }));
+router.post('/getContextSnapshot', (req, res) => res.json({ status: 'success', context: {} }));
+router.post('/createUserProfile', (req, res) => res.json({ status: 'success', action: 'createUserProfile' }));
+router.post('/setToken', setToken);
+router.get('/token/status', tokenStatus);
+router.get('/tokenStatus', tokenStatus);
+router.get('/readContext', readContext);
+router.post('/saveContext', saveContext);
+router.post('/chat/setup', (req, res) => {
+  const text = req.body && req.body.text ? req.body.text : '';
+  const { parseUserMemorySetup } = require('../utils');
+  const parsed = parseUserMemorySetup(text);
+  if (!parsed) return res.status(400).json({ status: 'error', message: 'Invalid command' });
+  const { userId, repo } = parsed;
+  res.json({ status: 'success', message: `Memory configured for user: ${userId}`, repo });
+});
+router.post('/updateIndex', updateIndexManual);
+router.get('/plan', readPlan);
+router.get('/profile', readProfile);
+
+module.exports = router;

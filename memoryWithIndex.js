@@ -1,4 +1,4 @@
-const { githubWriteFileSafe } = require('./memory');
+const { githubWriteFileSafe } = require('./core/memoryOperations');
 const { addOrUpdateEntry, saveIndex } = require('./indexManager');
 const { generateTitleFromPath, inferTypeFromPath } = require('./utils/fileUtils');
 
