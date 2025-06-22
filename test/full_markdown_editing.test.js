@@ -5,12 +5,17 @@ const editor = require('../markdownFileEditor');
 
 const tmpDir = path.join(__dirname, 'tmp_full');
 if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir);
+const backupsDir = path.join(__dirname, '..', 'memory', '_backups');
+if (!fs.existsSync(backupsDir)) fs.mkdirSync(backupsDir, { recursive: true });
 
 function read(p){return fs.readFileSync(p,'utf-8');}
 
 async function run(){
   const file = path.join(tmpDir,'plan_checklist.md');
   fs.writeFileSync(file, '# Plan Checklist\n\n## Tasks\n- [ ] Old');
+  fs.readdirSync(backupsDir)
+    .filter(f => f.startsWith('plan_checklist.md.bak'))
+    .forEach(f => fs.unlinkSync(path.join(backupsDir, f)));
 
   // 1. add new item
   editor.addTask(file, 'Tasks', 'New');
@@ -49,8 +54,10 @@ async function run(){
   assert.ok(after.includes(extra));
 
   // 7. backup created
-  const backups = fs.readdirSync(tmpDir).filter(f=>f.startsWith('plan_checklist_backup'));
-  assert.ok(backups.length>0);
+  const backups = fs
+    .readdirSync(backupsDir)
+    .filter(f => f.startsWith('plan_checklist.md.bak'));
+  assert.ok(backups.length > 0);
 
   // file existence + fallback
   const missing = path.join(tmpDir,'new_notes.md');

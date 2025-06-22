@@ -4,42 +4,48 @@ const validator = require('./markdownValidator');
 
 function createBackup(filePath) {
   if (!fs.existsSync(filePath)) return null;
-  const { dir, name, ext } = path.parse(filePath);
+
+  const backupsDir = path.join(__dirname, 'memory', '_backups');
+  if (!fs.existsSync(backupsDir)) fs.mkdirSync(backupsDir, { recursive: true });
+
+  const base = path.basename(filePath);
   const currentContent = fs.readFileSync(filePath, 'utf-8');
 
-  const regex = new RegExp(`^${name}_backup_\\d{8}_\\d{6}\\${ext}$`);
+  const regex = new RegExp(
+    `^${base.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')}\.bak\.\\d{4}-\\d{2}-\\d{2}T\\d{2}-\\d{2}-\\d{2}\.md$`
+  );
   const backups = fs
-    .readdirSync(dir)
+    .readdirSync(backupsDir)
     .filter(f => regex.test(f))
     .sort();
   if (backups.length) {
     const last = backups[backups.length - 1];
     try {
-      const lastContent = fs.readFileSync(path.join(dir, last), 'utf-8');
+      const lastContent = fs.readFileSync(path.join(backupsDir, last), 'utf-8');
       if (lastContent === currentContent) return null;
     } catch (e) {
       // ignore
     }
   }
 
-  const ts = new Date()
-    .toISOString()
-    .replace(/[-:]/g, '')
-    .replace('T', '_')
-    .split('.')[0];
-  const backupName = `${name}_backup_${ts}${ext}`;
-  const backupPath = path.join(dir, backupName);
+  const ts = new Date().toISOString().split('.')[0].replace(/:/g, '-');
+  const backupName = `${base}.bak.${ts}.md`;
+  const backupPath = path.join(backupsDir, backupName);
   fs.copyFileSync(filePath, backupPath);
 
-  console.log(`🔐 Backup created: ${path.relative(process.cwd(), backupPath)}`);
-  try {
-    const { execSync } = require('child_process');
-    execSync(`git ls-files --error-unmatch ${filePath}`, { stdio: 'ignore' });
-    console.log(`[createBackup] git-tracked: ${filePath}`);
-  } catch (_) {
-    // not a git repo or file is untracked
+  const limit = 5;
+  if (backups.length >= limit) {
+    const toRemove = backups.slice(0, backups.length - limit + 1);
+    for (const f of toRemove) {
+      try {
+        fs.unlinkSync(path.join(backupsDir, f));
+      } catch (_) {
+        // ignore
+      }
+    }
   }
 
+  console.log(`🔐 Backup created: ${path.relative(process.cwd(), backupPath)}`);
   return backupPath;
 }
 
