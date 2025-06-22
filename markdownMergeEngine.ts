@@ -8,6 +8,7 @@
  * @property {number} [level]  // heading level or list nesting level
  * @property {string} text
  * @property {boolean} [checked]
+ * @property {number} [pos]     // position index within parent
  * @property {MarkdownNode[]} [children]
  */
 
@@ -84,7 +85,16 @@ function parseMarkdownStructure(content) {
     }
   }
 
+  assignPositions(root.children);
   return root.children;
+}
+
+function assignPositions(nodes) {
+  for (let i = 0; i < nodes.length; i++) {
+    const node = nodes[i];
+    node.pos = i;
+    if (node.children) assignPositions(node.children);
+  }
 }
 
 function findMatch(list, node) {
@@ -110,22 +120,75 @@ function findMatch(list, node) {
  * @param {MarkdownNode[]} update
  * @returns {MarkdownNode[]}
  */
-function mergeMarkdownTrees(base, update) {
-  const result = base.slice();
+function mergeMarkdownTrees(base, update, opts = {}) {
+  const { replace = false, dedupe = false } = opts;
+  const result = base.map(cloneNode);
 
   for (const node of update) {
-    const match = findMatch(result, node);
+    let match = findMatch(result, node);
+    if (!match && typeof node.pos === 'number' && result[node.pos] && result[node.pos].type === node.type) {
+      match = result[node.pos];
+    }
+
     if (match) {
-      if (node.type === 'item') {
-        match.checked = match.checked || node.checked;
-      }
-      if (node.children && node.children.length) {
-        match.children = mergeMarkdownTrees(match.children || [], node.children);
+      const idx = result.indexOf(match);
+      if (replace) {
+        result[idx] = cloneNode(node);
+      } else {
+        if (node.text && match.text !== node.text) match.text = node.text;
+        if (node.type === 'item') {
+          match.checked = match.checked || node.checked;
+        }
+        if (node.children && node.children.length) {
+          match.children = mergeMarkdownTrees(match.children || [], node.children, opts);
+        }
       }
     } else {
-      result.push(node);
+      if (typeof node.pos === 'number' && node.pos <= result.length) {
+        result.splice(node.pos, 0, cloneNode(node));
+      } else {
+        result.push(cloneNode(node));
+      }
     }
   }
+
+  assignPositions(result);
+  return dedupe ? dedupeTree(result) : result;
+}
+
+function cloneNode(node) {
+  const copy = { ...node };
+  if (node.children) copy.children = node.children.map(cloneNode);
+  return copy;
+}
+
+function dedupeTree(nodes) {
+  const seenHeadings = new Map();
+  const seenItems = new Map();
+  const result = [];
+  for (const node of nodes) {
+    if (node.type === 'heading') {
+      const key = `${node.level}:${node.text}`;
+      if (seenHeadings.has(key)) {
+        const existing = seenHeadings.get(key);
+        existing.children = mergeMarkdownTrees(existing.children || [], node.children || [], { replace: true });
+        continue;
+      }
+      seenHeadings.set(key, node);
+    }
+    if (node.type === 'item') {
+      const key = node.text.toLowerCase();
+      if (seenItems.has(key)) {
+        const existing = seenItems.get(key);
+        if (node.checked) existing.checked = true;
+        continue;
+      }
+      seenItems.set(key, node);
+    }
+    if (node.children) node.children = dedupeTree(node.children);
+    result.push(node);
+  }
+  assignPositions(result);
   return result;
 }
 
