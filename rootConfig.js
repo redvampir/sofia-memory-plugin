@@ -1,32 +1,15 @@
-const fs = require('fs');
-const path = require('path');
-
-const configFile = path.join(__dirname, 'config.json');
-let cached = undefined;
+const config = require('./config');
 
 function loadConfig() {
-  if (cached !== undefined) return cached;
-  if (fs.existsSync(configFile)) {
-    try {
-      const raw = fs.readFileSync(configFile, 'utf-8');
-      cached = JSON.parse(raw);
-    } catch {
-      cached = null;
-    }
-  } else {
-    cached = null;
-  }
-  return cached;
+  return config.loadConfig();
 }
 
 function getPluginRepo() {
-  const cfg = loadConfig();
-  return cfg && cfg.pluginRepo ? cfg.pluginRepo : null;
+  return config.getPluginRepo();
 }
 
 function getStudentRepo() {
-  const cfg = loadConfig();
-  return cfg && cfg.studentRepo ? cfg.studentRepo : null;
+  return config.getStudentRepo();
 }
 
 module.exports = {

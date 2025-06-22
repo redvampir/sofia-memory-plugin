@@ -1,14 +1,18 @@
 const fs = require('fs');
 const path = require('path');
+const rootConfig = require('./config');
 
 const cacheDir = path.join(__dirname, '.cache');
 const configFile = path.join(cacheDir, 'instructionsRepo.json');
 
+const initialPlugin = rootConfig.getPluginRepo();
+const initialStudent = rootConfig.getStudentRepo();
+
 let config = {
-  pluginRepo: 'sofia-memory-plugin',
-  pluginToken: null,
-  studentRepo: null,
-  studentToken: null,
+  pluginRepo: initialPlugin.repo || 'sofia-memory-plugin',
+  pluginToken: initialPlugin.token || null,
+  studentRepo: initialStudent.repo || null,
+  studentToken: initialStudent.token || null,
   active: 'plugin'
 };
 
