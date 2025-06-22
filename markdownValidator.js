@@ -12,28 +12,47 @@ function checkFileExists(filePath) {
 }
 
 function validateMarkdownSyntax(content, filePath) {
-  const lines = Array.isArray(content) ? content : content.split(/\r?\n/);
+  const lines = Array.isArray(content) ? content : String(content).split(/\r?\n/);
   if (lines.length === 1 && lines[0].trim() === '') {
     console.warn('⚠️ Warning: File exists but is empty. No content to validate.');
-    return true;
+    return { valid: true };
   }
 
-  let valid = true;
-  for (const line of lines) {
+  let codeFence = 0;
+  let prevIndent = 0;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
     const t = line.trim();
+
+    if (/^```/.test(t)) {
+      codeFence++;
+    }
+
     if (/^#+/.test(t) && !/^#{1,6}\s+\S/.test(t)) {
-      valid = false;
-      break;
+      return { valid: false, line: i + 1, message: 'Invalid header format' };
     }
+
     if (/^[-*]\s*\[/.test(t) && !/^[-*]\s+\[[ xX]\]\s+.+/.test(t)) {
-      valid = false;
-      break;
+      return { valid: false, line: i + 1, message: 'Malformed checklist item' };
+    }
+
+    if (/^\s*[-*]/.test(line)) {
+      const indent = line.match(/^(\s*)[-*]/)[1].length;
+      if (indent % 2 !== 0 || Math.abs(indent - prevIndent) > 2) {
+        return { valid: false, line: i + 1, message: 'Inconsistent list indentation' };
+      }
+      prevIndent = indent;
+    } else if (t !== '') {
+      prevIndent = 0;
     }
   }
-  if (!valid) {
-    console.warn(`\u26a0\ufe0f Warning: Markdown syntax may be invalid in '${filePath}'`);
+
+  if (codeFence % 2 !== 0) {
+    return { valid: false, line: lines.length, message: 'Unclosed code block' };
   }
-  return valid;
+
+  return { valid: true };
 }
 
 function findHeadingIndex(lines, heading) {
