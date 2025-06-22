@@ -4,6 +4,7 @@ const github = require('./githubClient');
 const tokenStore = require('./tokenStore');
 const memoryConfig = require('./memoryConfig');
 const indexManager = require('./indexManager');
+const rootConfig = require('./rootConfig');
 const {
   parseMarkdownStructure,
   mergeMarkdownTrees,
@@ -14,6 +15,27 @@ const DEBUG = process.env.DEBUG === 'true';
 
 function logDebug(...args) {
   if (DEBUG) console.log(...args);
+}
+
+function getRepoInfo(relPath, userId, repoOverride, tokenOverride) {
+  const normalized = normalizeMemoryPath(relPath);
+  const cfg = rootConfig.loadConfig();
+  let repo = repoOverride || null;
+  let token = tokenOverride || null;
+
+  if (cfg) {
+    const usePlugin = normalized.startsWith('memory/instructions/');
+    const info = usePlugin ? cfg.pluginRepo || {} : cfg.studentRepo || {};
+    if (!repo) repo = info.repo || null;
+    if (!token) token = info.token || null;
+    if (DEBUG)
+      console.log(`[repoSelect] ${usePlugin ? 'plugin' : 'student'} -> ${repo}`);
+  }
+
+  if (!repo) repo = memoryConfig.getRepoUrl(userId);
+  if (!token) token = tokenStore.getToken(userId);
+
+  return { repo, token };
 }
 
 function getUserId(req) {
@@ -380,14 +402,16 @@ function buildPlanFile(parsed, done, upcoming) {
   return lines.join('\n');
 }
 
-async function updatePlan({ token, repo, updateFn }) {
+async function updatePlan({ token, repo, updateFn, userId } = {}) {
   const relPath = 'memory/plan.md';
   const absPath = path.join(__dirname, relPath);
 
+  const { repo: finalRepo, token: finalToken } = getRepoInfo(relPath, userId, repo, token);
+
   let md = '';
-  if (repo && token) {
+  if (finalRepo && finalToken) {
     try {
-      md = await github.readFile(token, repo, relPath);
+      md = await github.readFile(finalToken, finalRepo, relPath);
     } catch (e) {
       logDebug('[updatePlan] no remote plan', e.message);
     }
@@ -406,8 +430,8 @@ async function updatePlan({ token, repo, updateFn }) {
   const newMd = buildPlanFile(parsed, updated.done || [], updated.upcoming || []);
 
   writeFileSafe(absPath, newMd);
-  if (repo && token) {
-    await githubWriteFileSafe(token, repo, relPath, newMd, 'update plan.md');
+  if (finalRepo && finalToken) {
+    await githubWriteFileSafe(finalToken, finalRepo, relPath, newMd, 'update plan.md');
   }
 
   console.log('[updatePlan] ✅ plan.md updated');
@@ -778,7 +802,7 @@ async function saveMemory(req, res) {
   console.log('[saveMemory] called');
   const { repo, filename, content, userId } = req.body;
   const token = extractToken(req);
-  const effectiveRepo = repo || memoryConfig.getRepoUrl(userId);
+  const { repo: effectiveRepo, token: effectiveToken } = getRepoInfo(filename, userId, repo, token);
   console.log('[saveMemory]', new Date().toISOString(), effectiveRepo, filename);
 
   if (!filename || content === undefined) {
@@ -796,15 +820,15 @@ async function saveMemory(req, res) {
   const isMarkdown = normalizedFilename.endsWith('.md');
   if (isMarkdown) {
     try {
-      const indexEntries = await fetchIndex(effectiveRepo, token);
+      const indexEntries = await fetchIndex(effectiveRepo, effectiveToken);
       const entry = indexEntries.find(
         (e) => e.path === normalizedFilename && e.type === 'plan'
       );
       if (entry) {
         let existing = '';
-        if (effectiveRepo && token) {
+        if (effectiveRepo && effectiveToken) {
           try {
-            existing = await github.readFile(token, effectiveRepo, normalizedFilename);
+            existing = await github.readFile(effectiveToken, effectiveRepo, normalizedFilename);
           } catch (e) {
             logDebug('[saveMemory] no remote file', e.message);
           }
@@ -827,7 +851,7 @@ async function saveMemory(req, res) {
   if (filename.trim().endsWith('.json')) {
     try {
       const data = JSON.parse(content);
-      await updateOrInsertJsonEntry(filePath, data, null, effectiveRepo, token);
+      await updateOrInsertJsonEntry(filePath, data, null, effectiveRepo, effectiveToken);
     } catch (e) {
       console.error('[saveMemory] invalid JSON', e.message);
       return res.status(400).json({ status: 'error', message: 'Invalid JSON' });
@@ -842,7 +866,7 @@ async function saveMemory(req, res) {
     }
 
     if (effectiveRepo) {
-      if (!token) {
+      if (!effectiveToken) {
         return res.status(401).json({
           status: 'error',
           message: 'Missing GitHub token'
@@ -850,7 +874,7 @@ async function saveMemory(req, res) {
       } else {
         try {
           await githubWriteFileSafe(
-            token,
+            effectiveToken,
             effectiveRepo,
             normalizedFilename,
             finalContent,
@@ -875,7 +899,7 @@ async function saveMemory(req, res) {
 
   const meta = extractMeta(filePath);
   try {
-    await updateIndexEntry(effectiveRepo, token, {
+    await updateIndexEntry(effectiveRepo, effectiveToken, {
       path: normalizedFilename,
       type: categorizeMemoryFile(path.basename(normalizedFilename)),
       title: meta.title,
@@ -890,7 +914,7 @@ async function saveMemory(req, res) {
         type: inferTypeFromPath(normalizedFilename),
         lastModified: new Date().toISOString()
       });
-      await indexManager.saveIndex(token, effectiveRepo, userId);
+      await indexManager.saveIndex(effectiveToken, effectiveRepo, userId);
       console.log(`[index] Updated for ${normalizedFilename}`);
     }
   } catch (e) {
@@ -903,17 +927,17 @@ async function saveMemory(req, res) {
 async function readMemory(req, res) {
   const { repo, filename, userId } = req.body;
   const token = extractToken(req);
-  const effectiveRepo = repo || memoryConfig.getRepoUrl(userId);
+  const { repo: effectiveRepo, token: effectiveToken } = getRepoInfo(filename, userId, repo, token);
   console.log('[readMemory]', new Date().toISOString(), effectiveRepo, filename);
 
   const normalizedFilename = normalizeMemoryPath(filename);
   const filePath = path.join(__dirname, normalizedFilename);
   if (effectiveRepo) {
-    if (!token) {
+    if (!effectiveToken) {
       return res.status(401).json({ status: 'error', message: 'Missing GitHub token' });
     }
     try {
-      const content = await github.readFile(token, effectiveRepo, normalizedFilename);
+      const content = await github.readFile(effectiveToken, effectiveRepo, normalizedFilename);
       return res.json({ status: 'success', action: 'readMemory', content });
     } catch (e) {
       console.error('GitHub read error', e.message);
@@ -943,12 +967,13 @@ async function saveLessonPlan(req, res) {
   const { title, summary, projectFiles, plannedLessons, repo, userId } = req.body;
   const token = extractToken(req);
   console.log('[saveLessonPlan]', new Date().toISOString(), title);
-  const effectiveRepo = repo || memoryConfig.getRepoUrl(userId);
+  const { repo: effectiveRepo, token: effectiveToken } = getRepoInfo('memory/plan.md', userId, repo, token);
   const done = title ? [title] : [];
   const upcoming = Array.isArray(plannedLessons) ? plannedLessons : [];
   const plan = await updatePlan({
-    token,
+    token: effectiveToken,
     repo: effectiveRepo,
+    userId,
     updateFn: (plan) => {
       plan.done = [...new Set([...plan.done, ...done])];
       plan.upcoming = plan.upcoming.filter(l => !done.includes(l));
@@ -1016,18 +1041,18 @@ async function saveContext(req, res) {
   const data = content || '';
   writeFileSafe(contextFilename, data);
 
-  const effectiveRepo = repo || memoryConfig.getRepoUrl(userId);
+  const { repo: effectiveRepo, token: effectiveToken } = getRepoInfo('memory/context.md', userId, repo, token);
 
-  if (effectiveRepo && token) {
+  if (effectiveRepo && effectiveToken) {
     try {
-      await githubWriteFileSafe(token, effectiveRepo, 'memory/context.md', data, 'update context');
+      await githubWriteFileSafe(effectiveToken, effectiveRepo, 'memory/context.md', data, 'update context');
     } catch (e) {
       console.error('GitHub write context error', e.message);
     }
   }
 
   try {
-    await rebuildIndex(effectiveRepo, token, userId);
+    await rebuildIndex(effectiveRepo, effectiveToken, userId);
   } catch (e) {
     console.error('[saveContext] rebuild error', e.message);
   }
@@ -1042,11 +1067,11 @@ async function readContext(req, res) {
 
   ensureContext();
 
-  const effectiveRepo = repo || memoryConfig.getRepoUrl(userId);
+  const { repo: effectiveRepo, token: effectiveToken } = getRepoInfo('memory/context.md', userId, repo, token);
 
-  if (effectiveRepo && token) {
+  if (effectiveRepo && effectiveToken) {
     try {
-      const content = await github.readFile(token, effectiveRepo, 'memory/context.md');
+      const content = await github.readFile(effectiveToken, effectiveRepo, 'memory/context.md');
       return res.json({ status: 'success', content });
     } catch (e) {
       console.error('GitHub read context error', e.message);
@@ -1087,9 +1112,9 @@ async function listMemoryFiles(repo, token, dirPath) {
 async function updateIndexManual(req, res) {
   const { entries, repo, userId } = req.body;
   const token = extractToken(req);
-  const effectiveRepo = repo || memoryConfig.getRepoUrl(userId);
+  const { repo: effectiveRepo, token: effectiveToken } = getRepoInfo('memory/index.json', userId, repo, token);
   console.log('[updateIndexManual]', new Date().toISOString());
-  const result = await updateIndexFileManually(entries, effectiveRepo, token, userId);
+  const result = await updateIndexFileManually(entries, effectiveRepo, effectiveToken, userId);
   res.json({ status: 'success', entries: result });
 }
 
@@ -1120,11 +1145,12 @@ async function readMemoryGET(req, res) {
 
 async function saveMemoryWithIndex(req, res) {
   const { userId, repo, token, filename, content } = req.body;
+  const { repo: effectiveRepo, token: effectiveToken } = getRepoInfo(filename, userId, repo, token || extractToken(req));
   try {
     const pathSaved = await indexManager.saveMemoryWithIndex(
       userId,
-      repo,
-      token || extractToken(req),
+      effectiveRepo,
+      effectiveToken,
       filename,
       content
     );
