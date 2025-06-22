@@ -505,9 +505,13 @@ function extractToken(req) {
   return null;
 }
 
+const { detectMarkdownCategory } = require('./markdownCategory');
+
 function categorizeMemoryFile(name) {
   const lower = name.toLowerCase();
   const ext = path.extname(lower);
+
+  if (ext === '.md') return detectMarkdownCategory(name);
 
   if (lower === 'plan.md' || lower.endsWith('plan.md')) return 'plan';
   if (lower.includes('lesson')) return 'lesson';
@@ -515,11 +519,13 @@ function categorizeMemoryFile(name) {
   if (lower.includes('context')) return 'context';
   if (lower.includes('practice')) return 'practice';
 
-  if (['.md', '.txt', '.json'].includes(ext)) return 'lesson';
-  if (['.js', '.ts', '.jsx', '.tsx', '.py', '.java', '.html', '.css', '.c', '.cpp'].includes(ext))
+  if (['.txt', '.json'].includes(ext)) return 'lesson';
+  if (
+    ['.js', '.ts', '.jsx', '.tsx', '.py', '.java', '.html', '.css', '.c', '.cpp'].includes(ext)
+  )
     return 'project';
   if (['.png', '.jpg', '.jpeg', '.svg', '.gif'].includes(ext)) return 'project';
-  
+
   return 'memory';
 }
 

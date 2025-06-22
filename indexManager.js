@@ -77,7 +77,10 @@ function generateTitleFromPath(p) {
     .replace(/\b\w/g, l => l.toUpperCase());
 }
 
+const { detectMarkdownCategory } = require('./markdownCategory');
+
 function inferTypeFromPath(p) {
+  if (p.endsWith('.md')) return detectMarkdownCategory(p);
   if (p.includes('plan')) return 'plan';
   if (p.includes('profile')) return 'profile';
   if (p.includes('lesson')) return 'lesson';
