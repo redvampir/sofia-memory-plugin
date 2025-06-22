@@ -247,6 +247,56 @@ function translateContent(filePath, map) {
   return writeTree(filePath, tree);
 }
 
+function translateChecklistItems(filePath, map) {
+  const tree = loadTree(filePath);
+  const skipped = /\w+\.[A-Za-z0-9]+|\//;
+
+  const untranslated = new Set();
+
+  const hasItem = (nodes, text) => {
+    for (const node of nodes) {
+      if (node.type === 'item' && node.text === text) return true;
+      if (node.children && hasItem(node.children, text)) return true;
+    }
+    return false;
+  };
+
+  const walk = nodes => {
+    for (let i = 0; i < nodes.length; i++) {
+      const n = nodes[i];
+      if (n.type === 'item' && n.text && !skipped.test(n.text)) {
+        if (map[n.text]) {
+          const target = map[n.text];
+          if (hasItem(tree, target)) {
+            nodes.splice(i, 1);
+            i--;
+            continue;
+          }
+          n.text = target;
+        } else {
+          untranslated.add(n.text);
+        }
+      }
+      if (n.children) walk(n.children);
+    }
+  };
+
+  walk(tree);
+
+  if (untranslated.size) {
+    const h = getOrCreateHeading(tree, 'Untranslated');
+    h.children = h.children || [];
+    untranslated.forEach(text => {
+      if (!h.children.some(c => c.type === 'item' && c.text === text)) {
+        h.children.push({ type: 'item', level: 0, text, checked: false });
+      }
+    });
+  }
+
+  const cleaned = dedupeTree(tree);
+  return writeTree(filePath, cleaned);
+}
+
 function dedupeTree(nodes) {
   const seenHeadings = new Map();
   const result = [];
@@ -302,5 +352,6 @@ module.exports = {
   addSectionPath,
   removeSection,
   translateContent,
+  translateChecklistItems,
   cleanDuplicates
 };
