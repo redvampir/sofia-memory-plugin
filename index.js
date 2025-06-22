@@ -2,34 +2,14 @@ const express = require('express');
 const path = require('path');
 const fs = require('fs');
 const bodyParser = require('body-parser');
-const memory = require('./memory');
-const { listMemoryFiles } = memory;
+const memoryRoutes = require("./routes/memoryRoutes");
+const { listMemoryFiles } = require("./core/memoryOperations");
 const versioning = require('./versioning');
 
 const app = express();
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(bodyParser.json());
-
-app.post('/saveMemory', memory.saveMemory);
-app.post('/readMemory', memory.readMemory);
-app.get('/memory', memory.readMemoryGET);
-app.post('/setMemoryRepo', memory.setMemoryRepo);
-app.post('/saveLessonPlan', memory.saveLessonPlan);
-app.post('/saveMemoryWithIndex', memory.saveMemoryWithIndex);
-
-app.post('/getToken', memory.getToken);
-app.post('/saveNote', memory.saveNote);
-app.post('/getContextSnapshot', memory.getContextSnapshot);
-app.post('/createUserProfile', memory.createUserProfile);
-app.post('/setToken', memory.setToken);
-app.get('/token/status', memory.tokenStatus);
-app.get('/tokenStatus', memory.tokenStatus); // alias for /token/status
-app.get('/readContext', memory.readContext);
-app.post('/saveContext', memory.saveContext);
-app.post('/chat/setup', memory.chatSetupCommand);
-app.post('/updateIndex', memory.updateIndexManual);
-app.get('/plan', memory.readPlan);
-app.get('/profile', memory.readProfile);
+app.use(memoryRoutes);
 
 app.post('/list', async (req, res) => {
   try {
@@ -64,9 +44,6 @@ app.get('/debug/index', (req, res) => {
 });
 
 // Дополнительные alias-маршруты для совместимости
-app.post('/save', memory.saveMemory);     // alias for /saveMemory
-app.post('/read', memory.readMemory);     // alias for /readMemory
-app.post('/set', memory.setMemoryRepo);   // alias for /setMemoryRepo
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
