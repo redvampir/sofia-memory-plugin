@@ -212,10 +212,100 @@ function insertAtAnchor({
   return true;
 }
 
+function deduplicateMarkdown({
+  filePath,
+  heading,
+  startMarker,
+  endMarker,
+  mode = 'keep-first'
+}) {
+  validator.checkFileExists(filePath);
+  const raw = fs.readFileSync(filePath, 'utf-8');
+  const lines = raw.split(/\r?\n/);
+  validator.validateMarkdownSyntax(lines, filePath);
+
+  let start = 0;
+  let end = lines.length;
+
+  if (heading) {
+    const idx = lines.findIndex(l => {
+      const m = l.match(/^(#{1,6})\s+(.*)$/);
+      return m && m[2].trim() === heading;
+    });
+    if (idx >= 0) {
+      start = idx + 1;
+      const level = (lines[idx].match(/^(#{1,6})/)[1] || '#').length;
+      for (let i = start; i < lines.length; i++) {
+        const m = lines[i].match(/^(#{1,6})\s+/);
+        if (m && m[1].length <= level) {
+          end = i;
+          break;
+        }
+      }
+    }
+  }
+
+  if (startMarker) {
+    const i = lines.findIndex(l => l.includes(startMarker));
+    if (i >= 0) start = Math.max(start, i + 1);
+  }
+  if (endMarker) {
+    const i = lines.findIndex((l, idx) => idx > start && l.includes(endMarker));
+    if (i >= 0) end = Math.min(end, i);
+  }
+
+  const map = new Map();
+  const toRemove = [];
+
+  const normalize = txt =>
+    txt
+      .toLowerCase()
+      .replace(/[.,!?;:]+/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+  for (let i = start; i < end; i++) {
+    const orig = lines[i];
+    const t = orig.trim();
+    if (!t) continue;
+    const headingMatch = t.match(/^#{1,6}\s+(.*)$/);
+    let text = t;
+    if (headingMatch) text = headingMatch[1];
+    else if (/^[-*+]\s+\[[ xX]\]\s+/.test(t)) {
+      text = t.replace(/^[-*+]\s+\[[ xX]\]\s+/, '');
+    } else if (/^[-*+]\s+/.test(t)) {
+      text = t.replace(/^[-*+]\s+/, '');
+    } else if (/^\d+\.\s+/.test(t)) {
+      text = t.replace(/^\d+\.\s+/, '');
+    }
+    const key = normalize(text);
+    if (map.has(key)) {
+      const prevIdx = map.get(key);
+      if (mode === 'keep-last') {
+        toRemove.push(prevIdx);
+        map.set(key, i);
+      } else {
+        toRemove.push(i);
+      }
+    } else {
+      map.set(key, i);
+    }
+  }
+
+  if (toRemove.length) {
+    toRemove.sort((a, b) => b - a).forEach(idx => lines.splice(idx, 1));
+    createBackup(filePath);
+    fs.writeFileSync(filePath, lines.join('\n'), 'utf-8');
+    return true;
+  }
+  return false;
+}
+
 module.exports = {
   createBackup,
   markChecklistItem,
   insertSection,
   updateMarkdownFile,
-  insertAtAnchor
+  insertAtAnchor,
+  deduplicateMarkdown
 };
