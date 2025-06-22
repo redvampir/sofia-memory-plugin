@@ -185,7 +185,7 @@ async function updatePlan({ token, repo, updateFn, userId } = {}) {
 
   writeFileSafe(absPath, newMd);
   if (finalRepo && finalToken) {
-    await githubWriteFileSafe(finalToken, finalRepo, relPath, newMd, 'update plan.md');
+    await github.writeFileSafe(finalToken, finalRepo, relPath, newMd, 'update plan.md');
   }
 
   console.log('[updatePlan] ✅ plan.md updated');
@@ -221,7 +221,13 @@ async function savePlan(repo, token) {
   writeFileSafe(planFilename, md);
   if (repo && token) {
     try {
-      await githubWriteFileSafe(token, repo, path.relative(path.join(__dirname, '..'), planFilename), md, 'update plan');
+      await github.writeFileSafe(
+        token,
+        repo,
+        path.relative(path.join(__dirname, '..'), planFilename),
+        md,
+        'update plan'
+      );
     } catch (e) {
       console.error('GitHub write plan error', e.message);
     }
@@ -254,19 +260,6 @@ function writeFileSafe(filePath, data, force = false) {
   }
 }
 
-async function githubWriteFileSafe(token, repo, relPath, data, message, attempts = 2) {
-  for (let i = 1; i <= attempts; i++) {
-    try {
-      ensureDir(path.join(path.dirname(__dirname), path.dirname(relPath)));
-      await github.writeFile(token, repo, relPath, data, message);
-      logDebug('[githubWriteFileSafe] pushed', relPath);
-      return;
-    } catch (e) {
-      console.error(`[githubWriteFileSafe] attempt ${i} failed for ${relPath}`, e.message);
-      if (i === attempts) throw e;
-    }
-  }
-}
 
 async function updateOrInsertJsonEntry(filePath, newData, matchKey, repo, token) {
   ensureDir(filePath);
@@ -296,7 +289,7 @@ async function updateOrInsertJsonEntry(filePath, newData, matchKey, repo, token)
 
   if (repo && token) {
     try {
-      await githubWriteFileSafe(
+      await github.writeFileSafe(
         token,
         repo,
         relPath,
@@ -538,7 +531,7 @@ async function persistIndex(data, repo, token, userId) {
 
   if (finalRepo && finalToken) {
     try {
-      await githubWriteFileSafe(
+      await github.writeFileSafe(
         finalToken,
         finalRepo,
         path.relative(path.join(__dirname, '..'), indexFilename),
@@ -697,7 +690,6 @@ module.exports = {
   ensureContext,
   listMemoryFiles,
   writeFileSafe,
-  githubWriteFileSafe,
   updateOrInsertJsonEntry,
   updateIndexFile,
   updateIndexFileManually,

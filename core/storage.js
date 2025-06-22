@@ -4,7 +4,6 @@ const github = require('../utils/githubClient');
 const tokenStore = require('../utils/tokenStore');
 const memoryConfig = require('../utils/memoryConfig');
 const indexManager = require('./indexManager');
-const { githubWriteFileSafe } = require('./memoryOperations');
 const {
   ensureDir,
   normalizeMemoryPath,
@@ -40,7 +39,13 @@ async function saveMemory(userId, repo, token, filename, content) {
 
   if (finalRepo && finalToken) {
     try {
-      await githubWriteFileSafe(finalToken, finalRepo, normalized, content, `update ${filename}`);
+      await github.writeFileSafe(
+        finalToken,
+        finalRepo,
+        normalized,
+        content,
+        `update ${filename}`
+      );
     } catch (e) {
       console.error(`[storage.saveMemory] GitHub write failed for ${normalized}`, e.message);
     }

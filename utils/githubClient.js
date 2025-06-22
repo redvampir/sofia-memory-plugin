@@ -58,3 +58,22 @@ exports.writeFile = async function(token, repo, filePath, content, message) {
   await axios.put(url, body, { headers: { Authorization: `token ${token}` } });
 };
 
+exports.writeFileSafe = async function(
+  token,
+  repo,
+  filePath,
+  content,
+  message,
+  attempts = 2
+) {
+  for (let i = 1; i <= attempts; i++) {
+    try {
+      await exports.writeFile(token, repo, filePath, content, message);
+      return;
+    } catch (e) {
+      logError(`writeFile attempt ${i}`, e);
+      if (i === attempts) throw e;
+    }
+  }
+};
+

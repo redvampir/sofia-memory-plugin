@@ -29,19 +29,6 @@ function readLocalIndex() {
 
 
 
-async function githubWriteFileSafe(token, repo, relPath, data, message, attempts = 2) {
-  for (let i = 1; i <= attempts; i++) {
-    try {
-      ensureDir(path.join(__dirname, '..', path.dirname(relPath)));
-      await github.writeFile(token, repo, relPath, data, message);
-      if (process.env.DEBUG) console.log(`[indexManager] pushed ${relPath}`);
-      return;
-    } catch (e) {
-      logError(`indexManager write attempt ${i}`, e);
-      if (i === attempts) throw e;
-    }
-  }
-}
 
 async function mergeIndex(remoteData, localData) {
   const map = new Map();
@@ -137,7 +124,7 @@ async function saveIndex(token, repo, userId) {
 
   if (finalRepo && finalToken) {
     try {
-      await githubWriteFileSafe(
+      await github.writeFileSafe(
         finalToken,
         finalRepo,
         'memory/index.json',
