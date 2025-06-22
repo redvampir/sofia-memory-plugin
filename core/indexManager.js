@@ -152,22 +152,8 @@ async function saveIndex(token, repo, userId) {
 }
 
 async function saveMemoryWithIndex(userId, repo, token, filename, content) {
-  const finalRepo = repo || memoryConfig.getRepoUrl(userId);
-  const finalToken = token || tokenStore.getToken(userId);
-  if (!finalRepo || !finalToken) {
-    throw new Error('Missing repo or token');
-  }
-  const normalized = normalizeMemoryPath(filename);
-  await githubWriteFileSafe(finalToken, finalRepo, normalized, content, `update ${filename}`);
-  await addOrUpdateEntry({
-    path: normalized,
-    title: generateTitleFromPath(normalized),
-    type: inferTypeFromPath(normalized),
-    lastModified: new Date().toISOString()
-  });
-  await saveIndex(finalToken, finalRepo, userId);
-  console.log(`[Memory] Saved and indexed: ${normalized}`);
-  return normalized;
+  const storage = require('./storage');
+  return storage.saveMemoryWithIndex(userId, repo, token, filename, content);
 }
 
 module.exports = {
