@@ -1,0 +1,10 @@
+{
+  "studentRepo": {
+    "repo": "https://github.com/STUDENT/REPO.git",
+    "token": "ghp_STUDENT_TOKEN"
+  },
+  "pluginRepo": {
+    "repo": "https://github.com/redvampir/sofia-memory-plugin.git",
+    "token": "ghp_PLUGIN_TOKEN"
+  }
+}
