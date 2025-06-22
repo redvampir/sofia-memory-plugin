@@ -1,8 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const github = require('./utils/githubClient');
-const tokenStore = require('./utils/tokenStore');
-const memoryConfig = require('./utils/memoryConfig');
+const { readMemory } = require('./core/storage');
 
 /**
  * Helper to read a file either from GitHub or local disk.
@@ -15,23 +13,7 @@ const memoryConfig = require('./utils/memoryConfig');
  */
 async function readFile(filePath, opts = {}) {
   const { userId, repo, token } = opts;
-  const normalized = filePath.replace(/^\/+/, '');
-  const finalRepo = repo || memoryConfig.getRepoUrl(userId);
-  const finalToken = token || tokenStore.getToken(userId);
-
-  if (finalRepo && finalToken) {
-    try {
-      return await github.readFile(finalToken, finalRepo, normalized);
-    } catch (e) {
-      console.error(`[readFile] GitHub fetch failed for ${normalized}`, e.message);
-    }
-  }
-
-  const abs = path.join(__dirname, normalized);
-  if (fs.existsSync(abs)) {
-    return fs.readFileSync(abs, 'utf-8');
-  }
-  throw new Error(`File not found: ${normalized}`);
+  return readMemory(userId, repo, token, filePath.replace(/^\/+/, ''));
 }
 
 /**
