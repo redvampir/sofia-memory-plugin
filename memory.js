@@ -9,6 +9,13 @@ const mdEditor = require('./markdownEditor');
 const fileEditor = require('./markdownFileEditor');
 const validator = require('./markdownValidator');
 const {
+  ensureDir,
+  deepMerge,
+  normalizeMemoryPath,
+  generateTitleFromPath,
+  inferTypeFromPath
+} = require('./utils/fileUtils');
+const {
   parseMarkdownStructure,
   mergeMarkdownTrees,
   serializeMarkdownTree
@@ -45,11 +52,6 @@ function getUserId(req) {
   return (req.body && req.body.userId) || null;
 }
 
-function ensureDir(filePath) {
-  const dir = path.dirname(filePath);
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-}
-
 function writeFileSafe(filePath, data, force = false) {
   try {
     ensureDir(filePath);
@@ -75,37 +77,6 @@ function writeFileSafe(filePath, data, force = false) {
   }
 }
 
-function normalizeMemoryPath(p) {
-  if (!p) return 'memory/';
-  // support Windows-style separators and remove leading prefixes
-  let rel = p.replace(/\\+/g, '/');
-  rel = path.posix
-    .normalize(rel)
-    .replace(/^(\.\/)+/, '')
-    .replace(/^\/+/, '');
-  while (rel.startsWith('memory/')) {
-    rel = rel.slice('memory/'.length);
-  }
-  return path.posix.join('memory', rel);
-}
-
-function generateTitleFromPath(p) {
-  return p
-    .split('/')
-    .pop()
-    .replace(/\..+$/, '')
-    .replace(/[-_]/g, ' ')
-    .replace(/\b\w/g, l => l.toUpperCase());
-}
-
-function inferTypeFromPath(p) {
-  if (p.includes('plan')) return 'plan';
-  if (p.includes('profile')) return 'profile';
-  if (p.includes('lesson')) return 'lesson';
-  if (p.includes('note')) return 'note';
-  return 'file';
-}
-
 async function githubWriteFileSafe(token, repo, relPath, data, message, attempts = 2) {
   for (let i = 1; i <= attempts; i++) {
     try {
@@ -118,41 +89,6 @@ async function githubWriteFileSafe(token, repo, relPath, data, message, attempts
       if (i === attempts) throw e;
     }
   }
-}
-
-function isObject(val) {
-  return val && typeof val === 'object' && !Array.isArray(val);
-}
-
-function deepMerge(target, source, matchKey) {
-  if (Array.isArray(target) && Array.isArray(source)) {
-    const result = [...target];
-    const srcArr = source;
-    srcArr.forEach(item => {
-      if (matchKey && isObject(item)) {
-        const idx = result.findIndex(e => isObject(e) && e[matchKey] === item[matchKey]);
-        if (idx >= 0) {
-          result[idx] = deepMerge(result[idx], item, matchKey);
-        } else {
-          result.push(item);
-        }
-      } else if (!result.includes(item)) {
-        result.push(item);
-      }
-    });
-    return result;
-  } else if (isObject(target) && isObject(source)) {
-    const out = { ...target };
-    Object.keys(source).forEach(key => {
-      if (key in target) {
-        out[key] = deepMerge(target[key], source[key], matchKey);
-      } else {
-        out[key] = source[key];
-      }
-    });
-    return out;
-  }
-  return source;
 }
 
 async function updateOrInsertJsonEntry(filePath, newData, matchKey, repo, token) {

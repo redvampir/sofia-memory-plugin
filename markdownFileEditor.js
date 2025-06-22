@@ -7,11 +7,7 @@ const {
   serializeMarkdownTree,
   mergeMarkdownTrees
 } = require('./markdownMergeEngine.ts');
-
-function ensureDir(p) {
-  const dir = path.dirname(p);
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-}
+const { ensureDir } = require('./utils/fileUtils');
 
 function createScaffold(filePath) {
   ensureDir(filePath);
