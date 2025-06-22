@@ -51,7 +51,12 @@ async function readFile(filePath, opts = {}) {
             return;
           }
           const type = entry.type || '';
-          if (type && type !== 'lesson' && type !== 'plan') {
+          if (
+            type &&
+            type !== 'lesson' &&
+            type !== 'plan' &&
+            type !== 'profile'
+          ) {
             if (debug) skipped.push(`${entry.path} (type ${type})`);
             return;
           }
