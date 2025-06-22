@@ -133,6 +133,7 @@ async function readMemory(req, res) {
 
   const normalizedFilename = normalizeMemoryPath(filename);
   const filePath = path.join(__dirname, '..', normalizedFilename);
+  const isJson = normalizedFilename.endsWith('.json');
 
   console.log(`[read] repo=${effectiveRepo || 'local'} file=${normalizedFilename}`);
 
@@ -141,6 +142,15 @@ async function readMemory(req, res) {
     try {
       const content = await github.readFile(effectiveToken, effectiveRepo, normalizedFilename);
       console.log(`[read] success remote ${normalizedFilename}`);
+      if (isJson) {
+        try {
+          const json = JSON.parse(content);
+          return res.json({ status: 'success', content, json });
+        } catch (e) {
+          logError('readMemory parse json', e);
+          return res.status(500).json({ status: 'error', message: 'Failed to parse JSON' });
+        }
+      }
       return res.json({ status: 'success', content });
     } catch (e) {
       console.error('[read] error remote', e.message);
@@ -154,6 +164,15 @@ async function readMemory(req, res) {
   }
   const content = fs.readFileSync(filePath, 'utf-8');
   console.log(`[read] success local ${normalizedFilename}`);
+  if (isJson) {
+    try {
+      const json = JSON.parse(content);
+      return res.json({ status: 'success', content, json });
+    } catch (e) {
+      logError('readMemory parse json', e);
+      return res.status(500).json({ status: 'error', message: 'Failed to parse JSON' });
+    }
+  }
   res.json({ status: 'success', content });
 }
 
