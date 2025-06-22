@@ -38,5 +38,18 @@ function read(p){return fs.readFileSync(p,'utf-8');}
   assert.strictEqual(r4, true);
   assert.ok(read(f4).includes('- [x] a'));
 
+  // 5. force write on invalid content
+  const f5 = path.join(tmpDir, 'force.md');
+  fs.writeFileSync(f5, 'Intro\n<!--s-->\nold\n<!--e-->');
+  const r5 = mdEditor.updateMarkdownFile({
+    filePath: f5,
+    startMarker: '<!--s-->',
+    endMarker: '<!--e-->',
+    newContent: '[ ] broken',
+    force: true
+  });
+  assert.strictEqual(r5, true);
+  assert.ok(read(f5).includes('[ ] broken'));
+
   console.log('markdown validation tests passed');
 })();
