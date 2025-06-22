@@ -19,8 +19,9 @@ function loadTree(filePath) {
 function writeTree(filePath, tree) {
   const content = serializeMarkdownTree(tree);
   validator.validateMarkdownSyntax(content, filePath);
-  mdEditor.createBackup(filePath);
+  const backup = mdEditor.createBackup(filePath);
   fs.writeFileSync(filePath, content, 'utf-8');
+  return { updated: true, message: 'file updated', backupPath: backup };
 }
 
 function findHeading(nodes, heading) {
@@ -29,6 +30,17 @@ function findHeading(nodes, heading) {
     if (node.children) {
       const found = findHeading(node.children, heading);
       if (found) return found;
+    }
+  }
+  return null;
+}
+
+function findHeadingPath(nodes, pathArr, level = 0) {
+  if (level >= pathArr.length) return null;
+  for (const node of nodes) {
+    if (node.type === 'heading' && node.text === pathArr[level]) {
+      if (level === pathArr.length - 1) return node;
+      if (node.children) return findHeadingPath(node.children, pathArr, level + 1);
     }
   }
   return null;
@@ -52,7 +64,7 @@ function addTask(filePath, heading, taskText, checked = false) {
       children: [{ type: 'item', level: 0, text: taskText, checked }]
     });
   }
-  writeTree(filePath, tree);
+  return writeTree(filePath, tree);
 }
 
 function removeTask(filePath, heading, taskText) {
@@ -71,7 +83,54 @@ function removeTask(filePath, heading, taskText) {
   }
 
   if (h.children) h.children = remove(h.children);
-  writeTree(filePath, tree);
+  return writeTree(filePath, tree);
+}
+
+function toggleTaskStatus(filePath, heading, taskText, checked = true) {
+  const tree = loadTree(filePath);
+  const h = findHeading(tree, heading);
+  if (!h || !h.children) return { updated: false, message: 'heading not found' };
+
+  let modified = false;
+  const walk = nodes => {
+    for (const n of nodes) {
+      if (n.type === 'item' && n.text === taskText) {
+        if (n.checked !== checked) {
+          n.checked = checked;
+          modified = true;
+        }
+      }
+      if (n.children) walk(n.children);
+    }
+  };
+  walk(h.children);
+
+  if (!modified) return { updated: false, message: 'no changes made' };
+  return writeTree(filePath, tree);
+}
+
+function updateTaskText(filePath, heading, oldText, newText) {
+  const tree = loadTree(filePath);
+  const h = findHeading(tree, heading);
+  if (!h || !h.children)
+    return { updated: false, message: 'heading not found' };
+
+  let modified = false;
+  const walk = nodes => {
+    for (const n of nodes) {
+      if (n.type === 'item' && n.text === oldText) {
+        if (n.text !== newText) {
+          n.text = newText;
+          modified = true;
+        }
+      }
+      if (n.children) walk(n.children);
+    }
+  };
+  walk(h.children);
+
+  if (!modified) return { updated: false, message: 'task not found or unchanged' };
+  return writeTree(filePath, tree);
 }
 
 function addSection(filePath, heading, lines) {
@@ -83,7 +142,34 @@ function addSection(filePath, heading, lines) {
   } else {
     h.children = mergeMarkdownTrees(h.children || [], sectionTree[0].children || []);
   }
-  writeTree(filePath, tree);
+  return writeTree(filePath, tree);
+}
+
+function addSectionPath(filePath, headings, lines) {
+  if (!Array.isArray(headings)) headings = [headings];
+  const tree = loadTree(filePath);
+  let nodes = tree;
+  let level = 1;
+  let h;
+  for (const hText of headings) {
+    h = null;
+    for (const n of nodes) {
+      if (n.type === 'heading' && n.text === hText) {
+        h = n;
+        break;
+      }
+    }
+    if (!h) {
+      h = { type: 'heading', level: level + 1, text: hText, children: [] };
+      nodes.push(h);
+    }
+    nodes = h.children || (h.children = []);
+    level += 1;
+  }
+
+  const sectionTree = parseMarkdownStructure(lines.join('\n'));
+  h.children = mergeMarkdownTrees(h.children || [], sectionTree);
+  return writeTree(filePath, tree);
 }
 
 function removeSection(filePath, heading) {
@@ -94,8 +180,7 @@ function removeSection(filePath, heading) {
     const idx = nodes.findIndex(n => n.type === 'heading' && n.text === heading);
     if (idx >= 0) {
       nodes.splice(idx, 1);
-      writeTree(filePath, tree);
-      return;
+      return writeTree(filePath, tree);
     }
     for (const n of nodes) if (n.children) stack.push({ nodes: n.children });
   }
@@ -112,7 +197,7 @@ function translateContent(filePath, map) {
     }
   };
   walk(tree);
-  writeTree(filePath, tree);
+  return writeTree(filePath, tree);
 }
 
 function dedupeTree(nodes) {
@@ -158,13 +243,16 @@ function dedupeItems(nodes) {
 function cleanDuplicates(filePath) {
   const tree = loadTree(filePath);
   const cleaned = dedupeTree(tree);
-  writeTree(filePath, cleaned);
+  return writeTree(filePath, cleaned);
 }
 
 module.exports = {
   addTask,
   removeTask,
+  toggleTaskStatus,
+  updateTaskText,
   addSection,
+  addSectionPath,
   removeSection,
   translateContent,
   cleanDuplicates

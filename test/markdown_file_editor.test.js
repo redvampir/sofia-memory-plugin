@@ -22,6 +22,16 @@ async function run(){
   editor.addSection(file, 'Section', ['- [ ] Sub']);
   assert.ok(read(file).includes('Section'));
 
+  editor.toggleTaskStatus(file, 'Tasks', 'New Task', true);
+  assert.ok(read(file).includes('- [x] New Task'));
+
+  editor.updateTaskText(file, 'Tasks', 'New Task', 'Updated Task');
+  assert.ok(read(file).includes('Updated Task'));
+
+  editor.addSectionPath(file, ['Section', 'Subsection'], ['- [ ] Child']);
+  const txt = read(file);
+  assert.ok(txt.includes('Subsection'));
+
   editor.translateContent(file, { 'English': 'Русский' });
   assert.ok(read(file).includes('Русский'));
 
