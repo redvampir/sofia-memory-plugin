@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { readMemory } = require('./core/storage');
+const rootConfig = require('./config');
 
 /**
  * Helper to read a file either from GitHub or local disk.
@@ -16,6 +17,45 @@ async function readFile(filePath, opts = {}) {
   return readMemory(userId, repo, token, filePath.replace(/^\/+/, ''));
 }
 
+async function loadIndexFile(debug, opts = {}) {
+  const indexPath = opts.indexPath || 'memory/index.json';
+  const { userId, repo, token } = opts;
+  const attempts = [];
+
+  const pluginInfo = rootConfig.getPluginRepo ? rootConfig.getPluginRepo() : {};
+
+  const sources = [
+    { label: 'user', repo, token },
+    { label: 'plugin', repo: pluginInfo.repo, token: pluginInfo.token || token },
+    { label: 'local', repo: null, token: null },
+  ];
+
+  for (const src of sources) {
+    try {
+      if (debug)
+        console.log(
+          `[restoreContext] trying ${indexPath} from ${src.label} repo`,
+          src.repo || 'local'
+        );
+      const data = await readFile(indexPath, {
+        userId,
+        repo: src.repo,
+        token: src.token,
+      });
+      return data;
+    } catch (e) {
+      attempts.push(`${src.label}:${src.repo || 'local'}`);
+      if (debug)
+        console.warn(
+          `[restoreContext] failed from ${src.label} repo ${src.repo || 'local'}`,
+          e.message
+        );
+    }
+  }
+
+  throw new Error(`index.json not found. Tried ${attempts.join(', ')}`);
+}
+
 /**
  * Restore plan, profile and current lesson from memory.
  * @param {boolean} [debug=false] enable verbose logging
@@ -24,9 +64,9 @@ async function readFile(filePath, opts = {}) {
  */
   async function restoreContext(debug = false, opts = {}) {
     try {
-      const indexPath = 'memory/index.json';
+      const indexPath = opts.indexPath || process.env.INDEX_PATH || 'memory/index.json';
       if (debug) console.log('[restoreContext] loading', indexPath);
-      const indexRaw = await readFile(indexPath, opts);
+      const indexRaw = await loadIndexFile(debug, { ...opts, indexPath });
       let index;
       try {
         index = JSON.parse(indexRaw);
