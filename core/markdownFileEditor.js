@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { execSync } = require('child_process');
 const validator = require('./markdownValidator');
 const mdEditor = require('./markdownEditor');
 const {
@@ -27,8 +28,23 @@ function ensureFile(filePath) {
   }
 }
 
+// Fetch latest changes from git and restore the file to HEAD
+function refreshFromGit(filePath) {
+  if (process.env.NO_GIT === 'true') return;
+  try {
+    const repoRoot = path.join(__dirname, '..');
+    execSync('git fetch', { cwd: repoRoot, stdio: 'ignore' });
+    execSync('git pull', { cwd: repoRoot, stdio: 'ignore' });
+    const rel = path.relative(repoRoot, filePath).replace(/\\/g, '/');
+    execSync(`git checkout -- "${rel}"`, { cwd: repoRoot, stdio: 'ignore' });
+  } catch (e) {
+    console.warn(`[markdownFileEditor] git refresh failed for ${filePath}`, e.message);
+  }
+}
+
 function loadTree(filePath) {
   ensureFile(filePath);
+  refreshFromGit(filePath);
   validator.checkFileExists(filePath);
   const raw = fs.readFileSync(filePath, 'utf-8');
   validator.validateMarkdownSyntax(raw, filePath);
@@ -36,7 +52,20 @@ function loadTree(filePath) {
   return tree;
 }
 
-function writeTree(filePath, tree) {
+function validateTree(tree, filePath) {
+  try {
+    const raw = serializeMarkdownTree(tree);
+    const check = validator.validateMarkdownSyntax(raw, filePath);
+    if (!check.valid) return check;
+    parseMarkdownStructure(raw);
+    return { valid: true };
+  } catch (e) {
+    return { valid: false, message: e.message, line: 0 };
+  }
+}
+
+function writeTree(filePath, tree, opts = {}) {
+  const { dryRun = false } = opts;
   const content = serializeMarkdownTree(tree);
   const check = validator.validateMarkdownSyntax(content, filePath);
   if (!check.valid) {
@@ -45,8 +74,22 @@ function writeTree(filePath, tree) {
     );
     return { updated: false, message: 'validation failed', backupPath: null };
   }
+  if (dryRun) {
+    return { updated: true, message: 'dry run', content };
+  }
   const backup = mdEditor.createBackup(filePath);
   fs.writeFileSync(filePath, content, 'utf-8');
+  const verify = validateTree(tree, filePath);
+  if (!verify.valid) {
+    console.error(
+      `[writeTree] post-write validation failed: ${verify.message} at line ${verify.line} in '${path.basename(filePath)}'`
+    );
+    if (backup) {
+      fs.copyFileSync(backup, filePath);
+      console.error(`[writeTree] reverted to backup: ${backup}`);
+    }
+    return { updated: false, message: 'post-validation failed', backupPath: backup };
+  }
   return { updated: true, message: 'file updated', backupPath: backup };
 }
 
@@ -82,7 +125,7 @@ function getOrCreateHeading(tree, heading) {
   return h;
 }
 
-function addTask(filePath, heading, taskText, checked = false) {
+function addTask(filePath, heading, taskText, checked = false, opts = {}) {
   const tree = loadTree(filePath);
   let h = getOrCreateHeading(tree, heading);
   const exists = (n) =>
@@ -95,10 +138,10 @@ function addTask(filePath, heading, taskText, checked = false) {
       children: [{ type: 'item', level: 0, text: taskText, checked }]
     });
   }
-  return writeTree(filePath, tree);
+  return writeTree(filePath, tree, opts);
 }
 
-function removeTask(filePath, heading, taskText) {
+function removeTask(filePath, heading, taskText, opts = {}) {
   const tree = loadTree(filePath);
   const h = findHeading(tree, heading);
   if (!h) return;
@@ -114,10 +157,10 @@ function removeTask(filePath, heading, taskText) {
   }
 
   if (h.children) h.children = remove(h.children);
-  return writeTree(filePath, tree);
+  return writeTree(filePath, tree, opts);
 }
 
-function toggleTaskStatus(filePath, heading, taskText, checked = true) {
+function toggleTaskStatus(filePath, heading, taskText, checked = true, opts = {}) {
   const tree = loadTree(filePath);
   const h = findHeading(tree, heading);
   let target = h && h.children ? h : null;
@@ -143,12 +186,12 @@ function toggleTaskStatus(filePath, heading, taskText, checked = true) {
       text: '',
       children: [{ type: 'item', level: 0, text: taskText, checked }]
     });
-    return writeTree(filePath, tree);
+    return writeTree(filePath, tree, opts);
   }
-  return writeTree(filePath, tree);
+  return writeTree(filePath, tree, opts);
 }
 
-function updateTaskText(filePath, heading, oldText, newText) {
+function updateTaskText(filePath, heading, oldText, newText, opts = {}) {
   const tree = loadTree(filePath);
   const h = findHeading(tree, heading);
   if (!h || !h.children)
@@ -176,9 +219,9 @@ function updateTaskText(filePath, heading, oldText, newText) {
       text: '',
       children: [{ type: 'item', level: 0, text: newText, checked: false }]
     });
-    return writeTree(filePath, tree);
+    return writeTree(filePath, tree, opts);
   }
-  return writeTree(filePath, tree);
+  return writeTree(filePath, tree, opts);
 }
 
 function findItem(nodes, text) {
@@ -227,7 +270,7 @@ function insertTask(filePath, heading, taskText, opts = {}) {
   if (list.children.some(c => c.type === 'item' && c.text === taskText)) {
     const existing = list.children.find(c => c.type === 'item' && c.text === taskText);
     if (opts.checked !== undefined) existing.checked = opts.checked;
-    return writeTree(filePath, tree);
+    return writeTree(filePath, tree, opts);
   }
 
   const item = { type: 'item', level: list.level, text: taskText, checked: opts.checked ?? false };
@@ -242,7 +285,7 @@ function insertTask(filePath, heading, taskText, opts = {}) {
   }
 
   list.children.splice(idx, 0, item);
-  return writeTree(filePath, tree);
+  return writeTree(filePath, tree, opts);
 }
 
 function updateChecklistItem(filePath, heading, itemText, opts = {}) {
@@ -253,10 +296,10 @@ function updateChecklistItem(filePath, heading, itemText, opts = {}) {
   if (!found) return { updated: false, message: 'item not found' };
   if (opts.newText) found.node.text = opts.newText;
   if (opts.checked !== undefined) found.node.checked = opts.checked;
-  return writeTree(filePath, tree);
+  return writeTree(filePath, tree, opts);
 }
 
-function removeTaskMatch(filePath, heading, match) {
+function removeTaskMatch(filePath, heading, match, opts = {}) {
   const tree = loadTree(filePath);
   const h = findHeading(tree, heading);
   if (!h) return { updated: false, message: 'heading not found' };
@@ -275,26 +318,30 @@ function removeTaskMatch(filePath, heading, match) {
     }
   };
   remove(h.children);
-  return writeTree(filePath, tree);
+  return writeTree(filePath, tree, opts);
 }
 
-function addSubTask(filePath, heading, parentText, subTaskText, checked = false) {
-  return insertTask(filePath, heading, subTaskText, { parent: parentText, checked });
+function addSubTask(filePath, heading, parentText, subTaskText, checked = false, opts = {}) {
+  return insertTask(filePath, heading, subTaskText, { parent: parentText, checked, ...opts });
 }
 
-function addSection(filePath, heading, lines) {
+function addSection(filePath, heading, lines, opts = {}) {
+  const { forceReplace = false } = opts;
   const tree = loadTree(filePath);
   let h = findHeading(tree, heading);
   const sectionTree = parseMarkdownStructure(['## ' + heading, ...lines].join('\n'));
   if (!h) {
     tree.push(sectionTree[0]);
+  } else if (forceReplace) {
+    h.children = sectionTree[0].children || [];
   } else {
     h.children = mergeMarkdownTrees(h.children || [], sectionTree[0].children || []);
   }
-  return writeTree(filePath, tree);
+  return writeTree(filePath, tree, opts);
 }
 
-function addSectionPath(filePath, headings, lines) {
+function addSectionPath(filePath, headings, lines, opts = {}) {
+  const { forceReplace = false, requireExisting = false } = opts;
   if (!Array.isArray(headings)) headings = [headings];
   const tree = loadTree(filePath);
   let nodes = tree;
@@ -309,6 +356,9 @@ function addSectionPath(filePath, headings, lines) {
       }
     }
     if (!h) {
+      if (requireExisting) {
+        throw new Error(`Heading path '${headings.join(' > ')}' not found`);
+      }
       h = { type: 'heading', level: level + 1, text: hText, children: [] };
       nodes.push(h);
     }
@@ -317,11 +367,15 @@ function addSectionPath(filePath, headings, lines) {
   }
 
   const sectionTree = parseMarkdownStructure(lines.join('\n'));
-  h.children = mergeMarkdownTrees(h.children || [], sectionTree);
-  return writeTree(filePath, tree);
+  if (forceReplace) {
+    h.children = sectionTree;
+  } else {
+    h.children = mergeMarkdownTrees(h.children || [], sectionTree);
+  }
+  return writeTree(filePath, tree, opts);
 }
 
-function removeSection(filePath, heading) {
+function removeSection(filePath, heading, opts = {}) {
   const tree = loadTree(filePath);
   const stack = [{ nodes: tree }];
   while (stack.length) {
@@ -329,13 +383,14 @@ function removeSection(filePath, heading) {
     const idx = nodes.findIndex(n => n.type === 'heading' && n.text === heading);
     if (idx >= 0) {
       nodes.splice(idx, 1);
-      return writeTree(filePath, tree);
+      return writeTree(filePath, tree, opts);
     }
     for (const n of nodes) if (n.children) stack.push({ nodes: n.children });
   }
+  return { updated: false, message: 'heading not found' };
 }
 
-function translateContent(filePath, map) {
+function translateContent(filePath, map, opts = {}) {
   const tree = loadTree(filePath);
   const isCode = txt => /`[^`]+`/.test(txt) || /\w+\.[A-Za-z0-9]+$/.test(txt);
   const walk = nodes => {
@@ -347,10 +402,10 @@ function translateContent(filePath, map) {
     }
   };
   walk(tree);
-  return writeTree(filePath, tree);
+  return writeTree(filePath, tree, opts);
 }
 
-function translateChecklistItems(filePath, map) {
+function translateChecklistItems(filePath, map, opts = {}) {
   const tree = loadTree(filePath);
   const skipped = /\w+\.[A-Za-z0-9]+|\//;
 
@@ -397,7 +452,7 @@ function translateChecklistItems(filePath, map) {
   }
 
   const cleaned = dedupeTree(tree);
-  return writeTree(filePath, cleaned);
+  return writeTree(filePath, cleaned, opts);
 }
 
 function dedupeTree(nodes) {
@@ -440,10 +495,10 @@ function dedupeItems(nodes) {
   return result;
 }
 
-function cleanDuplicates(filePath) {
+function cleanDuplicates(filePath, opts = {}) {
   const tree = loadTree(filePath);
   const cleaned = dedupeTree(tree);
-  return writeTree(filePath, cleaned);
+  return writeTree(filePath, cleaned, opts);
 }
 
 module.exports = {
