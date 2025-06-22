@@ -51,6 +51,9 @@ function ensureDir(filePath) {
 function writeFileSafe(filePath, data) {
   try {
     ensureDir(filePath);
+    if (filePath.toLowerCase().endsWith('.md')) {
+      mdEditor.createBackup(filePath);
+    }
     fs.writeFileSync(filePath, data, 'utf-8');
     logDebug('[writeFileSafe] wrote', filePath);
   } catch (e) {
