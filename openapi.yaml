@@ -31,6 +31,19 @@ paths:
       responses:
         '200':
           description: File contents
+  /read:
+    post:
+      summary: Read memory content (alias)
+      operationId: read
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReadMemoryRequest'
+      responses:
+        '200':
+          description: File contents
   /memory:
     get:
       summary: Read memory file via query

@@ -134,18 +134,26 @@ async function readMemory(req, res) {
   const normalizedFilename = normalizeMemoryPath(filename);
   const filePath = path.join(__dirname, '..', normalizedFilename);
 
+  console.log(`[read] repo=${effectiveRepo || 'local'} file=${normalizedFilename}`);
+
   if (effectiveRepo) {
     if (!effectiveToken) return res.status(401).json({ status: 'error', message: 'Missing GitHub token' });
     try {
       const content = await github.readFile(effectiveToken, effectiveRepo, normalizedFilename);
+      console.log(`[read] success remote ${normalizedFilename}`);
       return res.json({ status: 'success', content });
     } catch (e) {
+      console.error('[read] error remote', e.message);
       return res.status(500).json({ status: 'error', message: e.message });
     }
   }
 
-  if (!fs.existsSync(filePath)) return res.status(404).json({ status: 'error', message: 'File not found.' });
+  if (!fs.existsSync(filePath)) {
+    console.error('[read] file not found', filePath);
+    return res.status(404).json({ status: 'error', message: 'File not found.' });
+  }
   const content = fs.readFileSync(filePath, 'utf-8');
+  console.log(`[read] success local ${normalizedFilename}`);
   res.json({ status: 'success', content });
 }
 
@@ -281,6 +289,7 @@ function readProfile(req, res) {
 
 router.post('/saveMemory', saveMemory);
 router.post('/readMemory', readMemory);
+router.post('/read', readMemory); // legacy route
 router.get('/memory', readMemoryGET);
 router.post('/setMemoryRepo', setMemoryRepo);
 router.post('/saveLessonPlan', saveLessonPlan);
