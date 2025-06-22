@@ -6,6 +6,7 @@ const github = require('./githubClient');
 const repoConfig = require('./instructionsRepoConfig');
 const mdEditor = require('./markdownEditor');
 const validator = require('./markdownValidator');
+const mdFileEditor = require('./markdownFileEditor');
 
 const git = simpleGit();
 const SKIP_GIT = process.env.NO_GIT === "true";
@@ -181,6 +182,50 @@ async function edit(version, newContent, opts = {}) {
   return dest;
 }
 
+function normalizeMemoryPath(p) {
+  let rel = p.replace(/\\+/g, '/');
+  rel = rel.replace(/^\/?memory\/?/, '');
+  return path.join('memory', rel);
+}
+
+async function updateMarkdownFile(relPath, newContent, opts = {}) {
+  const normalized = normalizeMemoryPath(relPath);
+  const abs = path.join(__dirname, normalized);
+  const devMode = opts.devMode;
+  const dest = devMode
+    ? path.join(path.dirname(abs), 'dev', path.basename(abs))
+    : abs;
+  ensureDir(dest);
+  const oldContent = fs.existsSync(abs) ? fs.readFileSync(abs, 'utf-8') : '';
+  const check = validator.validateMarkdownSyntax(newContent, dest);
+  if (!check.valid) {
+    console.error(
+      `[updateMarkdownFile] ${check.message} at line ${check.line} in '${path.basename(dest)}'`
+    );
+    return null;
+  }
+  mdEditor.createBackup(dest);
+  fs.writeFileSync(dest, newContent, 'utf-8');
+
+  if (opts.translationMap) {
+    mdFileEditor.translateContent(dest, opts.translationMap);
+  }
+  if (opts.deduplicate) {
+    mdFileEditor.cleanDuplicates(dest);
+  }
+
+  if (devMode) {
+    const diff = diffStrings(oldContent, newContent);
+    console.log(diff);
+    return diff;
+  }
+  if (!SKIP_GIT) {
+    await git.add(dest);
+    await git.commit(`update ${normalized}`);
+  }
+  return dest;
+}
+
 function listHistory(version) {
   ensureStructure();
   const prefix = `${version}_`;
@@ -214,4 +259,5 @@ module.exports = {
   getRepoContext: repoConfig.getRepoContext,
   setPluginRepoConfig: repoConfig.setPluginRepoConfig,
   setStudentRepoConfig: repoConfig.setStudentRepoConfig,
+  updateMarkdownFile
 };

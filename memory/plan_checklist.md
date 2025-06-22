@@ -1,12 +1,12 @@
 # Plan Checklist
-- [ ] Пример задачи
-- [x] Не затирать index.json при обновлении
-- [x] Учитывать существующие записи при записи новых уроков
-- [x] Не затирать plan.md при сохранении урока
-- [x] Механизм восстановления контекста по index.json
-- [x] Отладочный режим для тестов
-- [x] Инструкция с поддержкой версий и переключений
-- [ ] 📌 Реализовать двухуровневую систему хранения инструкций (в процессе)
-  - Глобальные инструкции (в плагине, только для чтения)
-  - Индивидуальные инструкции (в репозитории ученика, с версионностью)
-  - Поддержка резервного режима, команд и истории изменений
+- [ ] Example task
+- [x] Do not overwrite index.json when updating
+- [x] Preserve existing records when saving new lessons
+- [x] Do not overwrite plan.md when saving a lesson
+- [x] Context restoration via index.json
+- [x] Debug mode for tests
+- [x] Versioned instructions with switching
+- [ ] 📌 Implement two-level instruction storage system (in progress)
+  - Global instructions (in plugin, read-only)
+  - Individual instructions (in student repository with versioning)
+  - Support backup mode, commands and change history
