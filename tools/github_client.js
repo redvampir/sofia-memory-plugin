@@ -42,8 +42,13 @@ exports.readFile = async function(token, repo, filePath) {
   console.log('[readFile] Token:', masked);
   console.log('[readFile] File:', filePath);
   console.log('[readFile] URL:', url);
-  const res = await axios.get(url, { headers: { Authorization: `token ${token}` } });
-  return Buffer.from(res.data.content, 'base64').toString('utf-8');
+  try {
+    const res = await axios.get(url, { headers: { Authorization: `token ${token}` } });
+    return Buffer.from(res.data.content, 'base64').toString('utf-8');
+  } catch (e) {
+    logError('readFile', e);
+    throw e;
+  }
 };
 
 exports.writeFile = async function(token, repo, filePath, content, message) {
@@ -66,7 +71,12 @@ exports.writeFile = async function(token, repo, filePath, content, message) {
     content: Buffer.from(content, 'utf-8').toString('base64'),
   };
   if (sha) body.sha = sha;
-  await axios.put(url, body, { headers: { Authorization: `token ${token}` } });
+  try {
+    await axios.put(url, body, { headers: { Authorization: `token ${token}` } });
+  } catch (e) {
+    logError('writeFile', e);
+    throw e;
+  }
 };
 
 exports.writeFileSafe = async function(
