@@ -2,6 +2,8 @@ const express = require('express');
 const path = require('path');
 const fs = require('fs');
 const bodyParser = require('body-parser');
+const config = require('./config');
+const { setMemoryRepo } = require('./memory');
 
 // Мидлвар для разрешения CORS без внешних зависимостей
 function allow_cors(req, res, next) {
@@ -18,6 +20,15 @@ const { list_memory_files } = require("./logic/memory_operations");
 const versioning = require('./versioning');
 
 const app = express();
+try {
+  const { repo, token } = config.getPluginRepo();
+  if (repo || token) {
+    setMemoryRepo(token, repo);
+    console.log(`[INIT] memory repo ${repo || 'null'} set`);
+  }
+} catch (e) {
+  console.error('[INIT] failed to set memory repo', e.message);
+}
 app.use(allow_cors);
 app.use(express.static(path.join(__dirname, 'assets')));
 app.use(bodyParser.json());
