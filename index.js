@@ -16,7 +16,7 @@ function allow_cors(req, res, next) {
   next();
 }
 const memory_routes = require("./ui/memory_routes");
-const { list_memory_files } = require("./logic/memory_operations");
+const { listMemoryFiles } = require("./logic/memory_operations");
 const versioning = require('./versioning');
 
 const app = express();
@@ -41,7 +41,7 @@ app.post('/list', async (req, res) => {
       return res.status(400).json({ status: 'error', message: 'Missing repo, token, or path' });
     }
 
-    const fileList = await list_memory_files(repo, token, dirPath);
+    const fileList = await listMemoryFiles(repo, token, dirPath);
     return res.json({ status: 'success', files: fileList });
   } catch (error) {
     return res.status(500).json({ status: 'error', message: error.message });
