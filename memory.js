@@ -15,25 +15,56 @@ async function readMemory(repo, token, filename) {
   const final_repo = repo || memory_config.getRepoUrl(null);
   const final_token = token || token_store.getToken(null);
   const masked_token = final_token ? `${final_token.slice(0, 4)}...` : 'null';
-  const normalized_file = normalize_memory_path(filename);
 
-  logger.info('[readMemory] called', {
-    repo: repo || null,
-    token: masked_token,
-    filename,
-  });
+  console.log('[readMemory] params', { repo: final_repo, token: masked_token, filename });
+
+  if (final_repo && !final_token) {
+    throw new Error('API access is not possible due to missing token');
+  }
+
+  let target = filename;
+
+  if (!target) {
+    try {
+      const idx_raw = await read_memory(null, final_repo, final_token, 'memory/index.json');
+      const idx = JSON.parse(idx_raw);
+      target = idx.latest_lesson || idx.checklist_path || idx.path || null;
+    } catch (e) {
+      logger.error('[readMemory] index lookup failed', e.message);
+    }
+  } else if (!target.startsWith('memory/')) {
+    try {
+      const idx_raw = await read_memory(null, final_repo, final_token, 'memory/index.json');
+      const idx = JSON.parse(idx_raw);
+      if (Array.isArray(idx)) {
+        const found = idx.find(e => e.title === target || e.path === target);
+        if (found) target = found.path;
+      } else if (idx[target]) {
+        target = idx[target];
+      }
+    } catch (e) {
+      logger.error('[readMemory] index search failed', e.message);
+    }
+  }
+
+  if (!target) {
+    throw new Error('File not found');
+  }
+
+  const normalized_file = normalize_memory_path(target);
 
   if (final_repo && final_token) {
     const url = `https://api.github.com/repos/${normalize_repo(final_repo)}/contents/${encodeURIComponent(normalized_file)}`;
-    logger.debug('[readMemory] request url', url);
+    console.log('[readMemory] url', url);
   }
 
   try {
-    const content = await read_memory(null, repo, token, filename);
-    logger.info('[readMemory] success');
+    const content = await read_memory(null, final_repo, final_token, normalized_file);
+    console.log('[readMemory] success length', content.length);
     return content;
   } catch (e) {
-    logger.error('[readMemory] error', e.message);
+    console.log('[readMemory] error', e.message);
+    if (/not found/i.test(e.message)) throw new Error('File not found');
     throw e;
   }
 }
