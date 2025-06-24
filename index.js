@@ -13,7 +13,7 @@ function allowCors(req, res, next) {
   }
   next();
 }
-const memoryRoutes = require("./routes/memoryRoutes");
+const memoryRoutes = require("./routes/memory_routes");
 const { listMemoryFiles } = require("./core/memoryOperations");
 const versioning = require('./versioning');
 

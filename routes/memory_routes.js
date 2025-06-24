@@ -1,3 +1,4 @@
+// Маршруты API для работы с хранилищем памяти
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
@@ -363,8 +364,9 @@ router.get('/readContext', readContext);
 router.post('/saveContext', saveContext);
 router.post('/chat/setup', (req, res) => {
   const text = req.body && req.body.text ? req.body.text : '';
-  const { parseUserMemorySetup } = require('../utils/utils');
-  const parsed = parseUserMemorySetup(text);
+  // Используем функцию разбора команды из утилит
+  const { parse_user_memory_setup } = require('../utils/utils');
+  const parsed = parse_user_memory_setup(text);
   if (!parsed) return res.status(400).json({ status: 'error', message: 'Invalid command' });
   const { userId, repo } = parsed;
   res.json({ status: 'success', message: `Memory configured for user: ${userId}`, repo });
