@@ -1,4 +1,4 @@
-const { read_memory, save_memory } = require('./logic/storage');
+const { read_memory, save_memory, get_file } = require('./logic/storage');
 const { restore_context } = require('./context');
 const memory_config = require('./tools/memory_config');
 const token_store = require('./tools/token_store');
@@ -106,9 +106,28 @@ async function refreshContextFromMemoryFiles(repo, token) {
   }
 }
 
+async function read_memory_file(filename, opts = {}) {
+  const { repo = null, token = null, source = 'chat' } = opts;
+  const normalized = normalize_memory_path(filename);
+  logger.info('[read_memory_file] open', { path: normalized, source });
+  try {
+    const result = await get_file(null, repo, token, normalized);
+    logger.info('[read_memory_file] success', { path: normalized, source });
+    return result.content;
+  } catch (e) {
+    logger.error('[read_memory_file] error', {
+      path: normalized,
+      source,
+      error: e.message,
+    });
+    throw e;
+  }
+}
+
 module.exports = {
   readMemory,
   saveMemory,
   refreshContextFromMemoryFiles,
   setMemoryRepo,
+  read_memory_file,
 };

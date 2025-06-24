@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const { read_memory } = require('./logic/storage');
+const { get_file } = require('./logic/storage');
 const rootConfig = require('./config');
 
 /**
@@ -13,8 +13,17 @@ const rootConfig = require('./config');
  * @returns {Promise<string>} file contents
  */
 async function readFile(filePath, opts = {}) {
-  const { userId, repo, token } = opts;
-  return read_memory(userId, repo, token, filePath.replace(/^\/+/, ''));
+  const { userId, repo, token, source = 'index.json' } = opts;
+  const normalized = filePath.replace(/^\/+/, '');
+  console.log(`[readFile] ${source} -> ${normalized}`);
+  try {
+    const { content } = await get_file(userId, repo, token, normalized);
+    console.log(`[readFile] success ${normalized}`);
+    return content;
+  } catch (e) {
+    console.warn(`[readFile] fail ${normalized}`, e.message);
+    throw e;
+  }
 }
 
 async function loadIndexFile(debug, opts = {}) {
