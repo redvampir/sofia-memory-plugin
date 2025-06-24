@@ -4,6 +4,10 @@ const { Octokit } = require('@octokit/rest');
 const axios = require('axios');
 const { logError } = require('./error_handler');
 
+function encodePath(p) {
+  return p.split('/').map(encodeURIComponent).join('/');
+}
+
 function normalizeRepo(repo) {
   if (!repo) return repo;
   const match = repo.match(/github\.com[:\/](.+?)(?:\.git)?$/);
@@ -37,7 +41,7 @@ exports.repoExists = async function (token, repo) {
 
 exports.readFile = async function (token, repo, filePath) {
   const normalized = normalizeRepo(repo);
-  const url = `https://api.github.com/repos/${normalized}/contents/${encodeURIComponent(filePath)}`;
+  const url = `https://api.github.com/repos/${normalized}/contents/${encodePath(filePath)}`;
   const masked = token ? `${token.slice(0, 4)}...` : 'null';
   console.log('[readFile] Repo:', normalized);
   console.log('[readFile] Token:', masked);
@@ -57,7 +61,7 @@ exports.readFile = async function (token, repo, filePath) {
 
 exports.writeFile = async function(token, repo, filePath, content, message) {
   const normalized = normalizeRepo(repo);
-  const url = `https://api.github.com/repos/${normalized}/contents/${encodeURIComponent(filePath)}`;
+  const url = `https://api.github.com/repos/${normalized}/contents/${encodePath(filePath)}`;
   const masked = token ? `${token.slice(0, 4)}...` : 'null';
   console.log('[writeFile] Repo:', normalized);
   console.log('[writeFile] Token:', masked);
@@ -101,4 +105,6 @@ exports.writeFileSafe = async function(
     }
   }
 };
+
+exports.encodePath = encodePath;
 
