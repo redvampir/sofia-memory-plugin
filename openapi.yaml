@@ -57,6 +57,19 @@ paths:
       responses:
         '200':
           description: File contents
+  /readFile:
+    post:
+      summary: Read markdown file
+      operationId: readFile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReadMemoryRequest'
+      responses:
+        '200':
+          description: File contents
   /memory:
     get:
       summary: Read memory file via query

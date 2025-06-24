@@ -23,6 +23,7 @@ const { generateTitleFromPath, inferTypeFromPath, normalize_memory_path, ensure_
 const { parseMarkdownStructure, mergeMarkdownTrees, serializeMarkdownTree } = require('../logic/markdown_merge_engine.ts');
 const { getRepoInfo, extractToken, categorizeMemoryFile, logDebug } = require('../tools/memory_helpers');
 const { logError } = require('../tools/error_handler');
+const { readMarkdownFile } = require('../memory');
 
 function setMemoryRepo(req, res) {
   const { repoUrl, userId } = req.body;
@@ -175,6 +176,19 @@ async function readMemory(req, res) {
     }
   }
   res.json({ status: 'success', content });
+}
+
+async function readFileRoute(req, res) {
+  const { repo, filename, userId } = req.body || {};
+  const token = extractToken(req);
+  const { repo: effectiveRepo, token: effectiveToken } = getRepoInfo(filename, userId, repo, token);
+  try {
+    const content = await readMarkdownFile(filename, { repo: effectiveRepo, token: effectiveToken });
+    res.json({ status: 'success', content });
+  } catch (e) {
+    const code = /not found/i.test(e.message) ? 404 : 500;
+    res.status(code).json({ status: 'error', message: e.message });
+  }
 }
 
 function readMemoryGET(req, res) {
@@ -334,6 +348,7 @@ router.post('/save', save);
 router.post('/saveMemory', saveMemory);
 router.post('/readMemory', readMemory);
 router.post('/read', readMemory); // legacy route
+router.post('/readFile', readFileRoute);
 router.get('/memory', readMemoryGET);
 router.post('/setMemoryRepo', setMemoryRepo);
 router.post('/saveLessonPlan', saveLessonPlan);
