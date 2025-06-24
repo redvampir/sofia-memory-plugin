@@ -1,5 +1,6 @@
 const { read_memory, save_memory, get_file } = require('./logic/storage');
 const { restore_context } = require('./context');
+const { getContextFiles } = require('./tools/index_manager');
 const memory_config = require('./tools/memory_config');
 const token_store = require('./tools/token_store');
 const { normalize_memory_path } = require('./tools/file_utils');
@@ -122,19 +123,36 @@ async function refreshContextFromMemoryFiles(repo, token) {
     token: masked_token,
   });
 
-  if (final_repo && final_token) {
-    const url = `https://api.github.com/repos/${normalize_repo(final_repo)}/contents/${encodeURIComponent('memory/index.json')}`;
-    logger.debug('[refreshContextFromMemoryFiles] request url', url);
+  const context_files = getContextFiles();
+  logger.debug('[refreshContextFromMemoryFiles] high priority files', context_files);
+
+  const loaded = {};
+  const skipped = [];
+
+  for (const p of context_files) {
+    try {
+      const content = await read_memory_file(p, { repo: final_repo, token: final_token, source: 'context-refresh' });
+      loaded[p] = content;
+      logger.debug('[refreshContextFromMemoryFiles] loaded', p);
+    } catch (e) {
+      skipped.push(p);
+      logger.error('[refreshContextFromMemoryFiles] failed', { path: p, error: e.message });
+    }
   }
 
-  try {
-    const result = await restore_context(false, { userId: null, repo, token });
-    logger.info('[refreshContextFromMemoryFiles] success');
-    return result;
-  } catch (e) {
-    logger.error('[refreshContextFromMemoryFiles] error', e.message);
-    throw e;
-  }
+  if (skipped.length) logger.info('[refreshContextFromMemoryFiles] skipped', skipped);
+
+  const pick = regex => {
+    const key = context_files.find(f => regex.test(f));
+    return key ? loaded[key] || null : null;
+  };
+
+  logger.info('[refreshContextFromMemoryFiles] success', { loaded: Object.keys(loaded) });
+  return {
+    plan: pick(/plan/i),
+    profile: pick(/profile/i),
+    currentLesson: pick(/lesson/i),
+  };
 }
 
 async function read_memory_file(filename, opts = {}) {
