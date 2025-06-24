@@ -9,6 +9,7 @@ const memory_config = require('./tools/memory_config');
 const token_store = require('./tools/token_store');
 const { normalize_memory_path } = require('./tools/file_utils');
 const logger = require('./utils/logger');
+const { encodePath } = require('./tools/github_client');
 
 function normalize_repo(repo) {
   if (!repo) return repo;
@@ -59,7 +60,7 @@ async function readMemory(repo, token, filename) {
   const normalized_file = normalize_memory_path(target);
 
   if (final_repo && final_token) {
-    const url = `https://api.github.com/repos/${normalize_repo(final_repo)}/contents/${encodeURIComponent(normalized_file)}`;
+    const url = `https://api.github.com/repos/${normalize_repo(final_repo)}/contents/${encodePath(normalized_file)}`;
     console.log('[readMemory] url', url);
   }
 
@@ -89,7 +90,7 @@ async function saveMemory(repo, token, filename, content) {
   });
 
   if (final_repo && final_token) {
-    const url = `https://api.github.com/repos/${normalize_repo(final_repo)}/contents/${encodeURIComponent(normalized_file)}`;
+    const url = `https://api.github.com/repos/${normalize_repo(final_repo)}/contents/${encodePath(normalized_file)}`;
     logger.debug('[saveMemory] request url', url);
   }
 
