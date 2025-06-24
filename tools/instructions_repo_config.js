@@ -1,3 +1,4 @@
+// Работа с конфигурациями репозиториев инструкций
 const fs = require('fs');
 const path = require('path');
 const rootConfig = require('../config');

@@ -1,6 +1,6 @@
-const instructions = require('./core/instructionsManager');
+const instructions = require('./logic/instructions_manager');
 
-exports.commitInstructions = async (req, res) => {
+exports.commit_instructions = async (req, res) => {
   try {
     const { version = 'base', content } = req.body || {};
     if (!content) throw new Error('Missing content');
@@ -11,7 +11,7 @@ exports.commitInstructions = async (req, res) => {
   }
 };
 
-exports.rollbackInstructions = async (req, res) => {
+exports.rollback_instructions = async (req, res) => {
   try {
     const { version = 'base', historyFile } = req.body || {};
     const file = historyFile || instructions.listHistory(version).slice(-1)[0];
@@ -23,7 +23,7 @@ exports.rollbackInstructions = async (req, res) => {
   }
 };
 
-exports.listVersions = (req, res) => {
+exports.list_versions = (req, res) => {
   const { version = 'base' } = req.body || {};
   res.json({
     status: 'success',

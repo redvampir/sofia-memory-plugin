@@ -3,8 +3,8 @@ const path = require('path');
 const fs = require('fs');
 const bodyParser = require('body-parser');
 
-// basic CORS middleware without external dependency
-function allowCors(req, res, next) {
+// Мидлвар для разрешения CORS без внешних зависимостей
+function allow_cors(req, res, next) {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
   if (req.method === 'OPTIONS') {
@@ -13,15 +13,15 @@ function allowCors(req, res, next) {
   }
   next();
 }
-const memoryRoutes = require("./routes/memory_routes");
-const { listMemoryFiles } = require("./core/memoryOperations");
+const memory_routes = require("./ui/memory_routes");
+const { list_memory_files } = require("./logic/memory_operations");
 const versioning = require('./versioning');
 
 const app = express();
-app.use(allowCors);
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(allow_cors);
+app.use(express.static(path.join(__dirname, 'assets')));
 app.use(bodyParser.json());
-app.use(memoryRoutes);
+app.use(memory_routes);
 
 app.post('/list', async (req, res) => {
   try {
@@ -30,16 +30,16 @@ app.post('/list', async (req, res) => {
       return res.status(400).json({ status: 'error', message: 'Missing repo, token, or path' });
     }
 
-    const fileList = await listMemoryFiles(repo, token, dirPath);
+    const fileList = await list_memory_files(repo, token, dirPath);
     return res.json({ status: 'success', files: fileList });
   } catch (error) {
     return res.status(500).json({ status: 'error', message: error.message });
   }
 });
 
-app.post('/version/commit', versioning.commitInstructions);
-app.post('/version/rollback', versioning.rollbackInstructions);
-app.post('/version/list', versioning.listVersions);
+app.post('/version/commit', versioning.commit_instructions);
+app.post('/version/rollback', versioning.rollback_instructions);
+app.post('/version/list', versioning.list_versions);
 
 app.get('/', (req, res) => {
   res.send('Sofia plugin is running');

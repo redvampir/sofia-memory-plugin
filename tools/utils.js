@@ -1,7 +1,7 @@
-// Utility helpers for Sofia memory plugin
+// Вспомогательные функции для плагина памяти Софии
 
-const tokenStore = require('./tokenStore');
-const memoryConfig = require('./memoryConfig');
+const token_store = require('./token_store');
+const memory_config = require('./memory_config');
 
 /**
  * Parse a chat command that configures memory settings for a user.
@@ -39,8 +39,8 @@ function parse_user_memory_setup(message = '') {
     return null;
   }
 
-  tokenStore.setToken(userId, token);
-  memoryConfig.setRepoUrl(userId, repo);
+  token_store.setToken(userId, token);
+  memory_config.setRepoUrl(userId, repo);
   console.log(`[MemorySetup] Configured user: ${userId}`);
 
   return { userId, repo, token };

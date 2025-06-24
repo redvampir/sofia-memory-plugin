@@ -1,21 +1,21 @@
 const fs = require('fs');
 const path = require('path');
-const github = require('../utils/githubClient');
-const tokenStore = require('../utils/tokenStore');
-const memoryConfig = require('../utils/memoryConfig');
-const mdEditor = require('./markdownEditor');
-const fileEditor = require('./markdownFileEditor');
-const validator = require('./markdownValidator');
+const github = require('../tools/github_client');
+const token_store = require('../tools/token_store');
+const memory_config = require('../tools/memory_config');
+const mdEditor = require('./markdown_editor');
+const fileEditor = require('./markdown_file_editor');
+const validator = require('./markdown_validator');
 const {
-  ensureDir,
+  ensure_dir,
   deepMerge,
-  normalizeMemoryPath,
-} = require('../utils/fileUtils');
+  normalize_memory_path,
+} = require('../tools/file_utils');
 const {
   getRepoInfo,
   categorizeMemoryFile,
   logDebug,
-} = require('../utils/memoryHelpers');
+} = require('../tools/memory_helpers');
 
 const contextFilename = path.join(__dirname, '..', 'memory', 'context.md');
 const planFilename = path.join(__dirname, '..', 'memory', 'plan.md');
@@ -86,7 +86,7 @@ function updatePlanFromIndex(plan) {
 
 function ensureContext() {
   if (!fs.existsSync(contextFilename)) {
-    ensureDir(contextFilename);
+    ensure_dir(contextFilename);
     writeFileSafe(contextFilename, '# Context\n');
     rebuildIndex().catch(e => console.error('[ensureContext] rebuild error', e.message));
   }
@@ -193,7 +193,7 @@ async function updatePlan({ token, repo, updateFn, userId } = {}) {
 }
 
 function loadPlan() {
-  ensureDir(planFilename);
+  ensure_dir(planFilename);
   const existed = fs.existsSync(planFilename);
   let plan;
   if (existed) {
@@ -237,7 +237,7 @@ async function savePlan(repo, token) {
 
 function writeFileSafe(filePath, data, force = false) {
   try {
-    ensureDir(filePath);
+    ensure_dir(filePath);
     if (filePath.toLowerCase().endsWith('.md')) {
       const check = validator.validateMarkdownSyntax(data, filePath);
       if (!check.valid) {
@@ -262,7 +262,7 @@ function writeFileSafe(filePath, data, force = false) {
 
 
 async function updateOrInsertJsonEntry(filePath, newData, matchKey, repo, token) {
-  ensureDir(filePath);
+  ensure_dir(filePath);
   const relPath = path.relative(path.join(__dirname, '..'), filePath);
   let existing = Array.isArray(newData) ? [] : {};
 
@@ -355,7 +355,7 @@ function sanitizeIndex(entries) {
   const map = new Map();
   entries.forEach(e => {
     if (!e || !e.path) return;
-    const normalized = normalizeMemoryPath(e.path);
+    const normalized = normalize_memory_path(e.path);
     if (EXCLUDED.has(normalized)) return;
     const abs = path.join(path.join(__dirname, '..'), normalized);
     if (!fs.existsSync(abs)) {
@@ -392,7 +392,7 @@ function extractMeta(fullPath) {
 function loadIndex() {
   if (!fs.existsSync(indexFilename)) {
     console.warn('[loadIndex] index.json not found - creating new');
-    ensureDir(indexFilename);
+    ensure_dir(indexFilename);
     writeFileSafe(indexFilename, '[]');
     return [];
   }
@@ -408,7 +408,7 @@ function loadIndex() {
 }
 
 function saveIndex(data) {
-  ensureDir(indexFilename);
+  ensure_dir(indexFilename);
   writeFileSafe(indexFilename, JSON.stringify(data, null, 2));
 }
 
@@ -518,7 +518,7 @@ async function fetchIndex(repo, token) {
 
 async function persistIndex(data, repo, token, userId) {
   const clean = sanitizeIndex(data);
-  ensureDir(indexFilename);
+  ensure_dir(indexFilename);
   try {
     writeFileSafe(indexFilename, JSON.stringify(clean, null, 2));
     console.log('[persistIndex] local index saved');
@@ -526,8 +526,8 @@ async function persistIndex(data, repo, token, userId) {
     console.error('[persistIndex] local write error', e.message);
   }
 
-  const finalRepo = repo || (userId ? memoryConfig.getRepoUrl(userId) : memoryConfig.getRepoUrl());
-  const finalToken = token || (userId ? tokenStore.getToken(userId) : null);
+  const finalRepo = repo || (userId ? memory_config.getRepoUrl(userId) : memory_config.getRepoUrl());
+  const finalToken = token || (userId ? token_store.getToken(userId) : null);
 
   if (finalRepo && finalToken) {
     try {
@@ -548,7 +548,7 @@ async function persistIndex(data, repo, token, userId) {
 async function updateIndexEntry(repo, token, { path: filePath, type, title, description, lastModified }, userId) {
   if (!filePath) return null;
 
-  const normalized = normalizeMemoryPath(filePath);
+  const normalized = normalize_memory_path(filePath);
   const indexData = await fetchIndex(repo, token);
   const idx = indexData.findIndex(e => path.posix.normalize(e.path) === normalized);
 

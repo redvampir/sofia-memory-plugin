@@ -1,5 +1,5 @@
 process.env.NO_GIT = "true";
-const instructions = require('../core/instructionsManager');
+const instructions = require('../logic/instructions_manager');
 
 async function run() {
   console.log('Current version:', instructions.getCurrentVersion());

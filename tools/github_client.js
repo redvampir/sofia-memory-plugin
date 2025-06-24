@@ -1,6 +1,7 @@
 
 const axios = require('axios');
-const { logError } = require('./errorHandler');
+// Клиент GitHub для чтения и записи файлов
+const { logError } = require('./error_handler');
 
 function normalizeRepo(repo) {
   if (!repo) return repo;

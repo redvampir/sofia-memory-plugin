@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const assert = require('assert');
-const mdEditor = require('../core/markdownEditor');
+const mdEditor = require('../logic/markdown_editor');
 
 const tmpDir = path.join(__dirname, 'tmp');
 if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir);
@@ -35,7 +35,7 @@ async function run() {
   assert.ok(checklistContent.includes('- [x] new item'));
   assert.ok(!checklistContent.includes('- [ ] old'));
 
-  console.log('markdownEditor tests passed');
+  console.log('markdown_editor tests passed');
 }
 
 run();

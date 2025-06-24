@@ -1,5 +1,5 @@
 const path = require('path');
-function detectMarkdownCategory(p){
+function detect_markdown_category(p){
   const name = path.basename(p).toLowerCase();
   if (name.includes('instruction')) return 'instruction';
   if (name.includes('checklist')) return 'checklist';
@@ -9,4 +9,4 @@ function detectMarkdownCategory(p){
   if (name.includes('note')) return 'note';
   return 'markdown';
 }
-module.exports = { detectMarkdownCategory };
+module.exports = { detect_markdown_category };

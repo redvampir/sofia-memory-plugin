@@ -1,17 +1,17 @@
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
-const validator = require('./markdownValidator');
-const mdEditor = require('./markdownEditor');
+const validator = require('./markdown_validator');
+const mdEditor = require('./markdown_editor');
 const {
   parseMarkdownStructure,
   serializeMarkdownTree,
   mergeMarkdownTrees
-} = require('./markdownMergeEngine.ts');
-const { ensureDir } = require('../utils/fileUtils');
+} = require('./markdown_merge_engine.ts');
+const { ensure_dir } = require('../tools/file_utils');
 
 function createScaffold(filePath) {
-  ensureDir(filePath);
+  ensure_dir(filePath);
   const name = path.basename(filePath).toLowerCase();
   let title = 'Document';
   if (name.includes('checklist')) title = 'Plan Checklist';

@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const assert = require('assert');
-const mdEditor = require('../core/markdownEditor');
+const mdEditor = require('../logic/markdown_editor');
 
 const tmpDir = path.join(__dirname, 'tmp_dedupe');
 if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir);

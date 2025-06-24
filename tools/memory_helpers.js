@@ -1,9 +1,10 @@
+// Утилиты для работы с путями и конфигурацией памяти
 const path = require('path');
 const rootConfig = require('../config');
-const tokenStore = require('./tokenStore');
-const memoryConfig = require('./memoryConfig');
-const { normalizeMemoryPath } = require('./fileUtils');
-const { detectMarkdownCategory } = require('../core/markdownCategory');
+const token_store = require('./token_store');
+const memory_config = require('./memory_config');
+const { normalize_memory_path } = require('./file_utils');
+const { detect_markdown_category } = require('../logic/markdown_category');
 
 const DEBUG = process.env.DEBUG === 'true';
 
@@ -12,7 +13,7 @@ function logDebug(...args) {
 }
 
 function getRepoInfo(relPath, userId, repoOverride, tokenOverride) {
-  const normalized = normalizeMemoryPath(relPath);
+  const normalized = normalize_memory_path(relPath);
   const cfg = rootConfig.loadConfig();
   let repo = repoOverride || null;
   let token = tokenOverride || null;
@@ -26,8 +27,8 @@ function getRepoInfo(relPath, userId, repoOverride, tokenOverride) {
       console.log(`[repoSelect] ${usePlugin ? 'plugin' : 'student'} -> ${repo}`);
   }
 
-  if (!repo) repo = memoryConfig.getRepoUrl(userId);
-  if (!token) token = tokenStore.getToken(userId);
+  if (!repo) repo = memory_config.getRepoUrl(userId);
+  if (!token) token = token_store.getToken(userId);
 
   return { repo, token };
 }
@@ -38,7 +39,7 @@ function extractToken(req) {
   if (auth && auth.startsWith('token ')) return auth.slice(6);
   const userId = (req.body && req.body.userId) || null;
   if (userId) {
-    const stored = tokenStore.getToken(userId);
+    const stored = token_store.getToken(userId);
     if (stored) return stored;
   }
   return null;
@@ -48,7 +49,7 @@ function categorizeMemoryFile(name) {
   const lower = name.toLowerCase();
   const ext = path.extname(lower);
 
-  if (ext === '.md') return detectMarkdownCategory(name);
+  if (ext === '.md') return detect_markdown_category(name);
 
   if (lower === 'plan.md' || lower.endsWith('plan.md')) return 'plan';
   if (lower.includes('lesson')) return 'lesson';
