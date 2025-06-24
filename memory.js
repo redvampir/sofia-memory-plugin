@@ -1,7 +1,10 @@
 const { read_memory, save_memory, get_file } = require('./logic/storage');
 const { restore_context } = require('./context');
 const { getContextFiles } = require('./tools/index_manager');
-const { updateContextPriority, touchIndexEntry } = require('./tools/context_priority');
+const {
+  updateContextPriority,
+  touchIndexEntry,
+} = require('./tools/context_priority');
 const memory_config = require('./tools/memory_config');
 const token_store = require('./tools/token_store');
 const { normalize_memory_path } = require('./tools/file_utils');
@@ -93,7 +96,6 @@ async function saveMemory(repo, token, filename, content) {
   try {
     const result = await save_memory(null, repo, token, filename, content);
     logger.info('[saveMemory] success');
-    touchIndexEntry(normalized_file);
     return result;
   } catch (e) {
     logger.error('[saveMemory] error', e.message);

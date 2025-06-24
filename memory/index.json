@@ -5,7 +5,10 @@
     "title": "Profile",
     "lastModified": "2025-06-21T17:07:52.802Z",
     "context_priority": "high",
-    "last_accessed": "2025-06-24T21:14:16.803Z"
+    "last_accessed": "2025-06-24T21:24:48.702Z",
+    "access_count": 1,
+    "edit_count": 0,
+    "pinned": false
   },
   {
     "path": "memory/lessons/04_example.md",
@@ -13,7 +16,10 @@
     "title": "Example Lesson",
     "lastModified": "2025-06-21T17:07:52.802Z",
     "context_priority": "high",
-    "last_accessed": "2025-06-24T21:14:16.807Z"
+    "last_accessed": "2025-06-24T21:24:48.707Z",
+    "access_count": 5,
+    "edit_count": 3,
+    "pinned": false
   },
   {
     "path": "memory/plan_checklist.md",
@@ -22,6 +28,9 @@
     "description": "- [ ] Example task - [x] Не затирать index.json при обновлении",
     "lastModified": "2025-06-21T17:07:52.802Z",
     "context_priority": "high",
-    "last_accessed": "2025-06-24T21:14:16.808Z"
+    "last_accessed": "2025-06-24T21:24:48.707Z",
+    "access_count": 4,
+    "edit_count": 2,
+    "pinned": false
   }
 ]

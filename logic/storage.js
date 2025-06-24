@@ -5,6 +5,10 @@ const token_store = require('../tools/token_store');
 const memory_config = require('../tools/memory_config');
 const index_manager = require('./index_manager');
 const {
+  touchIndexEntry,
+  incrementEditCount,
+} = require('../tools/context_priority');
+const {
   ensure_dir,
   normalize_memory_path,
 } = require('../tools/file_utils');
@@ -80,6 +84,8 @@ async function save_memory(user_id, repo, token, filename, content) {
       console.error(`[storage.saveMemory] GitHub write failed for ${normalized}`, e.message);
     }
   }
+  touchIndexEntry(normalized);
+  incrementEditCount(normalized);
   return normalized;
 }
 
