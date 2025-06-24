@@ -16,6 +16,11 @@ async function read_memory(user_id, repo, token, filename, opts = {}) {
   const finalRepo = repo || memory_config.getRepoUrl(user_id);
   const finalToken = token || token_store.getToken(user_id);
 
+  const masked = finalToken ? `${finalToken.slice(0, 4)}...` : 'null';
+  console.log('[read_memory] repo:', finalRepo);
+  console.log('[read_memory] token:', masked);
+  console.log('[read_memory] file:', normalized);
+
   let content = null;
 
   if (finalRepo && finalToken) {
@@ -50,6 +55,10 @@ async function save_memory(user_id, repo, token, filename, content) {
   const normalized = normalize_memory_path(filename);
   const finalRepo = repo || memory_config.getRepoUrl(user_id);
   const finalToken = token || token_store.getToken(user_id);
+  const masked = finalToken ? `${finalToken.slice(0, 4)}...` : 'null';
+  console.log('[save_memory] repo:', finalRepo);
+  console.log('[save_memory] token:', masked);
+  console.log('[save_memory] file:', normalized);
   const localPath = path.join(__dirname, '..', normalized);
   ensure_dir(localPath);
   fs.writeFileSync(localPath, content, 'utf-8');

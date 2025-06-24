@@ -46,6 +46,8 @@ function normalize_memory_path(p) {
   if (!p) return 'memory/';
   let rel = p.replace(/\\+/g, '/');
   rel = path.posix.normalize(rel).replace(/^(\.\/)+/, '').replace(/^\/+/, '');
+  // FIXME: '..' segments remain after normalization, allowing paths outside
+  // the memory directory. Remove '..' parts to prevent traversal.
   while (rel.startsWith('memory/')) {
     rel = rel.slice('memory/'.length);
   }

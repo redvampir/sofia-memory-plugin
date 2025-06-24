@@ -37,6 +37,11 @@ exports.repoExists = async function (token, repo) {
 exports.readFile = async function(token, repo, filePath) {
   const normalized = normalizeRepo(repo);
   const url = `https://api.github.com/repos/${normalized}/contents/${encodeURIComponent(filePath)}`;
+  const masked = token ? `${token.slice(0, 4)}...` : 'null';
+  console.log('[readFile] Repo:', normalized);
+  console.log('[readFile] Token:', masked);
+  console.log('[readFile] File:', filePath);
+  console.log('[readFile] URL:', url);
   const res = await axios.get(url, { headers: { Authorization: `token ${token}` } });
   return Buffer.from(res.data.content, 'base64').toString('utf-8');
 };
@@ -44,6 +49,11 @@ exports.readFile = async function(token, repo, filePath) {
 exports.writeFile = async function(token, repo, filePath, content, message) {
   const normalized = normalizeRepo(repo);
   const url = `https://api.github.com/repos/${normalized}/contents/${encodeURIComponent(filePath)}`;
+  const masked = token ? `${token.slice(0, 4)}...` : 'null';
+  console.log('[writeFile] Repo:', normalized);
+  console.log('[writeFile] Token:', masked);
+  console.log('[writeFile] File:', filePath);
+  console.log('[writeFile] URL:', url);
   let sha = undefined;
   try {
     const res = await axios.get(url, { headers: { Authorization: `token ${token}` } });
