@@ -4,6 +4,7 @@ const os = require('os');
 const readline = require('readline');
 const { spawnSync } = require('child_process');
 const { createBackup } = require('../logic/markdown_editor');
+const { resolveMarkdownPath } = require('./markdown_finder');
 
 let original_cache = new Map();
 
@@ -47,8 +48,18 @@ function ask(question) {
 }
 
 async function editMarkdownFile(filepath, editCallback, opts = {}) {
-  const { dryRun = false, autoConfirm = false } = opts;
-  const original = readMarkdownFile(filepath);
+  const { dryRun = false, autoConfirm = false, repo = null, token = null } = opts;
+  let target = filepath;
+  if (!fs.existsSync(target)) {
+    const resolved = await resolveMarkdownPath(filepath, { repo, token });
+    if (!resolved) throw new Error('File not found');
+    if (typeof resolved === 'object') {
+      console.log('[editMarkdownFile] multiple matches:', resolved.multiple.join(', '));
+      return resolved;
+    }
+    target = path.join(__dirname, '..', resolved);
+  }
+  const original = readMarkdownFile(target);
   const edited = await Promise.resolve(editCallback(original));
   if (edited === undefined || edited === null) return false;
   const ratio = lineSimilarity(original, edited);
@@ -71,7 +82,7 @@ async function editMarkdownFile(filepath, editCallback, opts = {}) {
     console.log('Edit cancelled.');
     return false;
   }
-  writeMarkdownFile(filepath, edited);
+  writeMarkdownFile(target, edited);
   return true;
 }
 
