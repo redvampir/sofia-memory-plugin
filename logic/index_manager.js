@@ -15,6 +15,81 @@ const { logError } = require('../tools/error_handler');
 const indexPath = path.join(__dirname, '..', 'memory', 'index.json');
 let indexData = null;
 
+function extractNumber(name) {
+  const m = name.match(/(\d+)/);
+  return m ? m[1].replace(/^0+/, '') : null;
+}
+
+async function validateFilePathAgainstIndex(filePath) {
+  const normalized = normalize_memory_path(filePath);
+  if (!indexData) await loadIndex();
+
+  const base = path.posix.basename(normalized);
+  const type = inferTypeFromPath(normalized);
+  let folder = '';
+  if (type === 'lesson') folder = 'memory/lessons';
+  if (type === 'plan' || type === 'profile') folder = 'memory';
+
+  let valid = true;
+  let expected = normalized;
+  let warning = null;
+
+  if (folder && !normalized.startsWith(folder + '/')) {
+    valid = false;
+    expected = path.posix.join(folder, base);
+    warning = `File ${base} expected in ${folder}`;
+  }
+
+  const num = extractNumber(base);
+  if (num) {
+    const existing = indexData.find(e => extractNumber(path.posix.basename(e.path)) === num);
+    if (existing && existing.path !== normalized) {
+      valid = false;
+      expected = existing.path;
+      warning = `Lesson ${num} already mapped to ${existing.path}`;
+    }
+  }
+
+  return { valid, expectedPath: expected, warning };
+}
+
+async function getLessonPath(number) {
+  const n = String(parseInt(number, 10)).padStart(2, '0');
+  if (!indexData) await loadIndex();
+
+  const found = indexData.find(
+    e => inferTypeFromPath(e.path) === 'lesson' && extractNumber(path.posix.basename(e.path)) === n
+  );
+  if (found) return found.path;
+
+  const newPath = `memory/lessons/lesson_${n}.md`;
+  indexData.push({
+    path: newPath,
+    type: 'lesson',
+    title: `Lesson ${n}`,
+    lastModified: new Date().toISOString(),
+  });
+  await saveIndex();
+  return newPath;
+}
+
+async function markDuplicateLessons(number, keepPath) {
+  const n = String(parseInt(number, 10)).padStart(2, '0');
+  if (!indexData) await loadIndex();
+  let changed = false;
+  indexData.forEach(entry => {
+    if (inferTypeFromPath(entry.path) !== 'lesson') return;
+    const num = extractNumber(path.posix.basename(entry.path));
+    if (num === n && entry.path !== keepPath) {
+      if (!entry.archived) {
+        entry.archived = true;
+        changed = true;
+      }
+    }
+  });
+  if (changed) await saveIndex();
+}
+
 function readLocalIndex() {
   if (!fs.existsSync(indexPath)) return [];
   try {
@@ -151,5 +226,8 @@ module.exports = {
   mergeIndex,
   saveMemoryWithIndex,
   generateTitleFromPath,
-  inferTypeFromPath
+  inferTypeFromPath,
+  validateFilePathAgainstIndex,
+  getLessonPath,
+  markDuplicateLessons
 };

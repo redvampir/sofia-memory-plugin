@@ -61,6 +61,10 @@ async function save_memory(user_id, repo, token, filename, content) {
   console.log('[save_memory] file:', normalized);
   const localPath = path.join(__dirname, '..', normalized);
   ensure_dir(localPath);
+  if (fs.existsSync(localPath)) {
+    const backup = `${localPath}.bak`;
+    fs.copyFileSync(localPath, backup);
+  }
   fs.writeFileSync(localPath, content, 'utf-8');
 
   if (finalRepo && finalToken) {
@@ -80,7 +84,12 @@ async function save_memory(user_id, repo, token, filename, content) {
 }
 
 async function save_memory_with_index(user_id, repo, token, filename, content) {
-  const savedPath = await save_memory(user_id, repo, token, filename, content);
+  const check = await index_manager.validateFilePathAgainstIndex(filename);
+  if (check.warning) console.warn(`[index] ${check.warning}`);
+  const finalPath = check.expectedPath || filename;
+  const savedPath = await save_memory(user_id, repo, token, finalPath, content);
+  const num = finalPath.match(/(\d+)/);
+  if (num) await index_manager.markDuplicateLessons(num[1], savedPath);
   await index_manager.addOrUpdateEntry({
     path: savedPath,
     title: index_manager.generateTitleFromPath(savedPath),
