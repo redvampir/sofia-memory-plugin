@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: sofia-memory-plugin
+    env: node
+    buildCommand: npm install
+    startCommand: node index.js
+    healthCheckPath: /health
+    startTimeout: 120
+
