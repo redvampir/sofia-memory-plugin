@@ -1,6 +1,7 @@
 const { read_memory, save_memory, get_file } = require('./logic/storage');
 const { restore_context } = require('./context');
 const { getContextFiles } = require('./tools/index_manager');
+const { updateContextPriority, touchIndexEntry } = require('./tools/context_priority');
 const memory_config = require('./tools/memory_config');
 const token_store = require('./tools/token_store');
 const { normalize_memory_path } = require('./tools/file_utils');
@@ -62,6 +63,7 @@ async function readMemory(repo, token, filename) {
   try {
     const content = await read_memory(null, final_repo, final_token, normalized_file);
     console.log('[readMemory] success length', content.length);
+    touchIndexEntry(normalized_file);
     return content;
   } catch (e) {
     console.log('[readMemory] error', e.message);
@@ -91,6 +93,7 @@ async function saveMemory(repo, token, filename, content) {
   try {
     const result = await save_memory(null, repo, token, filename, content);
     logger.info('[saveMemory] success');
+    touchIndexEntry(normalized_file);
     return result;
   } catch (e) {
     logger.error('[saveMemory] error', e.message);
@@ -122,6 +125,8 @@ async function refreshContextFromMemoryFiles(repo, token) {
     repo: repo || null,
     token: masked_token,
   });
+
+  updateContextPriority();
 
   const context_files = getContextFiles();
   logger.debug('[refreshContextFromMemoryFiles] high priority files', context_files);
@@ -162,6 +167,7 @@ async function read_memory_file(filename, opts = {}) {
   try {
     const result = await get_file(null, repo, token, normalized);
     logger.info('[read_memory_file] success', { path: normalized, source });
+    touchIndexEntry(normalized);
     return result.content;
   } catch (e) {
     logger.error('[read_memory_file] error', {
@@ -216,6 +222,7 @@ async function readMarkdownFile(filepath, opts = {}) {
 
   try {
     const content = await read_memory(null, finalRepo, finalToken, normalized);
+    touchIndexEntry(normalized);
     return content;
   } catch (e) {
     logger.error('[readMarkdownFile] error', e.message);

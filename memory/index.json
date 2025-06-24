@@ -4,14 +4,16 @@
     "type": "profile",
     "title": "Profile",
     "lastModified": "2025-06-21T17:07:52.802Z",
-    "context_priority": "high"
+    "context_priority": "high",
+    "last_accessed": "2025-06-24T21:14:16.803Z"
   },
   {
     "path": "memory/lessons/04_example.md",
     "type": "lesson",
     "title": "Example Lesson",
     "lastModified": "2025-06-21T17:07:52.802Z",
-    "context_priority": "high"
+    "context_priority": "high",
+    "last_accessed": "2025-06-24T21:14:16.807Z"
   },
   {
     "path": "memory/plan_checklist.md",
@@ -19,6 +21,7 @@
     "title": "Plan Checklist",
     "description": "- [ ] Example task - [x] Не затирать index.json при обновлении",
     "lastModified": "2025-06-21T17:07:52.802Z",
-    "context_priority": "high"
+    "context_priority": "high",
+    "last_accessed": "2025-06-24T21:14:16.808Z"
   }
 ]
