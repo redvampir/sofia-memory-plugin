@@ -1,16 +1,16 @@
 const fs = require('fs');
 const path = require('path');
-const github = require('../utils/githubClient');
-const tokenStore = require('../utils/tokenStore');
-const memoryConfig = require('../utils/memoryConfig');
+const github = require('../tools/github_client');
+const token_store = require('../tools/token_store');
+const memory_config = require('../tools/memory_config');
 const {
-  ensureDir,
+  ensure_dir,
   deepMerge,
-  normalizeMemoryPath,
+  normalize_memory_path,
   generateTitleFromPath,
   inferTypeFromPath
-} = require('../utils/fileUtils');
-const { logError } = require('../utils/errorHandler');
+} = require('../tools/file_utils');
+const { logError } = require('../tools/error_handler');
 
 const indexPath = path.join(__dirname, '..', 'memory', 'index.json');
 let indexData = null;
@@ -49,7 +49,7 @@ async function loadIndex() {
   if (indexData) return indexData;
   if (!fs.existsSync(indexPath)) {
     console.warn('[indexManager] index.json not found, initializing');
-    ensureDir(indexPath);
+    ensure_dir(indexPath);
     indexData = [];
     await saveIndex();
     return indexData;
@@ -97,8 +97,8 @@ async function removeEntry(p) {
 
 async function saveIndex(token, repo, userId) {
   if (!indexData) await loadIndex();
-  const finalToken = token || tokenStore.getToken(userId);
-  const finalRepo = repo || memoryConfig.getRepoUrl(userId);
+  const finalToken = token || token_store.getToken(userId);
+  const finalRepo = repo || memory_config.getRepoUrl(userId);
 
   let remoteData = [];
   if (finalRepo && finalToken) {
@@ -114,7 +114,7 @@ async function saveIndex(token, repo, userId) {
   const diskData = readLocalIndex();
   indexData = await mergeIndex(diskData, indexData || []);
   indexData = await mergeIndex(remoteData, indexData);
-  ensureDir(indexPath);
+  ensure_dir(indexPath);
   try {
     fs.writeFileSync(indexPath, JSON.stringify(indexData, null, 2), 'utf-8');
     if (process.env.DEBUG) console.log('[indexManager] index saved locally');

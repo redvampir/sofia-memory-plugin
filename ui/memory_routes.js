@@ -2,7 +2,7 @@
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
-const github = require('../utils/githubClient');
+const github = require('../tools/github_client');
 const router = express.Router();
 
 const {
@@ -15,18 +15,18 @@ const {
   contextFilename,
   planFilename,
   indexFilename,
-} = require('../core/memoryOperations');
-const indexManager = require('../core/indexManager');
-const memoryConfig = require('../utils/memoryConfig');
-const tokenStore = require('../utils/tokenStore');
-const { generateTitleFromPath, inferTypeFromPath, normalizeMemoryPath, ensureDir } = require('../utils/fileUtils');
-const { parseMarkdownStructure, mergeMarkdownTrees, serializeMarkdownTree } = require('../core/markdownMergeEngine.ts');
-const { getRepoInfo, extractToken, categorizeMemoryFile, logDebug } = require('../utils/memoryHelpers');
-const { logError } = require('../utils/errorHandler');
+} = require('../logic/memory_operations');
+const index_manager = require('../logic/index_manager');
+const memory_config = require('../tools/memory_config');
+const token_store = require('../tools/token_store');
+const { generateTitleFromPath, inferTypeFromPath, normalize_memory_path, ensure_dir } = require('../tools/file_utils');
+const { parseMarkdownStructure, mergeMarkdownTrees, serializeMarkdownTree } = require('../logic/markdown_merge_engine.ts');
+const { getRepoInfo, extractToken, categorizeMemoryFile, logDebug } = require('../tools/memory_helpers');
+const { logError } = require('../tools/error_handler');
 
 function setMemoryRepo(req, res) {
   const { repoUrl, userId } = req.body;
-  memoryConfig.setRepoUrl(userId, repoUrl);
+  memory_config.setRepoUrl(userId, repoUrl);
   res.json({ status: 'success', repo: repoUrl });
 }
 
@@ -39,9 +39,9 @@ async function saveMemory(req, res) {
     return res.status(400).json({ status: 'error', message: 'Missing required fields.' });
   }
 
-  const normalizedFilename = normalizeMemoryPath(filename);
+  const normalizedFilename = normalize_memory_path(filename);
   const filePath = path.join(__dirname, '..', normalizedFilename);
-  ensureDir(filePath);
+  ensure_dir(filePath);
 
   let finalContent = content;
   const isMarkdown = normalizedFilename.endsWith('.md');
@@ -115,13 +115,13 @@ async function saveMemory(req, res) {
   }, userId);
 
   if (normalizedFilename.startsWith('memory/') && normalizedFilename !== 'memory/index.json') {
-    await indexManager.addOrUpdateEntry({
+    await index_manager.addOrUpdateEntry({
       path: normalizedFilename,
       title: generateTitleFromPath(normalizedFilename),
       type: inferTypeFromPath(normalizedFilename),
       lastModified: new Date().toISOString(),
     });
-    await indexManager.saveIndex(effectiveToken, effectiveRepo, userId);
+    await index_manager.saveIndex(effectiveToken, effectiveRepo, userId);
   }
 
   res.json({ status: 'success', action: 'saveMemory', filePath: normalizedFilename });
@@ -132,7 +132,7 @@ async function readMemory(req, res) {
   const token = extractToken(req);
   const { repo: effectiveRepo, token: effectiveToken } = getRepoInfo(filename, userId, repo, token);
 
-  const normalizedFilename = normalizeMemoryPath(filename);
+  const normalizedFilename = normalize_memory_path(filename);
   const filePath = path.join(__dirname, '..', normalizedFilename);
   const isJson = normalizedFilename.endsWith('.json');
 
@@ -213,7 +213,7 @@ async function saveContext(req, res) {
   const token = extractToken(req);
   const { repo: effectiveRepo, token: effectiveToken } = getRepoInfo('memory/context.md', userId, repo, token);
 
-  ensureDir(contextFilename);
+  ensure_dir(contextFilename);
   writeFileSafe(contextFilename, content || '');
 
   if (effectiveRepo && effectiveToken) {
@@ -244,7 +244,7 @@ async function readContext(req, res) {
   const token = extractToken(req);
   const { repo: effectiveRepo, token: effectiveToken } = getRepoInfo('memory/context.md', userId, repo, token);
 
-  ensureDir(contextFilename);
+  ensure_dir(contextFilename);
 
   if (effectiveRepo && effectiveToken) {
     try {
@@ -269,26 +269,26 @@ async function updateIndexManual(req, res) {
 
 function getToken(req, res) {
   const userId = req.body && req.body.userId;
-  const token = tokenStore.getToken(userId);
+  const token = token_store.getToken(userId);
   res.json({ token: token || null });
 }
 
 function setToken(req, res) {
   const token = req.body && req.body.token ? req.body.token : '';
   const userId = req.body && req.body.userId;
-  if (userId) tokenStore.setToken(userId, token);
+  if (userId) token_store.setToken(userId, token);
   res.json({ status: 'success', action: 'setToken', connected: !!token });
 }
 
 function tokenStatus(req, res) {
   const userId = req.query.userId || (req.body && req.body.userId);
-  const token = userId ? tokenStore.getToken(userId) : null;
+  const token = userId ? token_store.getToken(userId) : null;
   res.json({ connected: !!token });
 }
 
 function readPlan(req, res) {
   try {
-    ensureDir(planFilename);
+    ensure_dir(planFilename);
     const content = fs.existsSync(planFilename) ? fs.readFileSync(planFilename, 'utf-8') : '{}';
     const plan = JSON.parse(content || '{}');
     res.json({ status: 'success', plan });
@@ -321,7 +321,7 @@ async function save(req, res) {
       return res.status(401).json({ status: 'error', message: 'Invalid GitHub token' });
     }
 
-    const normalized = normalizeMemoryPath(filename);
+    const normalized = normalize_memory_path(filename);
     await github.writeFileSafe(token, repo, normalized, content, `Update ${normalized}`);
     res.json({ status: 'ok' });
   } catch (e) {
@@ -341,7 +341,7 @@ router.post('/saveMemoryWithIndex', async (req, res) => {
   const { userId, repo, token, filename, content } = req.body;
   const { repo: effectiveRepo, token: effectiveToken } = getRepoInfo(filename, userId, repo, token || extractToken(req));
   try {
-    const pathSaved = await indexManager.saveMemoryWithIndex(
+    const pathSaved = await index_manager.saveMemoryWithIndex(
       userId,
       effectiveRepo,
       effectiveToken,
@@ -365,7 +365,7 @@ router.post('/saveContext', saveContext);
 router.post('/chat/setup', (req, res) => {
   const text = req.body && req.body.text ? req.body.text : '';
   // Используем функцию разбора команды из утилит
-  const { parse_user_memory_setup } = require('../utils/utils');
+  const { parse_user_memory_setup } = require('../tools/utils');
   const parsed = parse_user_memory_setup(text);
   if (!parsed) return res.status(400).json({ status: 'error', message: 'Invalid command' });
   const { userId, repo } = parsed;

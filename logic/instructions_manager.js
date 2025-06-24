@@ -2,13 +2,13 @@ const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
 const simpleGit = require('simple-git');
-const github = require('../utils/githubClient');
-const repoConfig = require('../utils/instructionsRepoConfig');
-const mdEditor = require('./markdownEditor');
-const validator = require('./markdownValidator');
-const mdFileEditor = require('./markdownFileEditor');
-const { ensureDir, normalizeMemoryPath } = require('../utils/fileUtils');
-const { logError } = require('../utils/errorHandler');
+const github = require('../tools/github_client');
+const repoConfig = require('../tools/instructions_repo_config');
+const mdEditor = require('./markdown_editor');
+const validator = require('./markdown_validator');
+const mdFileEditor = require('./markdown_file_editor');
+const { ensure_dir, normalize_memory_path } = require('../tools/file_utils');
+const { logError } = require('../tools/error_handler');
 
 const git = simpleGit();
 const SKIP_GIT = process.env.NO_GIT === "true";
@@ -23,7 +23,7 @@ const DEV_DIR = path.join(BASE_DIR, 'dev');
 let currentVersion = 'base';
 
 function ensureStructure() {
-  [BASE_DIR, HISTORY_DIR, DEV_DIR].forEach(ensureDir);
+  [BASE_DIR, HISTORY_DIR, DEV_DIR].forEach(ensure_dir);
 }
 
 function versionPath(version) {
@@ -184,13 +184,13 @@ async function edit(version, newContent, opts = {}) {
 
 
 async function updateMarkdownFile(relPath, newContent, opts = {}) {
-  const normalized = normalizeMemoryPath(relPath);
+  const normalized = normalize_memory_path(relPath);
   const abs = path.join(__dirname, '..', normalized);
   const devMode = opts.devMode;
   const dest = devMode
     ? path.join(path.dirname(abs), 'dev', path.basename(abs))
     : abs;
-  ensureDir(dest);
+  ensure_dir(dest);
   const oldContent = fs.existsSync(abs) ? fs.readFileSync(abs, 'utf-8') : '';
   const check = validator.validateMarkdownSyntax(newContent, dest);
   if (!check.valid) {

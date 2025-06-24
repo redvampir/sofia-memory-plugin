@@ -1,8 +1,9 @@
+// Файловые утилиты и функции обработки путей
 const fs = require('fs');
 const path = require('path');
-const { detectMarkdownCategory } = require('../core/markdownCategory');
+const { detect_markdown_category } = require('../logic/markdown_category');
 
-function ensureDir(p) {
+function ensure_dir(p) {
   const dir = path.extname(p) ? path.dirname(p) : p;
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 }
@@ -41,7 +42,7 @@ function deepMerge(target, source, matchKey) {
   return source;
 }
 
-function normalizeMemoryPath(p) {
+function normalize_memory_path(p) {
   if (!p) return 'memory/';
   let rel = p.replace(/\\+/g, '/');
   rel = path.posix.normalize(rel).replace(/^(\.\/)+/, '').replace(/^\/+/, '');
@@ -61,7 +62,7 @@ function generateTitleFromPath(p) {
 }
 
 function inferTypeFromPath(p) {
-  if (p.endsWith('.md')) return detectMarkdownCategory(p);
+  if (p.endsWith('.md')) return detect_markdown_category(p);
   if (p.includes('plan')) return 'plan';
   if (p.includes('profile')) return 'profile';
   if (p.includes('lesson')) return 'lesson';
@@ -70,9 +71,9 @@ function inferTypeFromPath(p) {
 }
 
 module.exports = {
-  ensureDir,
+  ensure_dir,
   deepMerge,
-  normalizeMemoryPath,
+  normalize_memory_path,
   generateTitleFromPath,
   inferTypeFromPath,
 };

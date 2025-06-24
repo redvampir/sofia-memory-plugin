@@ -1,3 +1,4 @@
+// Сохраняем и читаем адреса репозиториев для пользователей
 const fs = require('fs');
 const path = require('path');
 
@@ -5,7 +6,7 @@ const cacheDir = path.join(__dirname, '.cache');
 const reposDir = path.join(cacheDir, 'repos');
 const repoCache = {};
 
-function ensureDir() {
+function ensure_dir() {
   if (!fs.existsSync(reposDir)) {
     fs.mkdirSync(reposDir, { recursive: true });
   }
@@ -34,7 +35,7 @@ function loadRepo(userId) {
 }
 
 function saveRepo(userId, url) {
-  ensureDir();
+  ensure_dir();
   const file = repoPath(userId);
   try {
     if (url) {

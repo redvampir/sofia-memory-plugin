@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const { readMemory } = require('./core/storage');
+const { read_memory } = require('./logic/storage');
 const rootConfig = require('./config');
 
 /**
@@ -14,7 +14,7 @@ const rootConfig = require('./config');
  */
 async function readFile(filePath, opts = {}) {
   const { userId, repo, token } = opts;
-  return readMemory(userId, repo, token, filePath.replace(/^\/+/, ''));
+  return read_memory(userId, repo, token, filePath.replace(/^\/+/, ''));
 }
 
 async function loadIndexFile(debug, opts = {}) {
@@ -62,7 +62,7 @@ async function loadIndexFile(debug, opts = {}) {
  * @param {object} [opts] optional readFile parameters
  * @returns {Promise<{plan:string|null, profile:string|null, currentLesson:string|null}>}
  */
-  async function restoreContext(debug = false, opts = {}) {
+  async function restore_context(debug = false, opts = {}) {
     try {
       const indexPath = opts.indexPath || process.env.INDEX_PATH || 'memory/index.json';
       if (debug) console.log('[restoreContext] loading', indexPath);
@@ -199,12 +199,12 @@ async function maybeRestoreContext({ debug = false, testMode = false, userPrompt
     return { restored: false, confirmationNeeded: true };
   }
 
-  const context = await restoreContext(debug);
+  const context = await restore_context(debug);
   return { restored: true, context };
 }
 
 module.exports = {
-  restoreContext,
+  restore_context,
   readFile,
   shouldRestoreContext,
   maybeRestoreContext

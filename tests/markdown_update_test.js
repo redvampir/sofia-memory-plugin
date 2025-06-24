@@ -1,8 +1,8 @@
 const fs = require('fs');
 const path = require('path');
 const assert = require('assert');
-const mdEditor = require('../core/markdownEditor');
-const validator = require('../core/markdownValidator');
+const mdEditor = require('../logic/markdown_editor');
+const validator = require('../logic/markdown_validator');
 
 const tmpDir = path.join(__dirname, 'tmp');
 if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir);

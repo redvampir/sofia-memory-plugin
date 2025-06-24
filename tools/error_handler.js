@@ -1,3 +1,4 @@
+// Логирование ошибок и обёртка для асинхронных функций
 function logError(context, error) {
   const msg = error && error.message ? error.message : error;
   if (process.env.DEBUG) {

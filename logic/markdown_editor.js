@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const validator = require('./markdownValidator');
+const validator = require('./markdown_validator');
 
 function createBackup(filePath) {
   if (!fs.existsSync(filePath)) return null;

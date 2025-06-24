@@ -1,3 +1,4 @@
+// Простейшее хранилище токенов пользователей
 const fs = require('fs');
 const path = require('path');
 
@@ -5,7 +6,7 @@ const cacheDir = path.join(__dirname, '.cache');
 const tokensDir = path.join(cacheDir, 'tokens');
 const tokenCache = {};
 
-function ensureDir() {
+function ensure_dir() {
   if (!fs.existsSync(tokensDir)) {
     fs.mkdirSync(tokensDir, { recursive: true });
   }
@@ -34,7 +35,7 @@ function loadToken(userId) {
 }
 
 function saveToken(userId, token) {
-  ensureDir();
+  ensure_dir();
   const file = tokenPath(userId);
   try {
     if (token) {
