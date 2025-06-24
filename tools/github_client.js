@@ -1,6 +1,7 @@
 
-const axios = require('axios');
 // Клиент GitHub для чтения и записи файлов
+const { Octokit } = require('@octokit/rest');
+const axios = require('axios');
 const { logError } = require('./error_handler');
 
 function normalizeRepo(repo) {
@@ -34,7 +35,7 @@ exports.repoExists = async function (token, repo) {
   }
 };
 
-exports.readFile = async function(token, repo, filePath) {
+exports.readFile = async function (token, repo, filePath) {
   const normalized = normalizeRepo(repo);
   const url = `https://api.github.com/repos/${normalized}/contents/${encodeURIComponent(filePath)}`;
   const masked = token ? `${token.slice(0, 4)}...` : 'null';
@@ -43,7 +44,10 @@ exports.readFile = async function(token, repo, filePath) {
   console.log('[readFile] File:', filePath);
   console.log('[readFile] URL:', url);
   try {
-    const res = await axios.get(url, { headers: { Authorization: `token ${token}` } });
+    const [owner, repoName] = normalized.split('/');
+    const octokit = new Octokit({ auth: token });
+    const res = await octokit.repos.getContent({ owner, repo: repoName, path: filePath });
+    console.log('[readFile] status:', res.status);
     return Buffer.from(res.data.content, 'base64').toString('utf-8');
   } catch (e) {
     logError('readFile', e);
