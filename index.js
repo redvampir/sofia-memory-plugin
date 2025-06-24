@@ -57,15 +57,18 @@ app.get('/debug/index', (req, res) => {
 
 // Дополнительные alias-маршруты для совместимости
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
-  console.log(`Sofia Plugin Server running on port ${PORT}`);
+  console.log(`[START] Sofia Plugin is running on port ${PORT}`);
 });
 
 // Проверка доступности сервера
 app.get('/ping', (req, res) => {
   res.send('pong');
 });
+
+// Health check route for Render
+app.get('/health', (_req, res) => res.send('OK'));
 
 // Автодокументация
 app.get('/docs', (req, res) => {
