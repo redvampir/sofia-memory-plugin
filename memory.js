@@ -155,10 +155,62 @@ async function read_memory_file(filename, opts = {}) {
   }
 }
 
+async function readMarkdownFile(filepath, opts = {}) {
+  const { repo = null, token = null } = opts;
+  let target = filepath;
+  const finalRepo = repo || memory_config.getRepoUrl(null);
+  const finalToken = token || token_store.getToken(null);
+
+  if (!target) {
+    try {
+      const idxRaw = await read_memory(null, finalRepo, finalToken, 'memory/index.json');
+      const idx = JSON.parse(idxRaw);
+      if (Array.isArray(idx)) {
+        const first = idx.find(e => e.type === 'lesson') || idx[0];
+        target = first ? first.path : null;
+      } else {
+        target = idx.latest_lesson || idx.path || null;
+      }
+    } catch (e) {
+      logger.error('[readMarkdownFile] index lookup failed', e.message);
+    }
+  } else if (!target.startsWith('memory/')) {
+    try {
+      const idxRaw = await read_memory(null, finalRepo, finalToken, 'memory/index.json');
+      const idx = JSON.parse(idxRaw);
+      if (Array.isArray(idx)) {
+        const found = idx.find(e => e.title === target || e.path === target);
+        if (found) target = found.path;
+      } else if (idx[target]) {
+        target = idx[target];
+      }
+    } catch (e) {
+      logger.error('[readMarkdownFile] index search failed', e.message);
+    }
+  }
+
+  if (!target) throw new Error('File not found');
+
+  const normalized = normalize_memory_path(target);
+  if (!/\.md$/i.test(normalized)) {
+    throw new Error('Markdown file expected');
+  }
+
+  try {
+    const content = await read_memory(null, finalRepo, finalToken, normalized);
+    return content;
+  } catch (e) {
+    logger.error('[readMarkdownFile] error', e.message);
+    if (/not found/i.test(e.message)) throw new Error('File not found');
+    throw e;
+  }
+}
+
 module.exports = {
   readMemory,
   saveMemory,
   refreshContextFromMemoryFiles,
   setMemoryRepo,
   read_memory_file,
+  readMarkdownFile,
 };
