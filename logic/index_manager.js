@@ -159,7 +159,15 @@ async function addOrUpdateEntry(entry) {
     indexData[idx] = { ...indexData[idx], ...entry, ...base };
     if (process.env.DEBUG) console.log(`[indexManager] Updated entry ${entry.path}`);
   } else {
-    indexData.push({ ...entry, ...base });
+    indexData.push({
+      context_priority: 'high',
+      last_accessed: new Date().toISOString(),
+      access_count: 0,
+      edit_count: 0,
+      pinned: false,
+      ...entry,
+      ...base,
+    });
     if (process.env.DEBUG) console.log(`[indexManager] Added entry ${entry.path}`);
   }
   await saveIndex();
