@@ -12,7 +12,8 @@ const memoryConfig = require('./memoryConfig');
  * @param {string} message - raw chat text
  * @returns {{userId: string, repo: string, token: string}|null}
  */
-function parseUserMemorySetup(message = '') {
+// Разбор команды настройки памяти пользователя
+function parse_user_memory_setup(message = '') {
   if (typeof message !== 'string') return null;
 
   const userMatch = message.match(/(?:for|user)\s+([\w_]+)/i);
@@ -26,15 +27,15 @@ function parseUserMemorySetup(message = '') {
   const token = tokenMatch[1];
 
   if (!/^[\w_]+$/.test(userId)) {
-    console.warn('[parseUserMemorySetup] invalid userId', userId);
+    console.warn('[parse_user_memory_setup] invalid userId', userId);
     return null;
   }
   if (!/^ghp_[A-Za-z0-9]+$/.test(token)) {
-    console.warn('[parseUserMemorySetup] invalid token format');
+    console.warn('[parse_user_memory_setup] invalid token format');
     return null;
   }
   if (!/^https:\/\/github\.com\/[\w.-]+\/[\w.-]+\.git$/.test(repo)) {
-    console.warn('[parseUserMemorySetup] invalid repo url');
+    console.warn('[parse_user_memory_setup] invalid repo url');
     return null;
   }
 
@@ -46,6 +47,6 @@ function parseUserMemorySetup(message = '') {
 }
 
 module.exports = {
-  parseUserMemorySetup
+  parse_user_memory_setup
 };
 
