@@ -13,9 +13,11 @@ const {
 const { logError } = require('../tools/error_handler');
 const { sort_by_priority } = require('../tools/index_utils');
 const index_tree = require('../tools/index_tree');
+const { indexSettings, validateIndex } = require('./index_validator');
 
 const indexPath = path.join(__dirname, '..', 'memory', 'index.json');
 let indexData = null;
+let validationReport = null;
 
 function extractNumber(name) {
   const m = name.match(/(\d+)/);
@@ -124,8 +126,19 @@ async function mergeIndex(remoteData, localData) {
 }
 async function loadIndex() {
   try {
-    const list = index_tree.listAllEntries();
+    let list = index_tree.listAllEntries();
+    if (indexSettings.validate_on_load) {
+      const res = validateIndex(list.map(e => ({ ...e, path: e.path })));
+      list = res.entries;
+      validationReport = res.report;
+    }
     indexData = sort_by_priority(list.map(e => ({ ...e, path: e.path })));
+    if (
+      indexSettings.validate_on_load &&
+      (indexSettings.auto_clean_invalid || indexSettings.auto_clean_missing)
+    ) {
+      await saveIndex();
+    }
   } catch (e) {
     console.warn('[indexManager] failed to load index tree', e.message);
     indexData = [];
@@ -191,6 +204,27 @@ async function saveMemoryWithIndex(userId, repo, token, filename, content) {
   return storage.saveMemoryWithIndex(userId, repo, token, filename, content);
 }
 
+async function addToIndex(file, meta = {}) {
+  const normalized = normalize_memory_path(file);
+  const abs = path.join(__dirname, '..', normalized);
+  if (!fs.existsSync(abs)) {
+    throw new Error(`File not found: ${normalized}`);
+  }
+  const entry = {
+    path: normalized,
+    title: meta.title || generateTitleFromPath(normalized),
+    tags: meta.tags || [],
+    summary: meta.summary,
+    version: meta.version,
+  };
+  await addOrUpdateEntry(entry);
+  await saveIndex();
+}
+
+function getValidationReport() {
+  return validationReport;
+}
+
 module.exports = {
   loadIndex,
   addOrUpdateEntry,
@@ -202,5 +236,7 @@ module.exports = {
   inferTypeFromPath,
   validateFilePathAgainstIndex,
   getLessonPath,
-  markDuplicateLessons
+  markDuplicateLessons,
+  addToIndex,
+  getValidationReport,
 };
