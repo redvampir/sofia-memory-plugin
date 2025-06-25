@@ -1,21 +1,11 @@
 {
-  "lessons": {
-    "4": {
-      "type": "lesson",
-      "title": "Example Lesson",
-      "path": "memory/lessons/04_example.md",
-      "category": "general",
-      "created": "2025-06-21",
-      "updated": "2025-06-21",
-      "summary": "Example lesson content",
-      "tags": [],
-      "status": "active",
-      "version": "1.0",
-      "priority": "high",
-      "context_priority": "high",
-      "last_accessed": "2025-06-25T17:46:24.815Z",
-      "access_count": 5,
-      "edit_count": 3
-    }
-  }
+  "type": "index-root",
+  "branches": [
+    { "category": "context", "path": "plans/context/index.json" },
+    { "category": "structure", "path": "plans/structure/index.json" },
+    { "category": "features", "path": "plans/features/index.json" },
+    { "category": "safety", "path": "plans/safety/index.json" },
+    { "category": "lessons", "path": "lessons/index.json" },
+    { "category": "drafts", "path": "drafts/index.json" }
+  ]
 }

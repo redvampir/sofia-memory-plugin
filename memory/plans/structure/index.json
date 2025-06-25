@@ -1,0 +1,7 @@
+{
+  "type": "index-branch",
+  "category": "structure",
+  "files": [
+    { "title": "Structure Plan", "file": "plans/structure/layout.md", "tags": ["structure"], "context_priority": "high" }
+  ]
+}

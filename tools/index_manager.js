@@ -1,27 +1,17 @@
-const fs = require('fs');
-const path = require('path');
-const {
-  index_to_array,
-  array_to_index,
-  sort_by_priority,
-} = require('./index_utils');
+const { sort_by_priority } = require('./index_utils');
+const index_tree = require('./index_tree');
 
-const indexFile = path.join(__dirname, '..', 'memory', 'index.json');
 
 function loadIndex() {
   try {
-    const raw = fs.readFileSync(indexFile, 'utf-8');
-    return sort_by_priority(index_to_array(JSON.parse(raw)));
+    return sort_by_priority(index_tree.listAllEntries());
   } catch {
     return [];
   }
 }
 
-function saveIndex(data) {
-  try {
-    const sorted = sort_by_priority(data);
-    fs.writeFileSync(indexFile, JSON.stringify(array_to_index(sorted), null, 2), 'utf-8');
-  } catch {}
+function saveIndex(_data) {
+  // deprecated: indexes are saved via logic/index_manager
 }
 
 function getContextFiles() {

@@ -1,0 +1,7 @@
+{
+  "type": "index-branch",
+  "category": "safety",
+  "files": [
+    { "title": "Safety Guidelines", "file": "plans/safety/overview.md", "tags": ["safety"], "context_priority": "high" }
+  ]
+}

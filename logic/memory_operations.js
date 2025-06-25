@@ -346,14 +346,12 @@ const EXCLUDED = new Set([
   'memory/test.txt',
 ]);
 
-const { index_to_array, array_to_index } = require('../tools/index_utils');
+const { array_to_index } = require('../tools/index_utils');
+const index_tree = require('../tools/index_tree');
 
 function readIndexSafe() {
-  if (!fs.existsSync(indexFilename)) return [];
   try {
-    const content = fs.readFileSync(indexFilename, 'utf-8');
-    const data = JSON.parse(content);
-    return index_to_array(data);
+    return index_tree.listAllEntries();
   } catch {
     return [];
   }

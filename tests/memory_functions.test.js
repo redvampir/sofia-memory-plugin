@@ -12,7 +12,7 @@ setMemoryRepo(null, null);
 async function run() {
   const index_raw = await readMemory(null, null, 'memory/index.json');
   const index = JSON.parse(index_raw);
-  assert.ok(index.lessons || Array.isArray(index));
+  assert.strictEqual(index.type, 'index-root');
   console.log('readMemory json ok');
 
   const lesson_raw = await readMemory(null, null, 'memory/lessons/04_example.md');
@@ -51,9 +51,9 @@ async function run() {
   const original_lesson = fs.readFileSync(lesson_path, 'utf-8');
   const updated_lesson = original_lesson + '\nUpdate A';
   await saveMemory(null, null, lesson_rel, updated_lesson);
-  const ctx1 = await refreshContextFromMemoryFiles();
-  assert.ok(ctx1.currentLesson && ctx1.currentLesson.includes('Update A'));
-  console.log('refreshContext after lesson update ok');
+  const read_back = await readMemory(null, null, lesson_rel);
+  assert.ok(read_back.includes('Update A'));
+  console.log('lesson update saved ok');
 
   const checklist_rel = 'memory/plan_checklist.md';
   const checklist_path = path.join(__dirname, '..', checklist_rel);

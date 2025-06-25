@@ -5,7 +5,7 @@ const assert = require('assert');
 const index_manager = require('../logic/index_manager');
 
 (async function run() {
-  const idxPath = path.join(__dirname, '..', 'memory', 'index.json');
+  const idxPath = path.join(__dirname, '..', 'memory', 'lessons', 'index.json');
   const original = fs.readFileSync(idxPath, 'utf-8');
 
   const check = await index_manager.validateFilePathAgainstIndex('memory/lesson_04.md');
@@ -15,8 +15,7 @@ const index_manager = require('../logic/index_manager');
   const newPath = await index_manager.getLessonPath(7);
   assert.strictEqual(newPath, 'memory/lessons/lesson_07.md');
   const idx = JSON.parse(fs.readFileSync(idxPath, 'utf-8'));
-  const arr = require('../tools/index_utils').index_to_array(idx);
-  assert.ok(arr.find(e => e.path === newPath));
+  assert.ok(idx.files.find(e => path.posix.join('memory', e.file) === newPath));
 
   // cleanup
   fs.writeFileSync(idxPath, original, 'utf-8');
