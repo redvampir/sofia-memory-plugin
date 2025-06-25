@@ -138,6 +138,19 @@ paths:
       responses:
         '200':
           description: Saved
+  /saveAnswer:
+    post:
+      summary: Save reference answer
+      operationId: saveAnswer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SaveAnswerRequest'
+      responses:
+        '200':
+          description: Saved
   /getToken:
     post:
       summary: Get stored GitHub token
@@ -210,3 +223,16 @@ components:
           type: array
           items:
             type: string
+    SaveAnswerRequest:
+      type: object
+      properties:
+        key:
+          type: string
+        content:
+          type: string
+        repo:
+          type: string
+        token:
+          type: string
+        userId:
+          type: string

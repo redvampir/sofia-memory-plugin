@@ -68,6 +68,7 @@ function inferTypeFromPath(p) {
   if (p.includes('plan')) return 'plan';
   if (p.includes('profile')) return 'profile';
   if (p.includes('lesson')) return 'lesson';
+  if (p.includes('answers') || p.includes('answer')) return 'answer';
   if (p.includes('note')) return 'note';
   return 'file';
 }
