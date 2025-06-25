@@ -10,6 +10,16 @@ const token_store = require('./tools/token_store');
 const { normalize_memory_path } = require('./tools/file_utils');
 const logger = require('./utils/logger');
 const { encodePath } = require('./tools/github_client');
+const context_state = require('./tools/context_state');
+
+async function autoRefreshContext(repo, token) {
+  if (context_state.get_needs_refresh()) {
+    await refreshContextFromMemoryFiles(repo, token);
+    console.log('🔄 Context refreshed from memory repo');
+    context_state.set_needs_refresh(false);
+    context_state.reset_tokens();
+  }
+}
 
 function normalize_repo(repo) {
   if (!repo) return repo;
@@ -21,6 +31,8 @@ async function readMemory(repo, token, filename) {
   const final_repo = repo || memory_config.getRepoUrl(null);
   const final_token = token || token_store.getToken(null);
   const masked_token = final_token ? `${final_token.slice(0, 4)}...` : 'null';
+
+  await autoRefreshContext(final_repo, final_token);
 
   console.log('[readMemory] params', { repo: final_repo, token: masked_token, filename });
 
@@ -165,6 +177,7 @@ async function refreshContextFromMemoryFiles(repo, token) {
 
 async function read_memory_file(filename, opts = {}) {
   const { repo = null, token = null, source = 'chat' } = opts;
+  await autoRefreshContext(repo || memory_config.getRepoUrl(null), token || token_store.getToken(null));
   const normalized = normalize_memory_path(filename);
   logger.info('[read_memory_file] open', { path: normalized, source });
   try {
@@ -187,6 +200,8 @@ async function readMarkdownFile(filepath, opts = {}) {
   let target = filepath;
   const finalRepo = repo || memory_config.getRepoUrl(null);
   const finalToken = token || token_store.getToken(null);
+
+  await autoRefreshContext(finalRepo, finalToken);
 
   if (!target) {
     try {
@@ -241,4 +256,5 @@ module.exports = {
   setMemoryRepo,
   read_memory_file,
   readMarkdownFile,
+  register_user_prompt: context_state.register_user_prompt,
 };
