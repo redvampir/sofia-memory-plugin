@@ -14,8 +14,7 @@ const { encodePath } = require('./tools/github_client');
 const context_state = require('./tools/context_state');
 const { index_to_array } = require('./tools/index_utils');
 const { split_memory_file } = require('./tools/memory_splitter');
-
-const MAX_TOKENS = 4096;
+const memory_settings = require('./tools/memory_settings');
 
 function count_tokens(text = '') {
   return String(text).split(/\s+/).filter(Boolean).length;
@@ -132,8 +131,19 @@ async function saveMemory(repo, token, filename, content) {
     logger.debug('[saveMemory] request url', url);
   }
 
-  if (count_tokens(content) > MAX_TOKENS) {
-    const parts = await split_memory_file(filename, MAX_TOKENS);
+  const tokens = count_tokens(content);
+  if (tokens > memory_settings.token_soft_limit) {
+    console.warn('[saveMemory] token limit reached', tokens);
+    if (memory_settings.strict_guard) {
+      return {
+        warning:
+          'This file has reached the safe size limit. Please restructure into subfiles before continuing.',
+      };
+    }
+  }
+
+  if (tokens > memory_settings.max_tokens_per_file) {
+    const parts = await split_memory_file(filename, memory_settings.max_tokens_per_file);
     logger.info('[saveMemory] split large file', { parts });
     return { split: true, parts };
   }
