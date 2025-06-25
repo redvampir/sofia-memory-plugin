@@ -46,7 +46,25 @@ function parse_user_memory_setup(message = '') {
   return { userId, repo, token };
 }
 
+// Parse command like "\u0421\u043e\u0445\u0440\u0430\u043d\u0438 \u044d\u0442\u043e \u043a\u0430\u043a \u044d\u0442\u0430\u043b\u043e\u043d\u043d\u044b\u0439 \u043e\u0442\u0432\u0435\u0442 key"
+function parse_save_reference_answer(message = '') {
+  if (typeof message !== 'string') return null;
+  const m = message.match(/сохрани это как эталонный ответ\s+(\S+)/i);
+  if (!m) return null;
+  return { key: m[1] };
+}
+
+// Parse command like "\u0417\u0430\u0433\u0440\u0443\u0437\u0438 answers/file.md \u0432 \u0442\u0435\u043a\u0443\u0449\u0438\u0439 \u0434\u0438\u0430\u043b\u043e\u0433"
+function parse_manual_load_command(message = '') {
+  if (typeof message !== 'string') return null;
+  const m = message.match(/загрузи\s+(\S+)\s+в\s+текущий\s+диалог/i);
+  if (!m) return null;
+  return { path: m[1] };
+}
+
 module.exports = {
-  parse_user_memory_setup
+  parse_user_memory_setup,
+  parse_save_reference_answer,
+  parse_manual_load_command
 };
 

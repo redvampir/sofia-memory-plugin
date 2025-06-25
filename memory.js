@@ -12,6 +12,12 @@ const logger = require('./utils/logger');
 const { encodePath } = require('./tools/github_client');
 const context_state = require('./tools/context_state');
 
+const MAX_TOKENS = 4096;
+
+function count_tokens(text = '') {
+  return String(text).split(/\s+/).filter(Boolean).length;
+}
+
 async function autoRefreshContext(repo, token) {
   if (context_state.get_needs_refresh()) {
     await refreshContextFromMemoryFiles(repo, token);
@@ -106,6 +112,10 @@ async function saveMemory(repo, token, filename, content) {
     logger.debug('[saveMemory] request url', url);
   }
 
+  if (count_tokens(content) > MAX_TOKENS) {
+    throw new Error('Content too large for a single file');
+  }
+
   try {
     const result = await save_memory(null, repo, token, filename, content);
     logger.info('[saveMemory] success');
@@ -114,6 +124,11 @@ async function saveMemory(repo, token, filename, content) {
     logger.error('[saveMemory] error', e.message);
     throw e;
   }
+}
+
+async function saveReferenceAnswer(repo, token, key, content) {
+  const file = `memory/answers/${key}.md`;
+  return saveMemory(repo, token, file, content);
 }
 
 function setMemoryRepo(token, repo) {
@@ -256,5 +271,6 @@ module.exports = {
   setMemoryRepo,
   read_memory_file,
   readMarkdownFile,
+  saveReferenceAnswer,
   register_user_prompt: context_state.register_user_prompt,
 };

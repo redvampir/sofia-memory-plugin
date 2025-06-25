@@ -31,6 +31,7 @@ npm test
 - `POST /read` \u2014 прочитать содержимое файла;
 - `POST /saveMemory` и `POST /readMemory` \u2014 работа с основной памятью;
 - `POST /saveMemoryWithIndex` \u2014 сохранить файл и обновить `index.json`;
+- `POST /saveAnswer` \u2014 сохранить эталонный ответ;
 - `POST /saveLessonPlan` \u2014 обновить план обучения;
 - `POST /setMemoryRepo` \u2014 задать репозиторий пользователя;
 - `POST /version/commit` и `POST /version/rollback` \u2014 управление версиями инструкций;

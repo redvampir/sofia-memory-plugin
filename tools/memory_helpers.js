@@ -56,6 +56,7 @@ function categorizeMemoryFile(name) {
   if (lower.includes('note')) return 'note';
   if (lower.includes('context')) return 'context';
   if (lower.includes('practice')) return 'practice';
+  if (lower.includes('answer')) return 'answer';
 
   if (['.txt', '.json'].includes(ext)) return 'lesson';
   if (

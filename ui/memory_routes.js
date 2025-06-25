@@ -24,6 +24,7 @@ const { parseMarkdownStructure, mergeMarkdownTrees, serializeMarkdownTree } = re
 const { getRepoInfo, extractToken, categorizeMemoryFile, logDebug } = require('../tools/memory_helpers');
 const { logError } = require('../tools/error_handler');
 const { readMarkdownFile } = require('../memory');
+const { saveReferenceAnswer } = require('../memory');
 
 function setMemoryRepo(req, res) {
   const { repoUrl, userId } = req.body;
@@ -126,6 +127,21 @@ async function saveMemory(req, res) {
   }
 
   res.json({ status: 'success', action: 'saveMemory', filePath: normalizedFilename });
+}
+
+async function saveAnswer(req, res) {
+  const { key, content, repo, userId } = req.body;
+  const token = extractToken(req);
+  if (!key || content === undefined) {
+    return res.status(400).json({ status: 'error', message: 'Missing key or content' });
+  }
+  try {
+    const { repo: r, token: t } = getRepoInfo(`memory/answers/${key}.md`, userId, repo, token);
+    await saveReferenceAnswer(r, t, key, content);
+    res.json({ status: 'success', path: `memory/answers/${key}.md` });
+  } catch (e) {
+    res.status(500).json({ status: 'error', message: e.message });
+  }
 }
 
 async function readMemory(req, res) {
@@ -368,6 +384,7 @@ router.post('/saveMemoryWithIndex', async (req, res) => {
     res.status(500).json({ status: 'error', message: e.message });
   }
 });
+router.post('/saveAnswer', saveAnswer);
 router.post('/getToken', getToken);
 router.post('/saveNote', (req, res) => res.json({ status: 'success', action: 'saveNote' }));
 router.post('/getContextSnapshot', (req, res) => res.json({ status: 'success', context: {} }));
