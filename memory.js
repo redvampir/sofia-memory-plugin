@@ -345,6 +345,34 @@ function parse_front_matter(text = '') {
   return meta;
 }
 
+function parse_auto_index(text = '') {
+  const meta = parse_front_matter(text);
+  if (!meta.files) {
+    const lines = text.split(/\r?\n/);
+    const idx = lines.findIndex(l => /^files:\s*/i.test(l.trim()));
+    if (idx >= 0) {
+      const arr = [];
+      for (let i = idx + 1; i < lines.length; i++) {
+        const ln = lines[i];
+        if (/^\s*-\s+/.test(ln)) {
+          arr.push(ln.replace(/^\s*-\s+/, '').trim());
+        } else if (/^[\w_-]+:\s*/.test(ln.trim())) {
+          break;
+        }
+      }
+      if (arr.length) meta.files = arr;
+    }
+  } else if (typeof meta.files === 'string') {
+    meta.files = meta.files
+      .replace(/^\[/, '')
+      .replace(/\]$/, '')
+      .split(/,|\r?\n/)
+      .map(t => t.replace(/^\s*-\s*/, '').trim())
+      .filter(Boolean);
+  }
+  return meta;
+}
+
 async function load_memory_to_context(filename, repo, token) {
   const normalized = normalize_memory_path(filename);
   const content = await read_memory_file(normalized, {
@@ -355,6 +383,39 @@ async function load_memory_to_context(filename, repo, token) {
   ensureContext();
   fs.appendFileSync(contextFilename, `${content}\n`);
   return { file: normalized, tokens: count_tokens(content) };
+}
+
+async function load_context_from_index(index_path, repo, token) {
+  const normalized = normalize_memory_path(index_path);
+  const abs = path.join(__dirname, normalized);
+  if (!fs.existsSync(abs)) throw new Error('Index not found');
+  const raw = fs.readFileSync(abs, 'utf-8');
+  const meta = parse_auto_index(raw);
+  const files = Array.isArray(meta.files) ? meta.files : [];
+  if (!files.length) return null;
+  const loaded = [];
+  let full = '';
+  for (const f of files) {
+    const rel = f.startsWith('memory/') ? f : `memory/${f}`;
+    try {
+      const c = await read_memory_file(rel, {
+        repo,
+        token,
+        source: 'index-load',
+      });
+      full += `${c}\n`;
+      loaded.push(rel);
+    } catch (e) {
+      logger.error('[load_context_from_index] failed', {
+        path: rel,
+        error: e.message,
+      });
+    }
+  }
+  if (!loaded.length) return null;
+  ensureContext();
+  fs.writeFileSync(contextFilename, full.trim() + '\n');
+  return { files: loaded, content: full.trim() };
 }
 
 async function auto_recover_context() {
@@ -375,11 +436,20 @@ async function auto_recover_context() {
   scan(path.join(__dirname, 'memory', 'lessons'));
   scan(path.join(__dirname, 'memory', 'context'));
 
-  const autoIndex = path.join(__dirname, 'memory', 'autocontext-index.md');
-  if (fs.existsSync(autoIndex)) {
-    const raw = fs.readFileSync(autoIndex, 'utf-8');
-    const meta = parse_front_matter(raw);
-    if (meta.related_files) {
+  const indexVariants = [
+    path.join(__dirname, 'memory', 'context', 'autocontext-index.md'),
+    path.join(__dirname, 'memory', 'autocontext-index.md'),
+  ];
+  for (const idx of indexVariants) {
+    if (!fs.existsSync(idx)) continue;
+    const raw = fs.readFileSync(idx, 'utf-8');
+    const meta = parse_auto_index(raw);
+    if ((meta.context_priority || '').toLowerCase() === 'high') {
+      (meta.files || []).forEach(p => {
+        const rel = p.startsWith('memory/') ? p : `memory/${p}`;
+        targets.add(rel);
+      });
+    } else if (meta.related_files) {
       meta.related_files
         .replace(/^\[/, '')
         .replace(/\]$/, '')
@@ -391,6 +461,7 @@ async function auto_recover_context() {
           targets.add(rel);
         });
     }
+    break;
   }
 
   if (!targets.size) return null;
@@ -425,4 +496,5 @@ module.exports = {
   register_user_prompt: context_state.register_user_prompt,
   auto_recover_context,
   load_memory_to_context,
+  load_context_from_index,
 };

@@ -25,7 +25,7 @@ const { getRepoInfo, extractToken, categorizeMemoryFile, logDebug } = require('.
 const { logError } = require('../tools/error_handler');
 const { readMarkdownFile } = require('../memory');
 const { saveReferenceAnswer } = require('../memory');
-const { load_memory_to_context } = require('../memory');
+const { load_memory_to_context, load_context_from_index } = require('../memory');
 
 function setMemoryRepo(req, res) {
   const { repoUrl, userId } = req.body;
@@ -414,6 +414,29 @@ router.post('/loadMemoryToContext', async (req, res) => {
       effectiveToken
     );
     res.json({ status: 'success', loaded: result.file });
+  } catch (e) {
+    res.status(500).json({ status: 'error', message: e.message });
+  }
+});
+router.post('/loadContextFromIndex', async (req, res) => {
+  const { index, repo, userId } = req.body || {};
+  const token = extractToken(req);
+  if (!index) {
+    return res.status(400).json({ status: 'error', message: 'Missing index' });
+  }
+  const { repo: effectiveRepo, token: effectiveToken } = getRepoInfo(
+    index,
+    userId,
+    repo,
+    token
+  );
+  try {
+    const result = await load_context_from_index(
+      index,
+      effectiveRepo,
+      effectiveToken
+    );
+    res.json({ status: 'success', loaded: result ? result.files : [] });
   } catch (e) {
     res.status(500).json({ status: 'error', message: e.message });
   }
