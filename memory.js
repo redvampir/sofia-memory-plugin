@@ -134,11 +134,14 @@ async function saveMemory(repo, token, filename, content) {
   const tokens = count_tokens(content);
   if (tokens > memory_settings.token_soft_limit) {
     console.warn('[saveMemory] token limit reached', tokens);
-    if (memory_settings.strict_guard) {
+    if (memory_settings.enforce_soft_limit) {
       return {
-        warning:
-          'This file has reached the safe size limit. Please restructure into subfiles before continuing.',
+        warning: 'This file is too large for safe future use.',
       };
+    } else {
+      const parts = await split_memory_file(filename, memory_settings.max_tokens_per_file);
+      logger.info('[saveMemory] auto split due to soft limit', { parts });
+      return { split: true, parts };
     }
   }
 

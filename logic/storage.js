@@ -72,11 +72,13 @@ async function save_memory(user_id, repo, token, filename, content) {
   const tokens = count_tokens(content);
   if (tokens > memory_settings.token_soft_limit) {
     console.warn('[save_memory] token limit reached', tokens);
-    if (memory_settings.strict_guard) {
+    if (memory_settings.enforce_soft_limit) {
       return {
-        warning:
-          'This file has reached the safe size limit. Please restructure into subfiles before continuing.',
+        warning: 'This file is too large for safe future use.',
       };
+    } else {
+      const parts = await split_memory_file(normalized, memory_settings.max_tokens_per_file);
+      return { split: true, parts };
     }
   }
   const localPath = path.join(__dirname, '..', normalized);
@@ -112,11 +114,13 @@ async function save_memory_with_index(user_id, repo, token, filename, content) {
   const tokens = count_tokens(content);
   if (tokens > memory_settings.token_soft_limit) {
     console.warn('[save_memory_with_index] token limit reached', tokens);
-    if (memory_settings.strict_guard) {
+    if (memory_settings.enforce_soft_limit) {
       return {
-        warning:
-          'This file has reached the safe size limit. Please restructure into subfiles before continuing.',
+        warning: 'This file is too large for safe future use.',
       };
+    } else {
+      const parts = await split_memory_file(finalPath, memory_settings.max_tokens_per_file);
+      return { split: true, parts };
     }
   }
   if (tokens > memory_settings.max_tokens_per_file) {

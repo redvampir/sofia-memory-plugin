@@ -16,6 +16,7 @@ const {
   categorizeMemoryFile,
   logDebug,
 } = require('../tools/memory_helpers');
+const memory_settings = require('../tools/memory_settings');
 
 const contextFilename = path.join(__dirname, '..', 'memory', 'context.md');
 const planFilename = path.join(__dirname, '..', 'memory', 'plan.md');
@@ -251,6 +252,11 @@ function writeFileSafe(filePath, data, force = false) {
         if (!force) return;
       }
       mdEditor.createBackup(filePath);
+    }
+    const tokens = String(data).split(/\s+/).filter(Boolean).length;
+    if (tokens > memory_settings.token_soft_limit && memory_settings.enforce_soft_limit) {
+      console.warn('[writeFileSafe] token limit reached', tokens);
+      return;
     }
     fs.writeFileSync(filePath, data, 'utf-8');
     logDebug('[writeFileSafe] wrote', filePath);
