@@ -12,7 +12,7 @@ const path = require('path');
 const logger = require('./utils/logger');
 const { encodePath } = require('./tools/github_client');
 const context_state = require('./tools/context_state');
-const { index_to_array } = require('./tools/index_utils');
+const index_tree = require('./tools/index_tree');
 const { split_memory_file } = require('./tools/memory_splitter');
 const memory_settings = require('./tools/memory_settings');
 const fs = require('fs');
@@ -57,25 +57,16 @@ async function readMemory(repo, token, filename) {
 
   if (!target) {
     try {
-      const idx_raw = await read_memory(null, final_repo, final_token, 'memory/index.json');
-      const idx = JSON.parse(idx_raw);
-      if (Array.isArray(idx) || idx.lessons || idx.plans) {
-        const list = index_to_array(idx);
-        const first = list.find(e => e.type === 'lesson') || list[0];
-        target = first ? first.path : null;
-      } else {
-        target = idx.latest_lesson || idx.path || null;
-      }
+      const list = index_tree.listAllEntries();
+      const first = list.find(e => /lesson/i.test(e.path)) || list[0];
+      target = first ? first.path : null;
     } catch (e) {
       logger.error('[readMemory] index lookup failed', e.message);
     }
   } else if (!target.startsWith('memory/')) {
     try {
-      const idx_raw = await read_memory(null, final_repo, final_token, 'memory/index.json');
-      const idx = JSON.parse(idx_raw);
-      const list = index_to_array(idx);
-      const found = list.find(e => e.title === target || e.path === target);
-      if (found) target = found.path; else if (idx[target]) target = idx[target];
+      const found = index_tree.findEntryByTitle(target) || index_tree.findEntryByPath(target);
+      if (found) target = found.path;
     } catch (e) {
       logger.error('[readMemory] index search failed', e.message);
     }
@@ -290,25 +281,16 @@ async function readMarkdownFile(filepath, opts = {}) {
 
   if (!target) {
     try {
-      const idxRaw = await read_memory(null, finalRepo, finalToken, 'memory/index.json');
-      const idx = JSON.parse(idxRaw);
-      if (Array.isArray(idx) || idx.lessons || idx.plans) {
-        const list = index_to_array(idx);
-        const first = list.find(e => e.type === 'lesson') || list[0];
-        target = first ? first.path : null;
-      } else {
-        target = idx.latest_lesson || idx.path || null;
-      }
+      const list = index_tree.listAllEntries();
+      const first = list.find(e => /lesson/i.test(e.path)) || list[0];
+      target = first ? first.path : null;
     } catch (e) {
       logger.error('[readMarkdownFile] index lookup failed', e.message);
     }
   } else if (!target.startsWith('memory/')) {
     try {
-      const idxRaw = await read_memory(null, finalRepo, finalToken, 'memory/index.json');
-      const idx = JSON.parse(idxRaw);
-      const list = index_to_array(idx);
-      const found = list.find(e => e.title === target || e.path === target);
-      if (found) target = found.path; else if (idx[target]) target = idx[target];
+      const found = index_tree.findEntryByTitle(target) || index_tree.findEntryByPath(target);
+      if (found) target = found.path;
     } catch (e) {
       logger.error('[readMarkdownFile] index search failed', e.message);
     }

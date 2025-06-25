@@ -11,11 +11,8 @@ const {
   inferTypeFromPath
 } = require('../tools/file_utils');
 const { logError } = require('../tools/error_handler');
-const {
-  index_to_array,
-  array_to_index,
-  sort_by_priority,
-} = require('../tools/index_utils');
+const { sort_by_priority } = require('../tools/index_utils');
+const index_tree = require('../tools/index_tree');
 
 const indexPath = path.join(__dirname, '..', 'memory', 'index.json');
 let indexData = null;
@@ -126,20 +123,11 @@ async function mergeIndex(remoteData, localData) {
   return Array.from(map.values());
 }
 async function loadIndex() {
-  if (indexData) return indexData;
-  if (!fs.existsSync(indexPath)) {
-    console.warn('[indexManager] index.json not found, initializing');
-    ensure_dir(indexPath);
-    indexData = [];
-    await saveIndex();
-    return indexData;
-  }
   try {
-    const content = fs.readFileSync(indexPath, 'utf-8');
-    const parsed = JSON.parse(content);
-    indexData = sort_by_priority(index_to_array(parsed));
+    const list = index_tree.listAllEntries();
+    indexData = sort_by_priority(list.map(e => ({ ...e, path: e.path })));
   } catch (e) {
-    console.warn('[indexManager] failed to parse index.json, resetting', e.message);
+    console.warn('[indexManager] failed to load index tree', e.message);
     indexData = [];
   }
   return indexData;
@@ -186,49 +174,16 @@ async function removeEntry(p) {
 
 async function saveIndex(token, repo, userId) {
   if (!indexData) await loadIndex();
-  const finalToken = token || token_store.getToken(userId);
-  const finalRepo = repo || memory_config.getRepoUrl(userId);
-
-  let remoteData = [];
-  if (finalRepo && finalToken) {
-    try {
-      const remoteRaw = await github.readFile(finalToken, finalRepo, 'memory/index.json');
-      const remote = JSON.parse(remoteRaw);
-      remoteData = index_to_array(remote);
-    } catch (e) {
-      if (e.response?.status !== 404) logError('indexManager GitHub read', e);
-    }
-  }
-
-  const diskData = readLocalIndex();
-  indexData = sort_by_priority(await mergeIndex(diskData, indexData || []));
-  indexData = sort_by_priority(await mergeIndex(remoteData, indexData));
-  ensure_dir(indexPath);
-  try {
-    fs.writeFileSync(
-      indexPath,
-      JSON.stringify(array_to_index(sort_by_priority(indexData)), null, 2),
-      'utf-8'
-    );
-    if (process.env.DEBUG) console.log('[indexManager] index saved locally');
-  } catch (e) {
-    logError('indexManager local write', e);
-  }
-
-  if (finalRepo && finalToken) {
-    try {
-      await github.writeFileSafe(
-        finalToken,
-        finalRepo,
-        'memory/index.json',
-        JSON.stringify(array_to_index(sort_by_priority(indexData)), null, 2),
-        'update index.json'
-      );
-      if (process.env.DEBUG) console.log('[indexManager] \u2714 index.json pushed');
-    } catch (e) {
-      logError('indexManager push index', e);
-    }
-  }
+  const root = index_tree.loadRoot();
+  if (!root || !Array.isArray(root.branches)) return;
+  root.branches.forEach(b => {
+    const dir = b.path.replace(/\/index\.json$/, '');
+    const branchEntries = indexData.filter(e => e.path.replace(/^memory\//, '').startsWith(dir));
+    const files = branchEntries.map(e => ({ title: e.title, file: e.path.replace(/^memory\//, ''), tags: e.tags || [] }));
+    const abs = path.join(__dirname, '..', 'memory', b.path);
+    ensure_dir(abs);
+    fs.writeFileSync(abs, JSON.stringify({ type: 'index-branch', category: b.category, files }, null, 2), 'utf-8');
+  });
 }
 
 async function saveMemoryWithIndex(userId, repo, token, filename, content) {
