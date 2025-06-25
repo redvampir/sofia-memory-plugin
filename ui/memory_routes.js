@@ -25,6 +25,7 @@ const { getRepoInfo, extractToken, categorizeMemoryFile, logDebug } = require('.
 const { logError } = require('../tools/error_handler');
 const { readMarkdownFile } = require('../memory');
 const { saveReferenceAnswer } = require('../memory');
+const { load_memory_to_context } = require('../memory');
 
 function setMemoryRepo(req, res) {
   const { repoUrl, userId } = req.body;
@@ -394,6 +395,29 @@ router.get('/token/status', tokenStatus);
 router.get('/tokenStatus', tokenStatus);
 router.get('/readContext', readContext);
 router.post('/saveContext', saveContext);
+router.post('/loadMemoryToContext', async (req, res) => {
+  const { filename, repo, userId } = req.body || {};
+  const token = extractToken(req);
+  if (!filename) {
+    return res.status(400).json({ status: 'error', message: 'Missing filename' });
+  }
+  const { repo: effectiveRepo, token: effectiveToken } = getRepoInfo(
+    filename,
+    userId,
+    repo,
+    token
+  );
+  try {
+    const result = await load_memory_to_context(
+      filename,
+      effectiveRepo,
+      effectiveToken
+    );
+    res.json({ status: 'success', loaded: result.file });
+  } catch (e) {
+    res.status(500).json({ status: 'error', message: e.message });
+  }
+});
 router.post('/chat/setup', (req, res) => {
   const text = req.body && req.body.text ? req.body.text : '';
   // Используем функцию разбора команды из утилит

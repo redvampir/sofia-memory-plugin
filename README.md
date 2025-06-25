@@ -33,6 +33,7 @@ npm test
 - `POST /saveMemoryWithIndex` \u2014 сохранить файл и обновить `index.json`;
 - `POST /saveAnswer` \u2014 сохранить эталонный ответ;
 - `POST /saveLessonPlan` \u2014 обновить план обучения;
+- `POST /loadMemoryToContext` \u2014 загрузить указанный файл в текущий контекст;
 - `POST /setMemoryRepo` \u2014 задать репозиторий пользователя;
 - `POST /version/commit` и `POST /version/rollback` \u2014 управление версиями инструкций;
 - `GET /profile` \u2014 получить сохраненный профиль;
@@ -76,4 +77,5 @@ npm test
 - Для поиска по ключевым словам используйте `searchByKeyword`.
 - `getContextFilesForKeywords` помогает подобрать файлы для восстановления контекста на основе темы диалога.
 - Вызов `sortIndexByPriority()` принудительно перестраивает порядок записей в `index.json`.
+- При старте сервера автоматически считываются файлы с `context_priority: high` и формируется базовый контекст. Команда `Восстанови контекст из <file>` загружает указанный файл вручную.
 

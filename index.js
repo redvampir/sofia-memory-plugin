@@ -3,7 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const bodyParser = require('body-parser');
 const config = require('./config');
-const { setMemoryRepo } = require('./memory');
+const { setMemoryRepo, auto_recover_context } = require('./memory');
 
 // Мидлвар для разрешения CORS без внешних зависимостей
 function allow_cors(req, res, next) {
@@ -29,6 +29,9 @@ try {
 } catch (e) {
   console.error('[INIT] failed to set memory repo', e.message);
 }
+auto_recover_context().catch(e =>
+  console.error('[INIT] auto recover failed', e.message)
+);
 app.use(allow_cors);
 app.use(express.static(path.join(__dirname, 'assets')));
 app.use(bodyParser.json());

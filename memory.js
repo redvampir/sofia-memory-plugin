@@ -15,6 +15,11 @@ const context_state = require('./tools/context_state');
 const { index_to_array } = require('./tools/index_utils');
 const { split_memory_file } = require('./tools/memory_splitter');
 const memory_settings = require('./tools/memory_settings');
+const fs = require('fs');
+const {
+  ensureContext,
+  contextFilename,
+} = require('./logic/memory_operations');
 
 function count_tokens(text = '') {
   return String(text).split(/\s+/).filter(Boolean).length;
@@ -327,6 +332,87 @@ async function readMarkdownFile(filepath, opts = {}) {
   }
 }
 
+function parse_front_matter(text = '') {
+  if (!text.startsWith('---')) return {};
+  const end = text.indexOf('\n---', 3);
+  if (end < 0) return {};
+  const header = text.slice(3, end).trim();
+  const meta = {};
+  header.split(/\r?\n/).forEach(l => {
+    const m = l.split(':');
+    if (m[0]) meta[m[0].trim()] = m.slice(1).join(':').trim();
+  });
+  return meta;
+}
+
+async function load_memory_to_context(filename, repo, token) {
+  const normalized = normalize_memory_path(filename);
+  const content = await read_memory_file(normalized, {
+    repo,
+    token,
+    source: 'manual-load',
+  });
+  ensureContext();
+  fs.appendFileSync(contextFilename, `${content}\n`);
+  return { file: normalized, tokens: count_tokens(content) };
+}
+
+async function auto_recover_context() {
+  const targets = new Set();
+  const scan = dir => {
+    if (!fs.existsSync(dir)) return;
+    fs.readdirSync(dir, { withFileTypes: true }).forEach(ent => {
+      const abs = path.join(dir, ent.name);
+      if (ent.isDirectory()) return scan(abs);
+      if (!ent.name.endsWith('.md')) return;
+      const raw = fs.readFileSync(abs, 'utf-8');
+      const meta = parse_front_matter(raw);
+      if ((meta.context_priority || '').toLowerCase() === 'high') {
+        targets.add(path.relative(__dirname, abs).replace(/\\/g, '/'));
+      }
+    });
+  };
+  scan(path.join(__dirname, 'memory', 'lessons'));
+  scan(path.join(__dirname, 'memory', 'context'));
+
+  const autoIndex = path.join(__dirname, 'memory', 'autocontext-index.md');
+  if (fs.existsSync(autoIndex)) {
+    const raw = fs.readFileSync(autoIndex, 'utf-8');
+    const meta = parse_front_matter(raw);
+    if (meta.related_files) {
+      meta.related_files
+        .replace(/^\[/, '')
+        .replace(/\]$/, '')
+        .split(',')
+        .map(t => t.trim())
+        .filter(Boolean)
+        .forEach(p => {
+          const rel = p.startsWith('memory/') ? p : `memory/${p}`;
+          targets.add(rel);
+        });
+    }
+  }
+
+  if (!targets.size) return null;
+
+  let full = '';
+  const loaded = [];
+  for (const p of targets) {
+    try {
+      const c = await read_memory_file(p, { source: 'auto-recover' });
+      full += `${c}\n`;
+      loaded.push(p);
+    } catch (e) {
+      logger.error('[auto_recover_context] failed', { path: p, error: e.message });
+    }
+  }
+  if (!loaded.length) return null;
+  ensureContext();
+  fs.writeFileSync(contextFilename, full.trim() + '\n');
+  console.log(`Context restored from: ${loaded.join(', ')}`);
+  return { files: loaded, content: full.trim() };
+}
+
 module.exports = {
   readMemory,
   saveMemory,
@@ -337,4 +423,6 @@ module.exports = {
   saveReferenceAnswer,
   split_memory_file,
   register_user_prompt: context_state.register_user_prompt,
+  auto_recover_context,
+  load_memory_to_context,
 };
