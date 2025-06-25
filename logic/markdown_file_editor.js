@@ -9,6 +9,7 @@ const {
   mergeMarkdownTrees
 } = require('./markdown_merge_engine.ts');
 const { ensure_dir } = require('../tools/file_utils');
+const memory_settings = require('../tools/memory_settings');
 
 function createScaffold(filePath) {
   ensure_dir(filePath);
@@ -78,6 +79,11 @@ function writeTree(filePath, tree, opts = {}) {
     return { updated: true, message: 'dry run', content };
   }
   const backup = mdEditor.createBackup(filePath);
+  const tokens = content.split(/\s+/).filter(Boolean).length;
+  if (tokens > memory_settings.token_soft_limit && memory_settings.enforce_soft_limit) {
+    console.warn('[writeTree] token limit reached', tokens);
+    return { updated: false, message: 'token limit reached', backupPath: null };
+  }
   fs.writeFileSync(filePath, content, 'utf-8');
   const verify = validateTree(tree, filePath);
   if (!verify.valid) {

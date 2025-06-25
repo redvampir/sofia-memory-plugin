@@ -1,6 +1,11 @@
 const fs = require('fs');
 const path = require('path');
 const validator = require('./markdown_validator');
+const memory_settings = require('../tools/memory_settings');
+
+function count_tokens(text = '') {
+  return String(text).split(/\s+/).filter(Boolean).length;
+}
 
 function createBackup(filePath) {
   if (!fs.existsSync(filePath)) return null;
@@ -59,6 +64,11 @@ function writeLines(filePath, lines, force = false) {
   }
   createBackup(filePath);
   const data = Array.isArray(lines) ? lines.join('\n') : lines;
+  const tokens = count_tokens(data);
+  if (tokens > memory_settings.token_soft_limit && memory_settings.enforce_soft_limit) {
+    console.warn('[writeLines] token limit reached', tokens);
+    return false;
+  }
   fs.writeFileSync(filePath, data, 'utf-8');
   return true;
 }
