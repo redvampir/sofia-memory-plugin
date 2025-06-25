@@ -1,13 +1,17 @@
 const fs = require('fs');
 const path = require('path');
-const { index_to_array, array_to_index } = require('./index_utils');
+const {
+  index_to_array,
+  array_to_index,
+  sort_by_priority,
+} = require('./index_utils');
 
 const indexFile = path.join(__dirname, '..', 'memory', 'index.json');
 
 function loadIndex() {
   try {
     const raw = fs.readFileSync(indexFile, 'utf-8');
-    return index_to_array(JSON.parse(raw));
+    return sort_by_priority(index_to_array(JSON.parse(raw)));
   } catch {
     return [];
   }
@@ -15,7 +19,8 @@ function loadIndex() {
 
 function saveIndex(data) {
   try {
-    fs.writeFileSync(indexFile, JSON.stringify(array_to_index(data), null, 2), 'utf-8');
+    const sorted = sort_by_priority(data);
+    fs.writeFileSync(indexFile, JSON.stringify(array_to_index(sorted), null, 2), 'utf-8');
   } catch {}
 }
 
@@ -36,6 +41,59 @@ function getByPath(p) {
 
 function getByTag(tag) {
   return loadIndex().filter(e => Array.isArray(e.tags) && e.tags.includes(tag));
+}
+
+function filterByStatus(status) {
+  return loadIndex().filter(e => e.status === status);
+}
+
+function filterByTags(tags) {
+  const arr = Array.isArray(tags) ? tags : [tags];
+  return loadIndex().filter(
+    e => Array.isArray(e.tags) && arr.every(t => e.tags.includes(t))
+  );
+}
+
+function filterByDate(field, days) {
+  const since = Date.now() - days * 24 * 60 * 60 * 1000;
+  return loadIndex().filter(e => {
+    const ts = Date.parse(e[field]);
+    return !isNaN(ts) && ts >= since;
+  });
+}
+
+function filterByCategory(category) {
+  return loadIndex().filter(e => e.category === category);
+}
+
+function searchByKeyword(query) {
+  const re = new RegExp(query, 'i');
+  return loadIndex().filter(e => {
+    const fields = [e.title, e.summary];
+    if (Array.isArray(e.tags)) fields.push(...e.tags);
+    return fields.some(v => v && re.test(String(v)));
+  });
+}
+
+function getContextFilesForKeywords(keywords = []) {
+  let entries = loadIndex();
+  if (keywords.length) {
+    const reList = keywords.map(k => new RegExp(k, 'i'));
+    entries = entries.filter(e => {
+      const fields = [e.title, e.summary];
+      if (Array.isArray(e.tags)) fields.push(...e.tags);
+      return reList.some(r => fields.some(v => v && r.test(String(v))));
+    });
+  }
+  return sort_by_priority(entries)
+    .filter(e => e && e.path)
+    .map(e => e.path);
+}
+
+function sortIndexByPriority() {
+  const sorted = sort_by_priority(loadIndex());
+  saveIndex(sorted);
+  return sorted;
 }
 
 function getNextLesson(num) {
@@ -68,7 +126,14 @@ module.exports = {
   getLessonByNumber,
   getByPath,
   getByTag,
+  filterByStatus,
+  filterByTags,
+  filterByDate,
+  filterByCategory,
+  searchByKeyword,
   getNextLesson,
+  getContextFilesForKeywords,
+  sortIndexByPriority,
   updateMetadata,
   validatePath,
 };

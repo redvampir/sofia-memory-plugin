@@ -11,7 +11,11 @@ const {
   inferTypeFromPath
 } = require('../tools/file_utils');
 const { logError } = require('../tools/error_handler');
-const { index_to_array, array_to_index } = require('../tools/index_utils');
+const {
+  index_to_array,
+  array_to_index,
+  sort_by_priority,
+} = require('../tools/index_utils');
 
 const indexPath = path.join(__dirname, '..', 'memory', 'index.json');
 let indexData = null;
@@ -96,7 +100,7 @@ function readLocalIndex() {
   try {
     const raw = fs.readFileSync(indexPath, 'utf-8');
     const parsed = JSON.parse(raw);
-    return index_to_array(parsed);
+    return sort_by_priority(index_to_array(parsed));
   } catch (e) {
     console.warn('[indexManager] failed to read local index', e.message);
     return [];
@@ -133,7 +137,7 @@ async function loadIndex() {
   try {
     const content = fs.readFileSync(indexPath, 'utf-8');
     const parsed = JSON.parse(content);
-    indexData = index_to_array(parsed);
+    indexData = sort_by_priority(index_to_array(parsed));
   } catch (e) {
     console.warn('[indexManager] failed to parse index.json, resetting', e.message);
     indexData = [];
@@ -171,12 +175,13 @@ async function addOrUpdateEntry(entry) {
     });
     if (process.env.DEBUG) console.log(`[indexManager] Added entry ${entry.path}`);
   }
+  indexData = sort_by_priority(indexData);
   await saveIndex();
 }
 
 async function removeEntry(p) {
   if (!indexData) await loadIndex();
-  indexData = indexData.filter(e => e.path !== p);
+  indexData = sort_by_priority(indexData.filter(e => e.path !== p));
 }
 
 async function saveIndex(token, repo, userId) {
@@ -196,11 +201,15 @@ async function saveIndex(token, repo, userId) {
   }
 
   const diskData = readLocalIndex();
-  indexData = await mergeIndex(diskData, indexData || []);
-  indexData = await mergeIndex(remoteData, indexData);
+  indexData = sort_by_priority(await mergeIndex(diskData, indexData || []));
+  indexData = sort_by_priority(await mergeIndex(remoteData, indexData));
   ensure_dir(indexPath);
   try {
-    fs.writeFileSync(indexPath, JSON.stringify(array_to_index(indexData), null, 2), 'utf-8');
+    fs.writeFileSync(
+      indexPath,
+      JSON.stringify(array_to_index(sort_by_priority(indexData)), null, 2),
+      'utf-8'
+    );
     if (process.env.DEBUG) console.log('[indexManager] index saved locally');
   } catch (e) {
     logError('indexManager local write', e);
@@ -212,7 +221,7 @@ async function saveIndex(token, repo, userId) {
         finalToken,
         finalRepo,
         'memory/index.json',
-        JSON.stringify(array_to_index(indexData), null, 2),
+        JSON.stringify(array_to_index(sort_by_priority(indexData)), null, 2),
         'update index.json'
       );
       if (process.env.DEBUG) console.log('[indexManager] \u2714 index.json pushed');
