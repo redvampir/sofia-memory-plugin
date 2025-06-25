@@ -1,36 +1,21 @@
-[
-  {
-    "path": "memory/profile.md",
-    "type": "profile",
-    "title": "Profile",
-    "lastModified": "2025-06-21T17:07:52.802Z",
-    "context_priority": "high",
-    "last_accessed": "2025-06-24T21:24:48.702Z",
-    "access_count": 1,
-    "edit_count": 0,
-    "pinned": false
-  },
-  {
-    "path": "memory/lessons/04_example.md",
-    "type": "lesson",
-    "title": "Example Lesson",
-    "lastModified": "2025-06-21T17:07:52.802Z",
-    "context_priority": "high",
-    "last_accessed": "2025-06-24T21:24:48.707Z",
-    "access_count": 5,
-    "edit_count": 3,
-    "pinned": false
-  },
-  {
-    "path": "memory/plan_checklist.md",
-    "type": "plan",
-    "title": "Plan Checklist",
-    "description": "- [ ] Example task - [x] Не затирать index.json при обновлении",
-    "lastModified": "2025-06-21T17:07:52.802Z",
-    "context_priority": "high",
-    "last_accessed": "2025-06-24T21:24:48.707Z",
-    "access_count": 4,
-    "edit_count": 2,
-    "pinned": false
+{
+  "lessons": {
+    "4": {
+      "type": "lesson",
+      "title": "Example Lesson",
+      "path": "memory/lessons/04_example.md",
+      "category": "general",
+      "created": "2025-06-21",
+      "updated": "2025-06-21",
+      "summary": "Example lesson content",
+      "tags": [],
+      "status": "active",
+      "version": "1.0",
+      "priority": "high",
+      "context_priority": "high",
+      "last_accessed": "2025-06-25T17:46:24.815Z",
+      "access_count": 5,
+      "edit_count": 3
+    }
   }
-]
+}

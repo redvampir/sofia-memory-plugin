@@ -91,9 +91,10 @@ async function loadIndexFile(debug, opts = {}) {
       const restored = [];
       const skipped = [];
 
-      if (Array.isArray(index)) {
+      if (Array.isArray(index) || index.lessons || index.plans) {
+        const list = require('./tools/index_utils').index_to_array(index);
         const lessons = [];
-        index.forEach(entry => {
+        list.forEach(entry => {
           if (!entry || !entry.path) return;
           const abs = path.join(__dirname, entry.path);
           if (!fs.existsSync(abs)) {
@@ -169,8 +170,9 @@ function shouldRestoreContext({ userPrompt = '', gptOutput = '', tokensSinceLast
     const index = JSON.parse(fs.readFileSync(idxPath, 'utf-8'));
     let planPath = '';
     let profilePath = '';
-    if (Array.isArray(index)) {
-      for (const entry of index) {
+    if (Array.isArray(index) || index.lessons || index.plans) {
+      const list = require('./tools/index_utils').index_to_array(index);
+      for (const entry of list) {
         if (!entry || !entry.path) continue;
         if (!planPath && (entry.type === 'plan' || /plan\.md$/i.test(entry.path))) {
           planPath = entry.path;

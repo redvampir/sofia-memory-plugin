@@ -27,8 +27,8 @@ function searchIndex(query) {
   return matches.map(e => e.path);
 }
 
-function searchFiles(query) {
-  const files = listMemoryFiles(null, null, 'memory');
+async function searchFiles(query) {
+  const files = await listMemoryFiles(null, null, 'memory');
   const regex = query.startsWith('/') && query.endsWith('/') ? new RegExp(query.slice(1, -1), 'i') : null;
   const q = query.toLowerCase();
   const matches = files.filter(f => {
@@ -49,7 +49,7 @@ async function resolveMarkdownPath(query, opts = {}) {
 
   let matches = searchIndex(candidate);
   if (!matches.length) {
-    matches = searchFiles(candidate);
+    matches = await searchFiles(candidate);
   }
   const unique = Array.from(new Set(matches));
   if (unique.length === 1) {
