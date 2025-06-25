@@ -1,6 +1,6 @@
 const { read_memory, save_memory, get_file } = require('./logic/storage');
 const { restore_context } = require('./context');
-const { getContextFiles } = require('./tools/index_manager');
+const { getContextFiles, getContextFilesForKeywords } = require('./tools/index_manager');
 const {
   updateContextPriority,
   touchIndexEntry,
@@ -150,7 +150,7 @@ function setMemoryRepo(token, repo) {
   }
 }
 
-async function refreshContextFromMemoryFiles(repo, token) {
+async function refreshContextFromMemoryFiles(repo, token, keywords = []) {
   const final_repo = repo || memory_config.getRepoUrl(null);
   const final_token = token || token_store.getToken(null);
   const masked_token = final_token ? `${final_token.slice(0, 4)}...` : 'null';
@@ -162,7 +162,9 @@ async function refreshContextFromMemoryFiles(repo, token) {
 
   updateContextPriority();
 
-  const context_files = getContextFiles();
+  const context_files = Array.isArray(keywords) && keywords.length
+    ? getContextFilesForKeywords(keywords)
+    : getContextFiles();
   logger.debug('[refreshContextFromMemoryFiles] high priority files', context_files);
 
   const loaded = {};
