@@ -2,12 +2,13 @@ const fs = require('fs');
 const path = require('path');
 
 const index_file = path.join(__dirname, '..', 'memory', 'index.json');
+const { index_to_array, array_to_index } = require('./index_utils');
 
 function load_index() {
   try {
     const raw = fs.readFileSync(index_file, 'utf-8');
     const data = JSON.parse(raw);
-    return Array.isArray(data) ? data : [];
+    return index_to_array(data);
   } catch {
     return [];
   }
@@ -15,7 +16,7 @@ function load_index() {
 
 function save_index(data) {
   try {
-    fs.writeFileSync(index_file, JSON.stringify(data, null, 2), 'utf-8');
+    fs.writeFileSync(index_file, JSON.stringify(array_to_index(data), null, 2), 'utf-8');
   } catch {}
 }
 

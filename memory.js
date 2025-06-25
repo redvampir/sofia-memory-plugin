@@ -11,6 +11,7 @@ const { normalize_memory_path } = require('./tools/file_utils');
 const logger = require('./utils/logger');
 const { encodePath } = require('./tools/github_client');
 const context_state = require('./tools/context_state');
+const { index_to_array } = require('./tools/index_utils');
 
 const MAX_TOKENS = 4096;
 
@@ -52,7 +53,13 @@ async function readMemory(repo, token, filename) {
     try {
       const idx_raw = await read_memory(null, final_repo, final_token, 'memory/index.json');
       const idx = JSON.parse(idx_raw);
-      target = idx.latest_lesson || idx.checklist_path || idx.path || null;
+      if (Array.isArray(idx) || idx.lessons || idx.plans) {
+        const list = index_to_array(idx);
+        const first = list.find(e => e.type === 'lesson') || list[0];
+        target = first ? first.path : null;
+      } else {
+        target = idx.latest_lesson || idx.path || null;
+      }
     } catch (e) {
       logger.error('[readMemory] index lookup failed', e.message);
     }
@@ -60,12 +67,9 @@ async function readMemory(repo, token, filename) {
     try {
       const idx_raw = await read_memory(null, final_repo, final_token, 'memory/index.json');
       const idx = JSON.parse(idx_raw);
-      if (Array.isArray(idx)) {
-        const found = idx.find(e => e.title === target || e.path === target);
-        if (found) target = found.path;
-      } else if (idx[target]) {
-        target = idx[target];
-      }
+      const list = index_to_array(idx);
+      const found = list.find(e => e.title === target || e.path === target);
+      if (found) target = found.path; else if (idx[target]) target = idx[target];
     } catch (e) {
       logger.error('[readMemory] index search failed', e.message);
     }
@@ -222,8 +226,9 @@ async function readMarkdownFile(filepath, opts = {}) {
     try {
       const idxRaw = await read_memory(null, finalRepo, finalToken, 'memory/index.json');
       const idx = JSON.parse(idxRaw);
-      if (Array.isArray(idx)) {
-        const first = idx.find(e => e.type === 'lesson') || idx[0];
+      if (Array.isArray(idx) || idx.lessons || idx.plans) {
+        const list = index_to_array(idx);
+        const first = list.find(e => e.type === 'lesson') || list[0];
         target = first ? first.path : null;
       } else {
         target = idx.latest_lesson || idx.path || null;
@@ -235,12 +240,9 @@ async function readMarkdownFile(filepath, opts = {}) {
     try {
       const idxRaw = await read_memory(null, finalRepo, finalToken, 'memory/index.json');
       const idx = JSON.parse(idxRaw);
-      if (Array.isArray(idx)) {
-        const found = idx.find(e => e.title === target || e.path === target);
-        if (found) target = found.path;
-      } else if (idx[target]) {
-        target = idx[target];
-      }
+      const list = index_to_array(idx);
+      const found = list.find(e => e.title === target || e.path === target);
+      if (found) target = found.path; else if (idx[target]) target = idx[target];
     } catch (e) {
       logger.error('[readMarkdownFile] index search failed', e.message);
     }

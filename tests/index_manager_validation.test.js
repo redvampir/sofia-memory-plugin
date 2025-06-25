@@ -15,7 +15,8 @@ const index_manager = require('../logic/index_manager');
   const newPath = await index_manager.getLessonPath(7);
   assert.strictEqual(newPath, 'memory/lessons/lesson_07.md');
   const idx = JSON.parse(fs.readFileSync(idxPath, 'utf-8'));
-  assert.ok(idx.find(e => e.path === newPath));
+  const arr = require('../tools/index_utils').index_to_array(idx);
+  assert.ok(arr.find(e => e.path === newPath));
 
   // cleanup
   fs.writeFileSync(idxPath, original, 'utf-8');

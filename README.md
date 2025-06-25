@@ -54,6 +54,18 @@ npm test
 
 - `validateFilePathAgainstIndex(path)` \u2014 сверяет путь с данными из индекса и подсказывает корректное расположение файла;
 - `getLessonPath(num)` \u2014 возвращает путь урока по номеру, создавая запись вида `memory/lessons/lesson_XX.md`, если ее еще нет.
+- Дополнительно доступны методы `getLessonByNumber`, `getByPath`, `getByTag`, `getNextLesson` и `updateMetadata` для работы с расширенным `index.json`.
+
+Формат `index.json` теперь поддерживает категории:
+```json
+{
+  "lessons": {
+    "05": { "title": "Box Model", "path": "memory/lessons/05_box_model.md" }
+  },
+  "plans": { ... },
+  "checklists": { ... }
+}
+```
 
 Эти функции упрощают добавление новых материалов и предотвращают появление дубликатов.
 

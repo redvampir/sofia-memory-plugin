@@ -12,7 +12,7 @@ setMemoryRepo(null, null);
 async function run() {
   const index_raw = await readMemory(null, null, 'memory/index.json');
   const index = JSON.parse(index_raw);
-  assert.ok(Array.isArray(index));
+  assert.ok(index.lessons || Array.isArray(index));
   console.log('readMemory json ok');
 
   const lesson_raw = await readMemory(null, null, 'memory/lessons/04_example.md');
