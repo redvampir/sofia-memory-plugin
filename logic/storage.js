@@ -12,7 +12,14 @@ const {
   ensure_dir,
   normalize_memory_path,
 } = require('../tools/file_utils');
+const { split_memory_file } = require('../tools/memory_splitter');
 const { logError } = require('../tools/error_handler');
+
+const MAX_TOKENS = 4096;
+
+function count_tokens(text = '') {
+  return String(text).split(/\s+/).filter(Boolean).length;
+}
 
 async function read_memory(user_id, repo, token, filename, opts = {}) {
   const normalized = normalize_memory_path(filename);
@@ -93,6 +100,10 @@ async function save_memory_with_index(user_id, repo, token, filename, content) {
   const check = await index_manager.validateFilePathAgainstIndex(filename);
   if (check.warning) console.warn(`[index] ${check.warning}`);
   const finalPath = check.expectedPath || filename;
+  if (count_tokens(content) > MAX_TOKENS) {
+    const parts = await split_memory_file(finalPath, MAX_TOKENS);
+    return { split: true, parts };
+  }
   const savedPath = await save_memory(user_id, repo, token, finalPath, content);
   const num = finalPath.match(/(\d+)/);
   if (num) await index_manager.markDuplicateLessons(num[1], savedPath);

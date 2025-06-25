@@ -8,10 +8,12 @@ const {
 const memory_config = require('./tools/memory_config');
 const token_store = require('./tools/token_store');
 const { normalize_memory_path } = require('./tools/file_utils');
+const path = require('path');
 const logger = require('./utils/logger');
 const { encodePath } = require('./tools/github_client');
 const context_state = require('./tools/context_state');
 const { index_to_array } = require('./tools/index_utils');
+const { split_memory_file } = require('./tools/memory_splitter');
 
 const MAX_TOKENS = 4096;
 
@@ -87,12 +89,26 @@ async function readMemory(repo, token, filename) {
   }
 
   try {
-    const content = await read_memory(null, final_repo, final_token, normalized_file);
-    console.log('[readMemory] success length', content.length);
-    touchIndexEntry(normalized_file);
+    let content = await read_memory_file(normalized_file, {
+      repo: final_repo,
+      token: final_token,
+      source: 'readMemory',
+    });
     return content;
   } catch (e) {
-    console.log('[readMemory] error', e.message);
+    if (/not found/i.test(e.message) && /\.md$/i.test(normalized_file)) {
+      const alt = normalized_file.replace(/\.md$/i, '/index.md');
+      try {
+        return await read_memory_file(alt, {
+          repo: final_repo,
+          token: final_token,
+          source: 'readMemory',
+        });
+      } catch (e2) {
+        if (/not found/i.test(e2.message)) throw new Error('File not found');
+        throw e2;
+      }
+    }
     if (/not found/i.test(e.message)) throw new Error('File not found');
     throw e;
   }
@@ -117,7 +133,9 @@ async function saveMemory(repo, token, filename, content) {
   }
 
   if (count_tokens(content) > MAX_TOKENS) {
-    throw new Error('Content too large for a single file');
+    const parts = await split_memory_file(filename, MAX_TOKENS);
+    logger.info('[saveMemory] split large file', { parts });
+    return { split: true, parts };
   }
 
   try {
@@ -203,9 +221,37 @@ async function read_memory_file(filename, opts = {}) {
   logger.info('[read_memory_file] open', { path: normalized, source });
   try {
     const result = await get_file(null, repo, token, normalized);
+    let content = result.content;
+    if (/^---/.test(content)) {
+      const end = content.indexOf('\n---', 3);
+      if (end > 0) {
+        const header = content.slice(3, end).trim();
+        const meta = {};
+        header.split(/\r?\n/).forEach(l => {
+          const m = l.split(':');
+          if (m[0]) meta[m[0].trim()] = m.slice(1).join(':').trim();
+        });
+        if (meta.parts) {
+          const list = meta.parts
+            .replace(/^\[/, '')
+            .replace(/\]$/, '')
+            .split(',')
+            .map(t => t.trim())
+            .filter(Boolean);
+          const dir = path.posix.dirname(normalized);
+          let full = '';
+          for (const p of list) {
+            const part_path = path.posix.join(dir, p);
+            const part = await get_file(null, repo, token, part_path);
+            full += part.content + '\n';
+          }
+          content = full.trim();
+        }
+      }
+    }
     logger.info('[read_memory_file] success', { path: normalized, source });
     touchIndexEntry(normalized);
-    return result.content;
+    return content;
   } catch (e) {
     logger.error('[read_memory_file] error', {
       path: normalized,
@@ -276,5 +322,6 @@ module.exports = {
   read_memory_file,
   readMarkdownFile,
   saveReferenceAnswer,
+  split_memory_file,
   register_user_prompt: context_state.register_user_prompt,
 };
