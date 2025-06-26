@@ -44,6 +44,19 @@ paths:
       responses:
         '200':
           description: File contents
+  /read:
+    post:
+      summary: Read memory content (alias)
+      operationId: read
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReadMemoryRequest'
+      responses:
+        '200':
+          description: File contents
   /readFile:
     post:
       summary: Read markdown file
@@ -125,22 +138,19 @@ paths:
       responses:
         '200':
           description: Saved
-  /getToken:
+  /saveAnswer:
     post:
-      summary: Get stored GitHub token
-      operationId: getToken
+      summary: Save reference answer
+      operationId: saveAnswer
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                userId:
-                  type: string
+              $ref: '#/components/schemas/SaveAnswerRequest'
       responses:
         '200':
-          description: Token value
+          description: Saved
   /saveNote:
     post:
       summary: Save user note
@@ -183,6 +193,22 @@ paths:
       responses:
         '200':
           description: Profile created
+  /getToken:
+    post:
+      summary: Get stored GitHub token
+      operationId: getToken
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                userId:
+                  type: string
+      responses:
+        '200':
+          description: Token value
   /plan:
     get:
       summary: Read current plan
@@ -202,6 +228,165 @@ paths:
       responses:
         '200':
           description: Profile data
+  /setToken:
+    post:
+      summary: Store GitHub token
+      operationId: setToken
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetTokenRequest'
+      responses:
+        '200':
+          description: Token stored status
+  /token/status:
+    get:
+      summary: Check if a token is stored
+      operationId: tokenStatus
+      parameters:
+        - in: query
+          name: userId
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Status info
+  /saveContext:
+    post:
+      summary: Save context content
+      operationId: saveContext
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SaveContextRequest'
+      responses:
+        '200':
+          description: Context saved
+  /readContext:
+    get:
+      summary: Read stored context
+      operationId: readContext
+      responses:
+        '200':
+          description: Context data
+  /loadMemoryToContext:
+    post:
+      summary: Load a memory file into context
+      operationId: loadMemoryToContext
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoadMemoryToContextRequest'
+      responses:
+        '200':
+          description: Load result
+  /loadContextFromIndex:
+    post:
+      summary: Load context using index entry
+      operationId: loadContextFromIndex
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoadContextFromIndexRequest'
+      responses:
+        '200':
+          description: Load result
+  /chat/setup:
+    post:
+      summary: Parse setup message
+      operationId: chatSetup
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                text:
+                  type: string
+      responses:
+        '200':
+          description: Setup parsed
+  /updateIndex:
+    post:
+      summary: Manually update index entries
+      operationId: updateIndex
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateIndexRequest'
+      responses:
+        '200':
+          description: Updated entries
+  /list:
+    post:
+      summary: List memory files
+      operationId: listFiles
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ListFilesRequest'
+      responses:
+        '200':
+          description: File list
+  /version/commit:
+    post:
+      summary: Commit instructions version
+      operationId: commitInstructions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommitInstructionsRequest'
+      responses:
+        '200':
+          description: Version saved
+  /version/rollback:
+    post:
+      summary: Roll back instructions
+      operationId: rollbackInstructions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RollbackInstructionsRequest'
+      responses:
+        '200':
+          description: Restored version
+  /version/list:
+    post:
+      summary: List instruction versions
+      operationId: listVersions
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VersionListRequest'
+      responses:
+        '200':
+          description: Version history
+  /ping:
+    get:
+      summary: Health check
+      operationId: ping
+      responses:
+        '200':
+          description: Pong
 components:
   schemas:
     SaveMemoryRequest:
@@ -239,6 +424,19 @@ components:
           type: array
           items:
             type: string
+    SaveAnswerRequest:
+      type: object
+      properties:
+        key:
+          type: string
+        content:
+          type: string
+        repo:
+          type: string
+        token:
+          type: string
+        userId:
+          type: string
     SaveNoteRequest:
       type: object
       properties:
@@ -252,4 +450,98 @@ components:
         userId:
           type: string
         profile:
+          type: string
+    SetTokenRequest:
+      type: object
+      properties:
+        userId:
+          type: string
+        token:
+          type: string
+    SaveContextRequest:
+      type: object
+      properties:
+        repo:
+          type: string
+        token:
+          type: string
+        userId:
+          type: string
+        content:
+          type: string
+    LoadMemoryToContextRequest:
+      type: object
+      properties:
+        filename:
+          type: string
+        repo:
+          type: string
+        token:
+          type: string
+        userId:
+          type: string
+    LoadContextFromIndexRequest:
+      type: object
+      properties:
+        index:
+          type: string
+        repo:
+          type: string
+        token:
+          type: string
+        userId:
+          type: string
+    IndexEntry:
+      type: object
+      properties:
+        path:
+          type: string
+        title:
+          type: string
+        type:
+          type: string
+        description:
+          type: string
+        lastModified:
+          type: string
+    UpdateIndexRequest:
+      type: object
+      properties:
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/IndexEntry'
+        repo:
+          type: string
+        token:
+          type: string
+        userId:
+          type: string
+    ListFilesRequest:
+      type: object
+      properties:
+        repo:
+          type: string
+        token:
+          type: string
+        path:
+          type: string
+    CommitInstructionsRequest:
+      type: object
+      properties:
+        version:
+          type: string
+        content:
+          type: string
+    RollbackInstructionsRequest:
+      type: object
+      properties:
+        version:
+          type: string
+        historyFile:
+          type: string
+    VersionListRequest:
+      type: object
+      properties:
+        version:
           type: string
