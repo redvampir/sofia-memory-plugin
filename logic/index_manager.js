@@ -273,7 +273,9 @@ async function addToIndex(file, meta = {}) {
 }
 
 function getValidationReport() {
-  return validationReport;
+  return validationReport
+    ? JSON.parse(JSON.stringify(validationReport))
+    : validationReport;
 }
 
 module.exports = {
