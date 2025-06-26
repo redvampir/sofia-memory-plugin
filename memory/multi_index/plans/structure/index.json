@@ -1,0 +1,14 @@
+{
+  "files": [
+    {
+      "title": "Structure Plan",
+      "file": "plans/structure/layout.md",
+      "metadata": {
+        "sort_order": 1,
+        "search_priority": "high",
+        "category": "planning",
+        "sub_category": "structure"
+      }
+    }
+  ]
+}

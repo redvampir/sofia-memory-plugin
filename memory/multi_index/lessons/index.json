@@ -1,0 +1,24 @@
+{
+  "files": [
+    {
+      "title": "Intro Lesson",
+      "file": "lessons/intro.md",
+      "metadata": {
+        "sort_order": 1,
+        "search_priority": "high",
+        "category": "education",
+        "sub_category": "intro"
+      }
+    },
+    {
+      "title": "Example Lesson",
+      "file": "lessons/04_example.md",
+      "metadata": {
+        "sort_order": 2,
+        "search_priority": "medium",
+        "category": "education",
+        "sub_category": "examples"
+      }
+    }
+  ]
+}

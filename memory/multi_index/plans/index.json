@@ -1,0 +1,40 @@
+{
+  "sub_indexes": {
+    "context": {
+      "index": "multi_index/plans/context/index.json",
+      "metadata": {
+        "sort_order": 1,
+        "search_priority": "high",
+        "category": "planning",
+        "sub_category": "context"
+      }
+    },
+    "structure": {
+      "index": "multi_index/plans/structure/index.json",
+      "metadata": {
+        "sort_order": 2,
+        "search_priority": "medium",
+        "category": "planning",
+        "sub_category": "structure"
+      }
+    },
+    "features": {
+      "index": "multi_index/plans/features/index.json",
+      "metadata": {
+        "sort_order": 3,
+        "search_priority": "medium",
+        "category": "planning",
+        "sub_category": "features"
+      }
+    },
+    "safety": {
+      "index": "multi_index/plans/safety/index.json",
+      "metadata": {
+        "sort_order": 4,
+        "search_priority": "low",
+        "category": "planning",
+        "sub_category": "safety"
+      }
+    }
+  }
+}
