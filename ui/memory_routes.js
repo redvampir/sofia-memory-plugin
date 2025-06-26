@@ -42,6 +42,30 @@ async function saveMemory(req, res) {
     return res.status(400).json({ status: 'error', message: 'Missing required fields.' });
   }
 
+  if (effectiveRepo) {
+    if (!effectiveToken) {
+      return res.status(401).json({ status: 'error', message: 'Missing GitHub token' });
+    }
+    try {
+      const check = await github.validateToken(effectiveToken);
+      if (!check.valid) {
+        return res.status(401).json({ status: 'error', message: 'Invalid GitHub token' });
+      }
+    } catch (e) {
+      logError('validateToken', e);
+      return res.status(401).json({ status: 'error', message: 'Invalid GitHub token' });
+    }
+    try {
+      const exists = await github.repoExists(effectiveToken, effectiveRepo);
+      if (!exists) {
+        return res.status(404).json({ status: 'error', message: 'Repository not found' });
+      }
+    } catch (e) {
+      logError('repoExists', e);
+      return res.status(404).json({ status: 'error', message: 'Repository not found' });
+    }
+  }
+
   const normalizedFilename = normalize_memory_path(filename);
   const filePath = path.join(__dirname, '..', normalizedFilename);
   ensure_dir(filePath);
