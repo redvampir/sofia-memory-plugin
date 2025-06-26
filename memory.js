@@ -362,7 +362,7 @@ async function load_memory_to_context(filename, repo, token) {
     token,
     source: 'manual-load',
   });
-  ensureContext();
+  await ensureContext();
   fs.appendFileSync(contextFilename, `${content}\n`);
   return { file: normalized, tokens: count_tokens(content) };
 }
@@ -395,7 +395,7 @@ async function load_context_from_index(index_path, repo, token) {
     }
   }
   if (!loaded.length) return null;
-  ensureContext();
+  await ensureContext();
   fs.writeFileSync(contextFilename, full.trim() + '\n');
   return { files: loaded, content: full.trim() };
 }
@@ -460,7 +460,7 @@ async function auto_recover_context() {
     }
   }
   if (!loaded.length) return null;
-  ensureContext();
+  await ensureContext();
   fs.writeFileSync(contextFilename, full.trim() + '\n');
   console.log(`Context restored from: ${loaded.join(', ')}`);
   return { files: loaded, content: full.trim() };

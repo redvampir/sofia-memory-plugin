@@ -108,7 +108,7 @@ async function saveMemory(req, res) {
     }
   } else {
     try {
-      writeFileSafe(filePath, finalContent);
+      await writeFileSafe(filePath, finalContent);
     } catch (e) {
       const code = e.status || 500;
       return res
@@ -279,7 +279,7 @@ async function saveContext(req, res) {
   const { repo: effectiveRepo, token: effectiveToken } = getRepoInfo('memory/context.md', userId, repo, token);
 
   ensure_dir(contextFilename);
-  writeFileSafe(contextFilename, content || '');
+  await writeFileSafe(contextFilename, content || '');
 
   if (effectiveRepo && effectiveToken) {
     try {

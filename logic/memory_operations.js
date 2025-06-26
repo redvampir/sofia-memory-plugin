@@ -1,4 +1,5 @@
 const fs = require('fs');
+const fsp = fs.promises;
 const path = require('path');
 const github = require('../tools/github_client');
 const token_store = require('../tools/token_store');
@@ -58,13 +59,13 @@ function planToMarkdown(plan) {
   );
 }
 
-function getLessonEntries() {
-  const raw = sanitizeIndex(readIndexSafe());
+async function getLessonEntries() {
+  const raw = await sanitizeIndex(readIndexSafe());
   return raw.filter(e => e.type === 'lesson');
 }
 
-function updatePlanFromIndex(plan) {
-  const lessons = getLessonEntries();
+async function updatePlanFromIndex(plan) {
+  const lessons = await getLessonEntries();
   const titles = new Set();
   plan.completedLessons = [];
   lessons
@@ -85,11 +86,15 @@ function updatePlanFromIndex(plan) {
   return plan;
 }
 
-function ensureContext() {
-  if (!fs.existsSync(contextFilename)) {
+async function ensureContext() {
+  try {
+    await fsp.access(contextFilename);
+  } catch {
     ensure_dir(contextFilename);
-    writeFileSafe(contextFilename, '# Context\n');
-    rebuildIndex().catch(e => console.error('[ensureContext] rebuild error', e.message));
+    await writeFileSafe(contextFilename, '# Context\n');
+    rebuildIndex().catch(e =>
+      console.error('[ensureContext] rebuild error', e.message)
+    );
   }
 }
 
@@ -171,8 +176,13 @@ async function updatePlan({ token, repo, updateFn, userId } = {}) {
       logDebug('[updatePlan] no remote plan', e.message);
     }
   }
-  if (!md && fs.existsSync(absPath)) {
-    md = fs.readFileSync(absPath, 'utf-8');
+  if (!md) {
+    try {
+      await fsp.access(absPath);
+      md = await fsp.readFile(absPath, 'utf-8');
+    } catch {
+      // ignore missing file
+    }
   }
   if (!md) {
     md = '# Learning Plan\n\n## Completed Lessons\n\n## Upcoming Lessons\n';
@@ -184,7 +194,7 @@ async function updatePlan({ token, repo, updateFn, userId } = {}) {
 
   const newMd = buildPlanFile(parsed, updated.done || [], updated.upcoming || []);
 
-  writeFileSafe(absPath, newMd);
+  await writeFileSafe(absPath, newMd);
   if (finalRepo && finalToken) {
     await github.writeFileSafe(finalToken, finalRepo, relPath, newMd, 'update plan.md');
   }
@@ -193,13 +203,18 @@ async function updatePlan({ token, repo, updateFn, userId } = {}) {
   return updated;
 }
 
-function loadPlan() {
+async function loadPlan() {
   ensure_dir(planFilename);
-  const existed = fs.existsSync(planFilename);
+  let existed = true;
+  try {
+    await fsp.access(planFilename);
+  } catch {
+    existed = false;
+  }
   let plan;
   if (existed) {
     try {
-      const content = fs.readFileSync(planFilename, 'utf-8');
+      const content = await fsp.readFile(planFilename, 'utf-8');
       plan = parsePlanMarkdown(content);
     } catch {
       plan = { completedLessons: [], requestedClarifications: [], nextLesson: '' };
@@ -208,18 +223,20 @@ function loadPlan() {
     plan = { completedLessons: [], requestedClarifications: [], nextLesson: '' };
   }
 
-  plan = updatePlanFromIndex(plan);
-  writeFileSafe(planFilename, planToMarkdown(plan));
+  plan = await updatePlanFromIndex(plan);
+  await writeFileSafe(planFilename, planToMarkdown(plan));
   planCache = plan;
   if (!existed) {
-    rebuildIndex().catch(e => console.error('[loadPlan] rebuild error', e.message));
+    rebuildIndex().catch(e =>
+      console.error('[loadPlan] rebuild error', e.message)
+    );
   }
 }
 
 async function savePlan(repo, token) {
-  if (!planCache) loadPlan();
+  if (!planCache) await loadPlan();
   const md = planToMarkdown(planCache);
-  writeFileSafe(planFilename, md);
+  await writeFileSafe(planFilename, md);
   if (repo && token) {
     try {
       await github.writeFileSafe(
@@ -236,7 +253,7 @@ async function savePlan(repo, token) {
   await rebuildIndex(repo, token);
 }
 
-function writeFileSafe(filePath, data, force = false) {
+async function writeFileSafe(filePath, data, force = false) {
   try {
     ensure_dir(filePath);
     if (filePath.toLowerCase().endsWith('.md')) {
@@ -258,7 +275,7 @@ function writeFileSafe(filePath, data, force = false) {
       console.warn('[writeFileSafe] token limit reached', tokens);
       return;
     }
-    fs.writeFileSync(filePath, data, 'utf-8');
+    await fsp.writeFile(filePath, data, 'utf-8');
     logDebug('[writeFileSafe] wrote', filePath);
   } catch (e) {
     console.error(`[writeFileSafe] Error writing ${filePath}`, e.message);
@@ -281,17 +298,16 @@ async function updateOrInsertJsonEntry(filePath, newData, matchKey, repo, token)
     }
   }
 
-  if (fs.existsSync(filePath)) {
-    try {
-      const local = fs.readFileSync(filePath, 'utf-8');
-      existing = deepMerge(existing, JSON.parse(local), matchKey);
-    } catch {
-      // ignore parse errors
-    }
+  try {
+    await fsp.access(filePath);
+    const local = await fsp.readFile(filePath, 'utf-8');
+    existing = deepMerge(existing, JSON.parse(local), matchKey);
+  } catch {
+    // ignore missing or parse errors
   }
 
   const updated = deepMerge(existing, newData, matchKey);
-  writeFileSafe(filePath, JSON.stringify(updated, null, 2));
+  await writeFileSafe(filePath, JSON.stringify(updated, null, 2));
 
   if (repo && token) {
     try {
@@ -376,30 +392,35 @@ function readIndexSafe() {
   }
 }
 
-function sanitizeIndex(entries) {
+async function sanitizeIndex(entries) {
   const map = new Map();
-  entries.forEach(e => {
-    if (!e || !e.path) return;
+  for (const e of entries) {
+    if (!e || !e.path) continue;
     const normalized = normalize_memory_path(e.path);
-    if (EXCLUDED.has(normalized)) return;
+    if (EXCLUDED.has(normalized)) continue;
     const abs = path.join(path.join(__dirname, '..'), normalized);
-    if (!fs.existsSync(abs)) {
+    try {
+      await fsp.access(abs);
+    } catch {
       console.warn(`[sanitizeIndex] missing file ${normalized}, keeping entry`);
     }
     const existing = map.get(normalized);
-    if (!existing || new Date(e.lastModified || 0) > new Date(existing.lastModified || 0)) {
+    if (
+      !existing ||
+      new Date(e.lastModified || 0) > new Date(existing.lastModified || 0)
+    ) {
       map.set(normalized, { ...existing, ...e, path: normalized });
     }
-  });
+  }
   return Array.from(map.values());
 }
 
-function extractMeta(fullPath) {
-  const stats = fs.statSync(fullPath);
+async function extractMeta(fullPath) {
+  const stats = await fsp.stat(fullPath);
   const result = { lastModified: stats.mtime.toISOString() };
   if (fullPath.endsWith('.md')) {
     try {
-      const lines = fs.readFileSync(fullPath, 'utf-8').split(/\r?\n/);
+      const lines = (await fsp.readFile(fullPath, 'utf-8')).split(/\r?\n/);
       const titleLine = lines.find(l => l.trim());
       if (titleLine && titleLine.startsWith('#')) {
         result.title = titleLine.replace(/^#+\s*/, '');
@@ -414,27 +435,29 @@ function extractMeta(fullPath) {
   return result;
 }
 
-function loadIndex() {
-  if (!fs.existsSync(indexFilename)) {
+async function loadIndex() {
+  try {
+    await fsp.access(indexFilename);
+  } catch {
     console.warn('[loadIndex] index.json not found - creating new');
     ensure_dir(indexFilename);
-    writeFileSafe(indexFilename, '[]');
+    await writeFileSafe(indexFilename, '[]');
     return [];
   }
 
   try {
-    const parsed = JSON.parse(fs.readFileSync(indexFilename, 'utf-8'));
+    const parsed = JSON.parse(await fsp.readFile(indexFilename, 'utf-8'));
     return Array.isArray(parsed) ? parsed : [];
   } catch (e) {
     console.warn('[loadIndex] failed to parse index.json, resetting', e.message);
-    writeFileSafe(indexFilename, '[]');
+    await writeFileSafe(indexFilename, '[]');
     return [];
   }
 }
 
-function saveIndex(data) {
+async function saveIndex(data) {
   ensure_dir(indexFilename);
-  writeFileSafe(indexFilename, JSON.stringify(data, null, 2));
+  await writeFileSafe(indexFilename, JSON.stringify(data, null, 2));
 }
 
 async function updateIndexFile(entry, repo, token, userId) {
@@ -447,15 +470,19 @@ async function updateIndexFile(entry, repo, token, userId) {
     data.push(entry);
     console.log('[updateIndexFile] added', entry.path);
   }
-  const clean = sanitizeIndex(deduplicateEntries(data));
+  const clean = await sanitizeIndex(deduplicateEntries(data));
   await persistIndex(clean, repo, token, userId);
   return clean;
 }
 
 async function updateIndexFromPath(relPath, repo, token, userId) {
   const fullPath = path.join(path.join(__dirname, '..'), relPath);
-  if (!fs.existsSync(fullPath)) return;
-  const meta = extractMeta(fullPath);
+  try {
+    await fsp.access(fullPath);
+  } catch {
+    return;
+  }
+  const meta = await extractMeta(fullPath);
   const entry = {
     path: relPath,
     type: categorizeMemoryFile(path.basename(relPath)),
@@ -468,17 +495,19 @@ async function updateIndexFromPath(relPath, repo, token, userId) {
 async function scanMemoryFolderRecursively(repo, token, basePath = 'memory') {
   const files = [];
 
-  function walk(current) {
-    const items = fs.readdirSync(current, { withFileTypes: true });
-    items.forEach(item => {
+  async function walk(current) {
+    const items = await fsp.readdir(current, { withFileTypes: true });
+    for (const item of items) {
       const abs = path.join(current, item.name);
       if (item.isDirectory()) {
-        walk(abs);
+        await walk(abs);
       } else if (item.isFile()) {
-        const rel = path.relative(path.join(__dirname, '..'), abs).replace(/\\/g, '/');
+        const rel = path
+          .relative(path.join(__dirname, '..'), abs)
+          .replace(/\\/g, '/');
         if (rel.endsWith('index.json')) {
           logDebug('[scan] skipped', rel, 'index file');
-          return;
+          continue;
         }
         if (/\.(md|txt|json|js|ts|jsx|tsx|html|css|png|jpe?g|svg|gif|py|java|c|cpp|csv)$/i.test(item.name)) {
           files.push(rel);
@@ -487,11 +516,16 @@ async function scanMemoryFolderRecursively(repo, token, basePath = 'memory') {
           logDebug('[scan] skipped', rel, 'unsupported extension');
         }
       }
-    });
+    }
   }
 
   const rootPath = path.join(path.join(__dirname, '..'), basePath);
-  if (fs.existsSync(rootPath)) walk(rootPath);
+  try {
+    await fsp.access(rootPath);
+    await walk(rootPath);
+  } catch {
+    // ignore missing rootPath
+  }
 
   const verified = [];
   for (const rel of files) {
@@ -510,13 +544,12 @@ async function fetchIndex(repo, token) {
   let localData = [];
   let remoteData = [];
 
-  if (fs.existsSync(indexFilename)) {
-    try {
-      const parsed = JSON.parse(fs.readFileSync(indexFilename, 'utf-8'));
-      if (Array.isArray(parsed)) localData = parsed;
-    } catch (e) {
-      console.warn('[fetchIndex] local read error', e.message);
-    }
+  try {
+    await fsp.access(indexFilename);
+    const parsed = JSON.parse(await fsp.readFile(indexFilename, 'utf-8'));
+    if (Array.isArray(parsed)) localData = parsed;
+  } catch (e) {
+    if (e.code !== 'ENOENT') console.warn('[fetchIndex] local read error', e.message);
   }
 
   if (repo && token) {
@@ -542,10 +575,10 @@ async function fetchIndex(repo, token) {
 }
 
 async function persistIndex(data, repo, token, userId) {
-  const clean = sanitizeIndex(data);
+  const clean = await sanitizeIndex(data);
   ensure_dir(indexFilename);
   try {
-    writeFileSafe(indexFilename, JSON.stringify(clean, null, 2));
+    await writeFileSafe(indexFilename, JSON.stringify(clean, null, 2));
     console.log('[persistIndex] local index saved');
   } catch (e) {
     console.error('[persistIndex] local write error', e.message);
@@ -610,7 +643,7 @@ async function updateIndexEntry(repo, token, { path: filePath, type, title, desc
     dedupMap.set(p, { ...dedupMap.get(p), ...e });
   });
   let deduped = Array.from(dedupMap.values());
-  deduped = sanitizeIndex(deduplicateEntries(deduped));
+  deduped = await sanitizeIndex(deduplicateEntries(deduped));
   indexData.length = 0;
   indexData.push(...deduped);
 
@@ -623,30 +656,35 @@ async function updateIndexEntry(repo, token, { path: filePath, type, title, desc
   return entry;
 }
 
-function scanMemoryDir(dirPath) {
+async function scanMemoryDir(dirPath) {
   const results = [];
 
-  function walk(current) {
-    const items = fs.readdirSync(current);
-    items.forEach(item => {
+  async function walk(current) {
+    const items = await fsp.readdir(current);
+    for (const item of items) {
       const abs = path.join(current, item);
-      const stats = fs.statSync(abs);
+      const stats = await fsp.stat(abs);
       if (stats.isDirectory()) {
-        walk(abs);
+        await walk(abs);
       } else {
-        if (abs === indexFilename) return;
+        if (abs === indexFilename) continue;
         const rel = path.relative(path.join(__dirname, '..'), abs);
-        const meta = extractMeta(abs);
+        const meta = await extractMeta(abs);
         results.push({
           path: rel,
           type: categorizeMemoryFile(item),
           ...meta,
         });
       }
-    });
+    }
   }
 
-  if (fs.existsSync(dirPath)) walk(dirPath);
+  try {
+    await fsp.access(dirPath);
+    await walk(dirPath);
+  } catch {
+    // ignore missing dir
+  }
   return results;
 }
 
@@ -655,7 +693,7 @@ async function rebuildIndex(repo, token, userId) {
   const entries = [];
   for (const rel of paths) {
     const abs = path.join(path.join(__dirname, '..'), rel);
-    const meta = extractMeta(abs);
+    const meta = await extractMeta(abs);
     entries.push({
       path: rel,
       type: categorizeMemoryFile(path.basename(rel)),
@@ -665,7 +703,7 @@ async function rebuildIndex(repo, token, userId) {
     });
   }
 
-  const clean = sanitizeIndex(deduplicateEntries(entries));
+  const clean = await sanitizeIndex(deduplicateEntries(entries));
   await persistIndex(clean, repo, token, userId);
   return clean;
 }
@@ -688,26 +726,32 @@ async function updateIndexFileManually(newEntries, repo, token, userId) {
 async function listMemoryFiles(repo, token, dirPath) {
   const directory = dirPath.startsWith('memory') ? dirPath : path.join('memory', dirPath);
   const fullPath = path.join(path.join(__dirname, '..'), directory);
-  if (!fs.existsSync(fullPath)) return [];
+  try {
+    await fsp.access(fullPath);
+  } catch {
+    return [];
+  }
 
   const results = [];
-  function walk(current) {
-    const entries = fs.readdirSync(current, { withFileTypes: true });
-    entries.forEach(entry => {
+  async function walk(current) {
+    const entries = await fsp.readdir(current, { withFileTypes: true });
+    for (const entry of entries) {
       const abs = path.join(current, entry.name);
       if (entry.isDirectory()) {
-        walk(abs);
+        await walk(abs);
       } else if (entry.isFile()) {
-        const rel = path.relative(path.join(__dirname, '..'), abs).replace(/\\/g, '/');
-        if (rel.endsWith('index.json')) return;
+        const rel = path
+          .relative(path.join(__dirname, '..'), abs)
+          .replace(/\\/g, '/');
+        if (rel.endsWith('index.json')) continue;
         if (/\.(md|txt|json|js|ts|jsx|tsx|html|css)$/i.test(entry.name)) {
           results.push(rel);
         }
       }
-    });
+    }
   }
 
-  walk(fullPath);
+  await walk(fullPath);
   return results;
 }
 module.exports = {
