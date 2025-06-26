@@ -186,6 +186,22 @@ async function removeEntry(p) {
   indexData = sort_by_priority(indexData.filter(e => e.path !== p));
 }
 
+async function moveFileAndUpdateIndex(oldPath, newPath) {
+  const src = path.join(__dirname, '..', normalize_memory_path(oldPath));
+  const dstRel = normalize_memory_path(newPath);
+  const dst = path.join(__dirname, '..', dstRel);
+  ensure_dir(dst);
+  fs.renameSync(src, dst);
+
+  if (!indexData) await loadIndex();
+  indexData = indexData.filter(e => e.path !== normalize_memory_path(oldPath));
+  await addOrUpdateEntry({
+    path: dstRel,
+    title: generateTitleFromPath(dstRel),
+    type: inferTypeFromPath(dstRel),
+  });
+}
+
 async function saveIndex(token, repo, userId) {
   if (!indexData) await loadIndex();
   const old_list = index_tree.listAllEntries();
@@ -296,5 +312,6 @@ module.exports = {
   getLessonPath,
   markDuplicateLessons,
   addToIndex,
+  moveFileAndUpdateIndex,
   getValidationReport,
 };
