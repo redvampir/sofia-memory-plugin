@@ -44,12 +44,46 @@ async function split_memory_file(filename, max_tokens) {
   } catch (_) {
     // ignore backup errors
   }
+
+  const is_index = path.basename(normalized).toLowerCase() === 'index.md';
+  let existingParts = null;
+  if (is_index) {
+    const fm = original.match(/^---\n([\s\S]*?)\n---/);
+    if (fm) {
+      const m = fm[1].match(/parts:\s*\[([^\]]+)\]/);
+      if (m) {
+        existingParts = m[1]
+          .split(',')
+          .map(p => p.trim().replace(/^['"]|['"]$/g, ''))
+          .filter(Boolean);
+      }
+    }
+  }
+
+  if (existingParts) {
+    const out = existingParts.map(p =>
+      path.posix.join(path.posix.dirname(normalized), p)
+    );
+    if (!process.env.NO_INDEX_UPDATE) {
+      await index_manager.addOrUpdateEntry({
+        path: normalized,
+        title: index_manager.generateTitleFromPath(normalized),
+        type: index_manager.inferTypeFromPath(normalized),
+        lastModified: new Date().toISOString(),
+      });
+      await index_manager.saveIndex();
+    }
+    return out;
+  }
+
   const total_tokens = count_tokens(original);
   if (total_tokens <= max_tokens) return [normalized];
 
-  const dir = abs.replace(/\.md$/i, '');
+  const dir = is_index ? path.dirname(abs) : abs.replace(/\.md$/i, '');
   ensure_dir(dir);
-  const rel_dir = normalized.replace(/\.md$/i, '');
+  const rel_dir = is_index
+    ? path.posix.dirname(normalized)
+    : normalized.replace(/\.md$/i, '');
 
   const blocks = split_into_blocks(original);
   const parts = [];
@@ -88,9 +122,11 @@ async function split_memory_file(filename, max_tokens) {
   ];
   fs.writeFileSync(path.join(dir, 'index.md'), meta_lines.join('\n'), 'utf-8');
 
-  fs.unlinkSync(abs);
+  if (!is_index) fs.unlinkSync(abs);
 
-  const new_rel = path.posix.join(rel_dir, 'index.md');
+  const new_rel = is_index
+    ? normalized
+    : path.posix.join(rel_dir, 'index.md');
   if (!process.env.NO_INDEX_UPDATE) {
     await index_manager.removeEntry(normalized);
     await index_manager.addOrUpdateEntry({
