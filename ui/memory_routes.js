@@ -374,6 +374,11 @@ function readProfile(req, res) {
 }
 
 async function save(req, res) {
+  const type = req.body && req.body.type;
+  if (type === 'context') {
+    return saveContext(req, res);
+  }
+
   const { repo, token, filename, content } = req.body || {};
   if (!repo || !token || !filename || content === undefined) {
     return res
@@ -397,10 +402,18 @@ async function save(req, res) {
   }
 }
 
+async function read(req, res) {
+  const type = req.body && req.body.type;
+  if (type === 'context') {
+    return readContext(req, res);
+  }
+  return readMemory(req, res);
+}
+
 router.post('/save', save);
 router.post('/saveMemory', saveMemory);
 router.post('/readMemory', readMemory);
-router.post('/read', readMemory); // legacy route
+router.post('/read', read);
 router.post('/readFile', readFileRoute);
 router.get('/memory', readMemoryGET);
 router.post('/setMemoryRepo', setMemoryRepo);

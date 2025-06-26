@@ -7,7 +7,7 @@ servers:
 paths:
   /save:
     post:
-      summary: Save file to repository
+      summary: Save memory or context data
       operationId: save
       requestBody:
         required: true
@@ -18,35 +18,9 @@ paths:
       responses:
         '200':
           description: Saved
-  /saveMemory:
-    post:
-      summary: Save memory content
-      operationId: saveMemory
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/SaveMemoryRequest'
-      responses:
-        '200':
-          description: Saved
-  /readMemory:
-    post:
-      summary: Read memory content
-      operationId: readMemory
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ReadMemoryRequest'
-      responses:
-        '200':
-          description: File contents
   /read:
     post:
-      summary: Read memory content (alias)
+      summary: Read memory or context data
       operationId: read
       requestBody:
         required: true
@@ -54,43 +28,6 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/ReadMemoryRequest'
-      responses:
-        '200':
-          description: File contents
-  /readFile:
-    post:
-      summary: Read markdown file
-      operationId: readFile
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ReadMemoryRequest'
-      responses:
-        '200':
-          description: File contents
-  /memory:
-    get:
-      summary: Read memory file via query
-      operationId: readMemoryGET
-      parameters:
-        - in: query
-          name: repo
-          schema:
-            type: string
-        - in: query
-          name: token
-          schema:
-            type: string
-        - in: query
-          name: filename
-          schema:
-            type: string
-        - in: query
-          name: userId
-          schema:
-            type: string
       responses:
         '200':
           description: File contents
@@ -151,48 +88,6 @@ paths:
       responses:
         '200':
           description: Saved
-  /saveNote:
-    post:
-      summary: Save user note
-      operationId: saveNote
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/SaveNoteRequest'
-      responses:
-        '200':
-          description: Note saved
-  /getContextSnapshot:
-    post:
-      summary: Get context snapshot
-      operationId: getContextSnapshot
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                userId:
-                  type: string
-      responses:
-        '200':
-          description: Snapshot data
-  /createUserProfile:
-    post:
-      summary: Create user profile
-      operationId: createUserProfile
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateUserProfileRequest'
-      responses:
-        '200':
-          description: Profile created
   /getToken:
     post:
       summary: Get stored GitHub token
@@ -253,38 +148,6 @@ paths:
       responses:
         '200':
           description: Status info
-  /tokenStatus:
-    get:
-      summary: Check if a token is stored (alias)
-      operationId: tokenStatusAlias
-      parameters:
-        - in: query
-          name: userId
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Status info
-  /saveContext:
-    post:
-      summary: Save context content
-      operationId: saveContext
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/SaveContextRequest'
-      responses:
-        '200':
-          description: Context saved
-  /readContext:
-    get:
-      summary: Read stored context
-      operationId: readContext
-      responses:
-        '200':
-          description: Context data
   /loadMemoryToContext:
     post:
       summary: Load a memory file into context
@@ -426,6 +289,9 @@ components:
           type: string
         content:
           type: string
+        type:
+          type: string
+          enum: [memory, context]
     ReadMemoryRequest:
       type: object
       properties:
@@ -435,6 +301,9 @@ components:
           type: string
         filename:
           type: string
+        type:
+          type: string
+          enum: [memory, context]
     SaveLessonPlanRequest:
       type: object
       properties:
