@@ -4,6 +4,9 @@ const { Octokit } = require('@octokit/rest');
 const axios = require('axios');
 const { logError } = require('./error_handler');
 
+// Заголовок User-Agent для GitHub API
+const DEFAULT_HEADERS = { 'User-Agent': 'sofia-memory-plugin' };
+
 function encodePath(p) {
   return p.split('/').map(encodeURIComponent).join('/');
 }
@@ -17,7 +20,7 @@ function normalizeRepo(repo) {
 exports.validateToken = async function (token) {
   try {
     const res = await axios.get('https://api.github.com/user', {
-      headers: { Authorization: `token ${token}` }
+      headers: { Authorization: `token ${token}`, ...DEFAULT_HEADERS }
     });
     return { valid: true, user: res.data.login };
   } catch (e) {
@@ -30,7 +33,7 @@ exports.repoExists = async function (token, repo) {
   const normalized = normalizeRepo(repo);
   try {
     const res = await axios.get(`https://api.github.com/repos/${normalized}`, {
-      headers: { Authorization: `token ${token}` }
+      headers: { Authorization: `token ${token}`, ...DEFAULT_HEADERS }
     });
     return res.status === 200;
   } catch (e) {
@@ -49,7 +52,10 @@ exports.readFile = async function (token, repo, filePath) {
   console.log('[readFile] URL:', url);
   try {
     const [owner, repoName] = normalized.split('/');
-    const octokit = new Octokit({ auth: token });
+    const octokit = new Octokit({
+      auth: token,
+      userAgent: 'sofia-memory-plugin'
+    });
     const res = await octokit.repos.getContent({ owner, repo: repoName, path: filePath });
     console.log('[readFile] status:', res.status);
     return Buffer.from(res.data.content, 'base64').toString('utf-8');
@@ -69,7 +75,9 @@ exports.writeFile = async function(token, repo, filePath, content, message) {
   console.log('[writeFile] URL:', url);
   let sha = undefined;
   try {
-    const res = await axios.get(url, { headers: { Authorization: `token ${token}` } });
+    const res = await axios.get(url, {
+      headers: { Authorization: `token ${token}`, ...DEFAULT_HEADERS }
+    });
     sha = res.data.sha;
   } catch(e) {
     // file may not exist, ignore
@@ -80,7 +88,9 @@ exports.writeFile = async function(token, repo, filePath, content, message) {
   };
   if (sha) body.sha = sha;
   try {
-    await axios.put(url, body, { headers: { Authorization: `token ${token}` } });
+    await axios.put(url, body, {
+      headers: { Authorization: `token ${token}`, ...DEFAULT_HEADERS }
+    });
   } catch (e) {
     logError('writeFile', e);
     throw e;
