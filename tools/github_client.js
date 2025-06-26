@@ -60,6 +60,13 @@ exports.readFile = async function (token, repo, filePath) {
     console.log('[readFile] status:', res.status);
     return Buffer.from(res.data.content, 'base64').toString('utf-8');
   } catch (e) {
+    if (e.response) {
+      e.status = e.response.status;
+      if (e.response.data && e.response.data.message) {
+        e.githubMessage = e.response.data.message;
+        e.message = e.response.data.message;
+      }
+    }
     logError('readFile', e);
     throw e;
   }
@@ -92,6 +99,13 @@ exports.writeFile = async function(token, repo, filePath, content, message) {
       headers: { Authorization: `token ${token}`, ...DEFAULT_HEADERS }
     });
   } catch (e) {
+    if (e.response) {
+      e.status = e.response.status;
+      if (e.response.data && e.response.data.message) {
+        e.githubMessage = e.response.data.message;
+        e.message = e.response.data.message;
+      }
+    }
     logError('writeFile', e);
     throw e;
   }
