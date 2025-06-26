@@ -1,16 +1,21 @@
 const fs = require('fs');
 const path = require('path');
+const {
+  validateRootIndex,
+  validateBranchIndex,
+} = require('./index_schemas');
 
 const rootIndexPath = path.join(__dirname, '..', 'memory', 'index.json');
 
 function loadRoot() {
   if (!fs.existsSync(rootIndexPath)) return null;
-  try {
-    const raw = fs.readFileSync(rootIndexPath, 'utf-8');
-    return JSON.parse(raw);
-  } catch {
-    return null;
+  const raw = fs.readFileSync(rootIndexPath, 'utf-8');
+  const data = JSON.parse(raw);
+  if (!validateRootIndex(data)) {
+    console.error('[index_tree] root index schema invalid');
+    throw new Error('invalid root index');
   }
+  return data;
 }
 
 function getBranchInfo(category) {
@@ -24,35 +29,52 @@ function loadBranch(category) {
   if (!info) return [];
   const p = path.join(__dirname, '..', 'memory', info.path);
   if (!fs.existsSync(p)) return [];
-  try {
-    const raw = fs.readFileSync(p, 'utf-8');
-    const data = JSON.parse(raw);
-    return Array.isArray(data.files)
-      ? data.files.map(f => ({ ...f, path: path.posix.join('memory', f.file) }))
-      : [];
-  } catch {
-    return [];
+  const raw = fs.readFileSync(p, 'utf-8');
+  const data = JSON.parse(raw);
+  if (!validateBranchIndex(data)) {
+    console.error(`[index_tree] branch index schema invalid: ${category}`);
+    throw new Error('invalid branch index');
   }
+  return Array.isArray(data.files)
+    ? data.files.map(f => ({ ...f, path: path.posix.join('memory', f.file) }))
+    : [];
 }
 
 function listAllEntries() {
-  const root = loadRoot();
+  let root;
+  try {
+    root = loadRoot();
+  } catch {
+    return [];
+  }
   if (!root || !Array.isArray(root.branches)) return [];
   const entries = [];
   root.branches.forEach(b => {
-    entries.push(...loadBranch(b.category));
+    try {
+      entries.push(...loadBranch(b.category));
+    } catch {}
   });
   return entries;
 }
 
 function findEntryByPath(p) {
   const rel = p.replace(/^memory\//, '');
-  const root = loadRoot();
+  let root;
+  try {
+    root = loadRoot();
+  } catch {
+    return null;
+  }
   if (!root || !Array.isArray(root.branches)) return null;
   for (const b of root.branches) {
     const dir = b.path.replace(/\/index\.json$/, '');
     if (rel.startsWith(dir)) {
-      const entries = loadBranch(b.category);
+      let entries;
+      try {
+        entries = loadBranch(b.category);
+      } catch {
+        return null;
+      }
       return entries.find(e => e.path === path.posix.join('memory', rel)) || null;
     }
   }
