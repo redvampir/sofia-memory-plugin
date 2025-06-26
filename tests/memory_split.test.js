@@ -19,6 +19,8 @@ async function run(){
 
   const result = await split_memory_file(rel, 10);
   assert.ok(result.length > 1);
+  const backup_path = abs + '.bak';
+  assert.ok(fs.existsSync(backup_path));
   const index_path = path.join(__dirname, '..', 'memory', 'tmp_split', 'long', 'index.md');
   assert.ok(fs.existsSync(index_path));
 
@@ -26,6 +28,7 @@ async function run(){
   assert.ok(read.includes('word word'));
 
   fs.rmSync(path.join(__dirname, '..', 'memory', 'tmp_split'), { recursive: true, force: true });
+  fs.rmSync(backup_path, { force: true });
   await index_manager.removeEntry('memory/tmp_split/long/index.md');
   await index_manager.saveIndex();
   console.log('memory split tests passed');

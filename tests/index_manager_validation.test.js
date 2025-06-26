@@ -19,5 +19,6 @@ const index_manager = require('../logic/index_manager');
 
   // cleanup
   fs.writeFileSync(idxPath, original, 'utf-8');
+  await index_manager.loadIndex();
   console.log('index manager validation passed');
 })();
