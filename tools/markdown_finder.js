@@ -3,9 +3,9 @@ const path = require('path');
 const { sanitizeIndex, readIndexSafe, listMemoryFiles, fileExistsInRepo } = require('../logic/memory_operations');
 const { normalize_memory_path } = require('./file_utils');
 
-function loadIndex() {
+async function loadIndex() {
   try {
-    return sanitizeIndex(readIndexSafe());
+    return await sanitizeIndex(readIndexSafe());
   } catch {
     return [];
   }
@@ -20,8 +20,8 @@ function matchQuery(entry, query, regex) {
     p.startsWith(q) || p.endsWith(q) || t.startsWith(q) || t.endsWith(q);
 }
 
-function searchIndex(query) {
-  const idx = loadIndex();
+async function searchIndex(query) {
+  const idx = await loadIndex();
   const regex = query.startsWith('/') && query.endsWith('/') ? new RegExp(query.slice(1, -1), 'i') : null;
   const matches = idx.filter(e => matchQuery(e, query, regex));
   return matches.map(e => e.path);
@@ -47,7 +47,7 @@ async function resolveMarkdownPath(query, opts = {}) {
     if (fs.existsSync(abs)) return candidate;
   }
 
-  let matches = searchIndex(candidate);
+  let matches = await searchIndex(candidate);
   if (!matches.length) {
     matches = await searchFiles(candidate);
   }
