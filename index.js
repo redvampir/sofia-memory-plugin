@@ -34,6 +34,13 @@ auto_recover_context().catch(e =>
 );
 app.use(allow_cors);
 app.use(express.static(path.join(__dirname, 'assets')));
+// Serve plugin descriptors from repository root
+app.get('/openapi.yaml', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'openapi.yaml'));
+});
+app.get('/ai-plugin.json', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'ai-plugin.json'));
+});
 app.use(bodyParser.json());
 app.use(memory_routes);
 
