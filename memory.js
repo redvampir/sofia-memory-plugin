@@ -25,6 +25,19 @@ function count_tokens(text = '') {
   return String(text).split(/\s+/).filter(Boolean).length;
 }
 
+function getTokenCounter() {
+  const { used, limit } = context_state.get_status();
+  const remaining = limit - used;
+  const percent = limit ? Math.floor((used / limit) * 100) : 0;
+  return { used, limit, remaining, percent };
+}
+
+function formatTokenCounter(testMode = false) {
+  if (!testMode) return '';
+  const { used, limit, remaining, percent } = getTokenCounter();
+  return `[Тестирование] Токенов использовано: ${used}/${limit} (${percent}%) | Осталось: ${remaining}`;
+}
+
 async function autoRefreshContext(repo, token) {
   if (context_state.get_needs_refresh()) {
     await refreshContextFromMemoryFiles(repo, token);
@@ -492,4 +505,6 @@ module.exports = {
   load_memory_to_context,
   load_context_from_index,
   checkAndRestoreContext,
+  getTokenCounter,
+  formatTokenCounter,
 };

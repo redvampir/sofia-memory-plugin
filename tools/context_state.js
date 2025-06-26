@@ -4,6 +4,8 @@ const path = require('path');
 const cache_dir = path.join(__dirname, '.cache');
 const state_file = path.join(cache_dir, 'context_state.json');
 
+const TOKEN_LIMIT = 3000;
+
 let state = { needs_refresh: false, tokens: 0, _loaded: false };
 
 function load() {
@@ -54,6 +56,15 @@ function reset_tokens() {
   save();
 }
 
+function get_token_limit() {
+  return TOKEN_LIMIT;
+}
+
+function get_status() {
+  load();
+  return { used: state.tokens, limit: TOKEN_LIMIT };
+}
+
 function register_user_prompt(prompt = '') {
   const len = typeof prompt === 'string' ? prompt.length : 0;
   increment_tokens(len);
@@ -73,5 +84,7 @@ module.exports = {
   get_tokens,
   increment_tokens,
   reset_tokens,
+  get_token_limit,
+  get_status,
   register_user_prompt,
 };
