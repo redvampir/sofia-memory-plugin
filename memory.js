@@ -28,7 +28,7 @@ function count_tokens(text = '') {
 async function autoRefreshContext(repo, token) {
   if (context_state.get_needs_refresh()) {
     await refreshContextFromMemoryFiles(repo, token);
-    console.log('🔄 Context refreshed from memory repo');
+    logger.info('🔄 Context refreshed from memory repo');
     context_state.set_needs_refresh(false);
     context_state.reset_tokens();
   }
@@ -47,7 +47,7 @@ async function readMemory(repo, token, filename) {
 
   await autoRefreshContext(final_repo, final_token);
 
-  console.log('[readMemory] params', { repo: final_repo, token: masked_token, filename });
+  logger.info('[readMemory] params', { repo: final_repo, token: masked_token, filename });
 
   if (final_repo && !final_token) {
     throw new Error('API access is not possible due to missing token');
@@ -80,7 +80,7 @@ async function readMemory(repo, token, filename) {
 
   if (final_repo && final_token) {
     const url = `https://api.github.com/repos/${normalize_repo(final_repo)}/contents/${encodePath(normalized_file)}`;
-    console.log('[readMemory] url', url);
+    logger.debug('[readMemory] url', url);
   }
 
   try {
@@ -129,7 +129,7 @@ async function saveMemory(repo, token, filename, content) {
 
   const tokens = count_tokens(content);
   if (tokens > memory_settings.token_soft_limit) {
-    console.warn('[saveMemory] token limit reached', tokens);
+    logger.info('[saveMemory] token limit reached', tokens);
     if (memory_settings.enforce_soft_limit) {
       return {
         warning: 'This file is too large for safe future use.',
@@ -462,7 +462,7 @@ async function auto_recover_context() {
   if (!loaded.length) return null;
   await ensureContext();
   fs.writeFileSync(contextFilename, full.trim() + '\n');
-  console.log(`Context restored from: ${loaded.join(', ')}`);
+  logger.info(`Context restored from: ${loaded.join(', ')}`);
   return { files: loaded, content: full.trim() };
 }
 
