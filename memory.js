@@ -1,6 +1,6 @@
 const { read_memory, save_memory, get_file } = require('./logic/storage');
 const { restore_context } = require('./context');
-const { getContextFiles, getContextFilesForKeywords } = require('./tools/index_manager');
+const { getContextFiles, getContextFilesForKeywords } = require('./logic/index_manager');
 const {
   updateContextPriority,
   touchIndexEntry,
