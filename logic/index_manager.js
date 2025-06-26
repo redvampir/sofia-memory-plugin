@@ -232,11 +232,13 @@ async function saveIndex(token, repo, userId) {
     const branchEntries = indexData.filter(e =>
       e.path.replace(/^memory\//, '').startsWith(dir)
     );
-    const files = branchEntries.map(e => ({
-      title: e.title,
-      file: e.path.replace(/^memory\//, ''),
-      tags: e.tags || [],
-    }));
+    const files = branchEntries.map(e => {
+      const { path: filePath, ...meta } = e;
+      return {
+        ...meta,
+        file: filePath.replace(/^memory\//, ''),
+      };
+    });
     const abs = path.join(__dirname, '..', 'memory', b.path);
     ensure_dir(abs);
     fs.writeFileSync(
