@@ -27,17 +27,39 @@ function getBranchInfo(category) {
 function loadBranch(category) {
   const info = getBranchInfo(category);
   if (!info) return [];
-  const p = path.join(__dirname, '..', 'memory', info.path);
-  if (!fs.existsSync(p)) return [];
-  const raw = fs.readFileSync(p, 'utf-8');
-  const data = JSON.parse(raw);
-  if (!validateBranchIndex(data)) {
-    console.error(`[index_tree] branch index schema invalid: ${category}`);
-    throw new Error('invalid branch index');
-  }
-  return Array.isArray(data.files)
-    ? data.files.map(f => ({ ...f, path: path.posix.join('memory', f.file) }))
-    : [];
+  const dir = path.join(
+    __dirname,
+    '..',
+    'memory',
+    path.dirname(info.path)
+  );
+  const base = path.basename(info.path, '.json');
+  if (!fs.existsSync(dir)) return [];
+  const files = fs
+    .readdirSync(dir)
+    .filter(
+      f => f === `${base}.json` || (f.startsWith(`${base}.part`) && f.endsWith('.json'))
+    )
+    .sort((a, b) => {
+      const getNum = name => {
+        const m = name.match(/\.part(\d+)\.json$/);
+        return m ? parseInt(m[1], 10) : 0;
+      };
+      return getNum(a) - getNum(b);
+    });
+  const entries = [];
+  files.forEach(f => {
+    const p = path.join(dir, f);
+    if (!fs.existsSync(p)) return;
+    const raw = fs.readFileSync(p, 'utf-8');
+    const data = JSON.parse(raw);
+    if (!validateBranchIndex(data)) {
+      console.error(`[index_tree] branch index schema invalid: ${category}`);
+      throw new Error('invalid branch index');
+    }
+    if (Array.isArray(data.files)) entries.push(...data.files);
+  });
+  return entries.map(e => ({ ...e, path: path.posix.join('memory', e.file) }));
 }
 
 function listAllEntries() {
