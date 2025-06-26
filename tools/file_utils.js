@@ -45,13 +45,31 @@ function deepMerge(target, source, matchKey) {
 function normalize_memory_path(p) {
   if (!p) return 'memory/';
   let rel = p.replace(/\\+/g, '/');
-  rel = path.posix.normalize(rel).replace(/^(\.\/)+/, '').replace(/^\/+/, '');
-  // FIXME: '..' segments remain after normalization, allowing paths outside
-  // the memory directory. Remove '..' parts to prevent traversal.
+  rel = path.posix
+    .normalize(rel)
+    .replace(/^(\.\/)+/, '')
+    .replace(/^\/+/, '');
+
+  // Remove any leading memory/ segments so the path is relative to the root
+  // memory directory. This allows idempotent calls with already-normalized paths.
   while (rel.startsWith('memory/')) {
     rel = rel.slice('memory/'.length);
   }
-  return path.posix.join('memory', rel);
+
+  // Strip any '..' parts to ensure the final path cannot escape the memory dir
+  const segments = [];
+  for (const part of rel.split('/')) {
+    if (!part || part === '.') continue;
+    if (part === '..') {
+      if (segments.length) segments.pop();
+      continue;
+    }
+    segments.push(part);
+  }
+  const cleaned = segments.join('/');
+
+  // Join with the memory root. Result is guaranteed to be within memory/.
+  return cleaned ? `memory/${cleaned}` : 'memory/';
 }
 
 function generateTitleFromPath(p) {
