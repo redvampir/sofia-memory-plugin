@@ -26,6 +26,7 @@ const { logError } = require('../tools/error_handler');
 const { readMarkdownFile } = require('../memory');
 const { saveReferenceAnswer } = require('../memory');
 const { load_memory_to_context, load_context_from_index } = require('../memory');
+const logger = require('../utils/logger');
 
 function setMemoryRepo(req, res) {
   const { repoUrl, userId } = req.body;
@@ -185,13 +186,13 @@ async function readMemory(req, res) {
   const filePath = path.join(__dirname, '..', normalizedFilename);
   const isJson = normalizedFilename.endsWith('.json');
 
-  console.log(`[read] repo=${effectiveRepo || 'local'} file=${normalizedFilename}`);
+  logger.info(`[read] repo=${effectiveRepo || 'local'} file=${normalizedFilename}`);
 
   if (effectiveRepo) {
     if (!effectiveToken) return res.status(401).json({ status: 'error', message: 'Missing GitHub token' });
     try {
       const content = await github.readFile(effectiveToken, effectiveRepo, normalizedFilename);
-      console.log(`[read] success remote ${normalizedFilename}`);
+      logger.info(`[read] success remote ${normalizedFilename}`);
       if (isJson) {
         try {
           const json = JSON.parse(content);
@@ -203,7 +204,7 @@ async function readMemory(req, res) {
       }
       return res.json({ status: 'success', content });
     } catch (e) {
-      console.error('[read] error remote', e.message);
+      logger.error('[read] error remote', e.message);
       const code = e.status || 500;
       return res
         .status(code)
@@ -212,11 +213,11 @@ async function readMemory(req, res) {
   }
 
   if (!fs.existsSync(filePath)) {
-    console.error('[read] file not found', filePath);
+    logger.error('[read] file not found', filePath);
     return res.status(404).json({ status: 'error', message: 'File not found.' });
   }
   const content = fs.readFileSync(filePath, 'utf-8');
-  console.log(`[read] success local ${normalizedFilename}`);
+  logger.info(`[read] success local ${normalizedFilename}`);
   if (isJson) {
     try {
       const json = JSON.parse(content);
