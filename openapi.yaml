@@ -399,6 +399,20 @@ paths:
       responses:
         '200':
           description: Pong
+  /health:
+    get:
+      summary: Render health check
+      operationId: health
+      responses:
+        '200':
+          description: OK
+  /docs:
+    get:
+      summary: List plugin endpoints
+      operationId: docs
+      responses:
+        '200':
+          description: Endpoint list
 components:
   schemas:
     SaveMemoryRequest:
