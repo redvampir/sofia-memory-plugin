@@ -136,7 +136,11 @@ async function save_memory_with_index(user_id, repo, token, filename, content) {
     type: index_manager.inferTypeFromPath(savedPath),
     lastModified: new Date().toISOString(),
   });
-  await index_manager.saveIndex(token, repo, user_id);
+  const result = await index_manager.saveIndex(token, repo, user_id);
+  if (result && result.warning) {
+    console.warn(`[index] ${result.warning}`);
+  }
+  
   return savedPath;
 }
 

@@ -187,16 +187,65 @@ async function removeEntry(p) {
 
 async function saveIndex(token, repo, userId) {
   if (!indexData) await loadIndex();
+  const old_list = index_tree.listAllEntries();
+  const old_paths = old_list.map(e => e.path);
+  const manual_set = new Set(
+    old_list.filter(e => e.source === 'manual').map(e => e.path)
+  );
+
+  let new_paths = indexData.map(e => e.path);
+  manual_set.forEach(p => {
+    if (!new_paths.includes(p)) new_paths.push(p);
+  });
+
+  const removed = old_paths.filter(p => !new_paths.includes(p));
+  const added = new_paths.filter(p => !old_paths.includes(p));
+
+  if (
+    old_paths.length &&
+    (removed.length > old_paths.length * 0.3 ||
+      added.length + removed.length > old_paths.length * 0.5)
+  ) {
+    const logPath = path.join(__dirname, '..', 'memory', 'log.json');
+    ensure_dir(logPath);
+    let log = [];
+    if (fs.existsSync(logPath)) {
+      try {
+        log = JSON.parse(fs.readFileSync(logPath, 'utf-8'));
+      } catch {}
+    }
+    log.push({
+      time: new Date().toISOString(),
+      removed,
+      added,
+    });
+    fs.writeFileSync(logPath, JSON.stringify(log, null, 2), 'utf-8');
+
+    indexData = sort_by_priority(old_list.map(e => ({ ...e }))); // revert changes
+    return { warning: 'index update aborted due to large diff' };
+  }
+
   const root = index_tree.loadRoot();
   if (!root || !Array.isArray(root.branches)) return;
   root.branches.forEach(b => {
     const dir = b.path.replace(/\/index\.json$/, '');
-    const branchEntries = indexData.filter(e => e.path.replace(/^memory\//, '').startsWith(dir));
-    const files = branchEntries.map(e => ({ title: e.title, file: e.path.replace(/^memory\//, ''), tags: e.tags || [] }));
+    const branchEntries = indexData.filter(e =>
+      e.path.replace(/^memory\//, '').startsWith(dir)
+    );
+    const files = branchEntries.map(e => ({
+      title: e.title,
+      file: e.path.replace(/^memory\//, ''),
+      tags: e.tags || [],
+    }));
     const abs = path.join(__dirname, '..', 'memory', b.path);
     ensure_dir(abs);
-    fs.writeFileSync(abs, JSON.stringify({ type: 'index-branch', category: b.category, files }, null, 2), 'utf-8');
+    fs.writeFileSync(
+      abs,
+      JSON.stringify({ type: 'index-branch', category: b.category, files }, null, 2),
+      'utf-8'
+    );
   });
+  return { saved: true };
 }
 
 async function saveMemoryWithIndex(userId, repo, token, filename, content) {
