@@ -150,7 +150,7 @@ function insertAtAnchor({
   skipIfExists = false,
   prepend = false,
   append = false,
-  checkDistance = 5,
+  checkDistance = Infinity,
   force = false
 }) {
   validator.checkFileExists(filePath);
@@ -195,9 +195,14 @@ function insertAtAnchor({
   }
 
   if (skipIfExists) {
-    const start = Math.max(0, anchorIdx - checkDistance);
-    const end = Math.min(lines.length, anchorIdx + checkDistance);
-    const area = lines.slice(start, end).join('\n');
+    let area;
+    if (Number.isFinite(checkDistance)) {
+      const start = Math.max(0, anchorIdx - checkDistance);
+      const end = Math.min(lines.length, anchorIdx + checkDistance);
+      area = lines.slice(start, end).join('\n');
+    } else {
+      area = lines.join('\n');
+    }
     if (area.includes(newLines.join('\n'))) {
       return false;
     }
