@@ -253,6 +253,18 @@ paths:
       responses:
         '200':
           description: Status info
+  /tokenStatus:
+    get:
+      summary: Check if a token is stored (alias)
+      operationId: tokenStatusAlias
+      parameters:
+        - in: query
+          name: userId
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Status info
   /saveContext:
     post:
       summary: Save context content
