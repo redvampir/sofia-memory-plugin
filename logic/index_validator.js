@@ -7,6 +7,7 @@ const indexSettings = {
   auto_clean_missing: false,
   require_manual_meta: true,
   block_plugin_paths: true,
+  max_index_size: 100 * 1024,
 };
 
 function normalize(p) {

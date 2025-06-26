@@ -14,6 +14,7 @@ const { logError } = require('../tools/error_handler');
 const { sort_by_priority } = require('../tools/index_utils');
 const index_tree = require('../tools/index_tree');
 const { indexSettings, validateIndex } = require('./index_validator');
+const { checkAndSplitIndex } = require('../tools/index_splitter');
 
 const indexPath = path.join(__dirname, '..', 'memory', 'index.json');
 let indexData = null;
@@ -245,6 +246,10 @@ async function saveIndex(token, repo, userId) {
       abs,
       JSON.stringify({ type: 'index-branch', category: b.category, files }, null, 2),
       'utf-8'
+    );
+    checkAndSplitIndex(
+      abs,
+      indexSettings.max_index_size || 100 * 1024
     );
   });
   return { saved: true };
