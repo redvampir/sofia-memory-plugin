@@ -1,5 +1,5 @@
 const { read_memory, save_memory, get_file } = require('./logic/storage');
-const { restore_context } = require('./context');
+const { restore_context, maybeRestoreContext } = require('./context');
 const { getContextFiles, getContextFilesForKeywords } = require('./logic/index_manager');
 const {
   updateContextPriority,
@@ -466,6 +466,18 @@ async function auto_recover_context() {
   return { files: loaded, content: full.trim() };
 }
 
+async function checkAndRestoreContext(currentStage = '', tokens = 0) {
+  context_state.increment_tokens(tokens);
+  if (currentStage === 'theory' || currentStage === 'practice') {
+    logger.info(`[checkAndRestoreContext] stage finished: ${currentStage}`);
+  }
+  const result = await maybeRestoreContext();
+  if (result.restored) {
+    logger.info('[checkAndRestoreContext] context restored from memory');
+  }
+  return result;
+}
+
 module.exports = {
   readMemory,
   saveMemory,
@@ -479,4 +491,5 @@ module.exports = {
   auto_recover_context,
   load_memory_to_context,
   load_context_from_index,
+  checkAndRestoreContext,
 };
