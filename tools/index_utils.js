@@ -69,8 +69,8 @@ function array_to_index(arr) {
 function sort_by_priority(arr) {
   const order = { high: 0, medium: 1, low: 2 };
   return arr.slice().sort((a, b) => {
-    const pa = order[a.priority] ?? 3;
-    const pb = order[b.priority] ?? 3;
+    const pa = order[a.priority || a.context_priority] ?? 3;
+    const pb = order[b.priority || b.context_priority] ?? 3;
     if (pa === pb) return 0;
     return pa - pb;
   });
