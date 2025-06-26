@@ -323,18 +323,37 @@ async function fileExistsInRepo(repo, token, relPath) {
 }
 
 function deduplicateEntries(entries) {
-  const map = new Map();
-  const result = [];
+  const byPath = new Map();
+
+  // First pass: deduplicate by normalized path, keeping the most recent entry
   entries.forEach(e => {
+    if (!e || !e.path) return;
+    const normalized = normalize_memory_path(e.path);
+    const existing = byPath.get(normalized);
+    if (!existing || new Date(e.lastModified || 0) > new Date(existing.lastModified || 0)) {
+      if (existing) {
+        console.warn(`[deduplicateEntries] keeping newer entry for ${normalized}`);
+      }
+      byPath.set(normalized, { ...existing, ...e, path: normalized });
+    } else {
+      console.warn(`[deduplicateEntries] duplicate ${e.path} ignored; matches ${existing.path}`);
+    }
+  });
+
+  // Second pass: deduplicate by title/base name
+  const byTitle = new Map();
+  const result = [];
+  Array.from(byPath.values()).forEach(e => {
     const base = path.basename(e.path).toLowerCase().replace(/\.[^.]+$/, '');
     const key = (e.title || '').toLowerCase() || base.replace(/[-_].*/, '');
-    if (map.has(key)) {
-      console.warn(`[deduplicateEntries] duplicate ${e.path} ignored; matches ${map.get(key).path}`);
+    if (byTitle.has(key)) {
+      console.warn(`[deduplicateEntries] duplicate ${e.path} ignored; matches ${byTitle.get(key).path}`);
     } else {
-      map.set(key, e);
+      byTitle.set(key, e);
       result.push(e);
     }
   });
+
   return result;
 }
 
