@@ -151,6 +151,48 @@ paths:
       responses:
         '200':
           description: Saved
+  /saveNote:
+    post:
+      summary: Save user note
+      operationId: saveNote
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SaveNoteRequest'
+      responses:
+        '200':
+          description: Note saved
+  /getContextSnapshot:
+    post:
+      summary: Get context snapshot
+      operationId: getContextSnapshot
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                userId:
+                  type: string
+      responses:
+        '200':
+          description: Snapshot data
+  /createUserProfile:
+    post:
+      summary: Create user profile
+      operationId: createUserProfile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserProfileRequest'
+      responses:
+        '200':
+          description: Profile created
   /getToken:
     post:
       summary: Get stored GitHub token
@@ -235,4 +277,18 @@ components:
         token:
           type: string
         userId:
+          type: string
+    SaveNoteRequest:
+      type: object
+      properties:
+        userId:
+          type: string
+        note:
+          type: string
+    CreateUserProfileRequest:
+      type: object
+      properties:
+        userId:
+          type: string
+        profile:
           type: string
