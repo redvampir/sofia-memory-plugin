@@ -38,6 +38,12 @@ async function split_memory_file(filename, max_tokens) {
   const abs = path.join(__dirname, '..', normalized);
   if (!fs.existsSync(abs)) throw new Error('File not found');
   const original = fs.readFileSync(abs, 'utf-8');
+  const backupPath = `${abs}.bak`;
+  try {
+    fs.copyFileSync(abs, backupPath);
+  } catch (_) {
+    // ignore backup errors
+  }
   const total_tokens = count_tokens(original);
   if (total_tokens <= max_tokens) return [normalized];
 
