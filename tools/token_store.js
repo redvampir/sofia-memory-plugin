@@ -1,6 +1,33 @@
-// Простейшее хранилище токенов пользователей
+// Хранилище токенов пользователей с простым шифрованием
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
+
+const SECRET = process.env.TOKEN_SECRET || 'sofia_default_secret';
+const KEY = crypto.createHash('sha256').update(String(SECRET)).digest();
+const ALGORITHM = 'aes-256-cbc';
+const IV_LENGTH = 16;
+
+function encryptToken(token) {
+  const iv = crypto.randomBytes(IV_LENGTH);
+  const cipher = crypto.createCipheriv(ALGORITHM, KEY, iv);
+  const encrypted = Buffer.concat([cipher.update(token, 'utf8'), cipher.final()]);
+  return iv.toString('hex') + ':' + encrypted.toString('hex');
+}
+
+function decryptToken(data) {
+  try {
+    const [ivHex, encHex] = data.split(':');
+    if (!ivHex || !encHex) return null;
+    const iv = Buffer.from(ivHex, 'hex');
+    const encrypted = Buffer.from(encHex, 'hex');
+    const decipher = crypto.createDecipheriv(ALGORITHM, KEY, iv);
+    const decrypted = Buffer.concat([decipher.update(encrypted), decipher.final()]);
+    return decrypted.toString('utf8');
+  } catch (e) {
+    return null;
+  }
+}
 
 const cacheDir = path.join(__dirname, '.cache');
 const tokensDir = path.join(cacheDir, 'tokens');
@@ -24,7 +51,8 @@ function loadToken(userId) {
   if (fs.existsSync(file)) {
     try {
       const data = fs.readFileSync(file, 'utf-8').trim();
-      tokenCache[userId] = data || null;
+      const decrypted = decryptToken(data);
+      tokenCache[userId] = decrypted || data || null;
     } catch (e) {
       tokenCache[userId] = null;
     }
@@ -39,7 +67,8 @@ function saveToken(userId, token) {
   const file = tokenPath(userId);
   try {
     if (token) {
-      fs.writeFileSync(file, token, 'utf-8');
+      const encrypted = encryptToken(token);
+      fs.writeFileSync(file, encrypted, 'utf-8');
     } else if (fs.existsSync(file)) {
       fs.unlinkSync(file);
     }
