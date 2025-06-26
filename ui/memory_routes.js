@@ -110,7 +110,10 @@ async function saveMemory(req, res) {
     try {
       writeFileSafe(filePath, finalContent);
     } catch (e) {
-      return res.status(500).json({ status: 'error', message: e.message });
+      const code = e.status || 500;
+      return res
+        .status(code)
+        .json({ status: 'error', message: e.message, code, detail: e.githubMessage });
     }
 
     if (effectiveRepo) {
@@ -127,7 +130,10 @@ async function saveMemory(req, res) {
         );
       } catch (e) {
         logError('GitHub write', e);
-        return res.status(500).json({ status: 'error', message: e.message });
+        const code = e.status || 500;
+        return res
+          .status(code)
+          .json({ status: 'error', message: e.message, code, detail: e.githubMessage });
       }
     }
   }
@@ -165,7 +171,8 @@ async function saveAnswer(req, res) {
     await saveReferenceAnswer(r, t, key, content);
     res.json({ status: 'success', path: `memory/answers/${key}.md` });
   } catch (e) {
-    res.status(500).json({ status: 'error', message: e.message });
+    const code = e.status || 500;
+    res.status(code).json({ status: 'error', message: e.message, code, detail: e.githubMessage });
   }
 }
 
@@ -197,7 +204,10 @@ async function readMemory(req, res) {
       return res.json({ status: 'success', content });
     } catch (e) {
       console.error('[read] error remote', e.message);
-      return res.status(500).json({ status: 'error', message: e.message });
+      const code = e.status || 500;
+      return res
+        .status(code)
+        .json({ status: 'error', message: e.message, code, detail: e.githubMessage });
     }
   }
 
@@ -227,8 +237,8 @@ async function readFileRoute(req, res) {
     const content = await readMarkdownFile(filename, { repo: effectiveRepo, token: effectiveToken });
     res.json({ status: 'success', content });
   } catch (e) {
-    const code = /not found/i.test(e.message) ? 404 : 500;
-    res.status(code).json({ status: 'error', message: e.message });
+    const code = e.status || (/not found/i.test(e.message) ? 404 : 500);
+    res.status(code).json({ status: 'error', message: e.message, code, detail: e.githubMessage });
   }
 }
 
@@ -381,7 +391,8 @@ async function save(req, res) {
     res.json({ status: 'ok' });
   } catch (e) {
     logError('save endpoint', e);
-    res.status(500).json({ status: 'error', message: e.message });
+    const code = e.status || 500;
+    res.status(code).json({ status: 'error', message: e.message, code, detail: e.githubMessage });
   }
 }
 
@@ -406,7 +417,8 @@ router.post('/saveMemoryWithIndex', async (req, res) => {
     );
     res.json({ status: 'success', path: pathSaved });
   } catch (e) {
-    res.status(500).json({ status: 'error', message: e.message });
+    const code = e.status || 500;
+    res.status(code).json({ status: 'error', message: e.message, code, detail: e.githubMessage });
   }
 });
 router.post('/saveAnswer', saveAnswer);
@@ -439,7 +451,8 @@ router.post('/loadMemoryToContext', async (req, res) => {
     );
     res.json({ status: 'success', loaded: result.file });
   } catch (e) {
-    res.status(500).json({ status: 'error', message: e.message });
+    const code = e.status || 500;
+    res.status(code).json({ status: 'error', message: e.message, code, detail: e.githubMessage });
   }
 });
 router.post('/loadContextFromIndex', async (req, res) => {
@@ -462,7 +475,8 @@ router.post('/loadContextFromIndex', async (req, res) => {
     );
     res.json({ status: 'success', loaded: result ? result.files : [] });
   } catch (e) {
-    res.status(500).json({ status: 'error', message: e.message });
+    const code = e.status || 500;
+    res.status(code).json({ status: 'error', message: e.message, code, detail: e.githubMessage });
   }
 });
 router.post('/chat/setup', (req, res) => {
