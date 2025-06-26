@@ -1,0 +1,14 @@
+{
+  "files": [
+    {
+      "title": "Context Overview",
+      "file": "plans/context/overview.md",
+      "metadata": {
+        "sort_order": 1,
+        "search_priority": "high",
+        "category": "planning",
+        "sub_category": "context"
+      }
+    }
+  ]
+}

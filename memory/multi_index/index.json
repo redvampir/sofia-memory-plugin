@@ -1,0 +1,29 @@
+{
+  "lessons": {
+    "index": "multi_index/lessons/index.json",
+    "metadata": {
+      "sort_order": 1,
+      "search_priority": "high",
+      "category": "education",
+      "sub_category": "intro"
+    }
+  },
+  "plans": {
+    "index": "multi_index/plans/index.json",
+    "metadata": {
+      "sort_order": 2,
+      "search_priority": "medium",
+      "category": "planning",
+      "sub_category": "strategies"
+    }
+  },
+  "drafts": {
+    "index": "multi_index/drafts/index.json",
+    "metadata": {
+      "sort_order": 3,
+      "search_priority": "low",
+      "category": "drafts",
+      "sub_category": "notes"
+    }
+  }
+}

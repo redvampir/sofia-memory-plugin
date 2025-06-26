@@ -1,0 +1,24 @@
+{
+  "files": [
+    {
+      "title": "Token Limit Guard",
+      "file": "plans/features/limit_guard.md",
+      "metadata": {
+        "sort_order": 1,
+        "search_priority": "high",
+        "category": "planning",
+        "sub_category": "features"
+      }
+    },
+    {
+      "title": "Search API",
+      "file": "plans/features/search_api.md",
+      "metadata": {
+        "sort_order": 2,
+        "search_priority": "high",
+        "category": "planning",
+        "sub_category": "features"
+      }
+    }
+  ]
+}
