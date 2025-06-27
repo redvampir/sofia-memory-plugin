@@ -17,6 +17,7 @@ const index_tree = require('./tools/index_tree');
 const { split_memory_file } = require('./tools/memory_splitter');
 const memory_settings = require('./tools/memory_settings');
 const fs = require('fs');
+const fsp = fs.promises;
 const {
   ensureContext,
   contextFilename,
@@ -337,15 +338,19 @@ async function load_memory_to_context(filename, repo, token) {
     source: 'manual-load',
   });
   await ensureContext();
-  fs.appendFileSync(contextFilename, `${content}\n`);
+  await fsp.appendFile(contextFilename, `${content}\n`);
   return { file: normalized, tokens: count_tokens(content) };
 }
 
 async function load_context_from_index(index_path, repo, token) {
   const normalized = normalize_memory_path(index_path);
   const abs = path.join(__dirname, normalized);
-  if (!fs.existsSync(abs)) throw new Error('Index not found');
-  const raw = fs.readFileSync(abs, 'utf-8');
+  try {
+    await fsp.access(abs);
+  } catch {
+    throw new Error('Index not found');
+  }
+  const raw = await fsp.readFile(abs, 'utf-8');
   const meta = parseAutoIndex(raw);
   const files = Array.isArray(meta.files) ? meta.files : [];
   if (!files.length) return null;
@@ -370,35 +375,47 @@ async function load_context_from_index(index_path, repo, token) {
   }
   if (!loaded.length) return null;
   await ensureContext();
-  fs.writeFileSync(contextFilename, full.trim() + '\n');
+  await fsp.writeFile(contextFilename, full.trim() + '\n');
   return { files: loaded, content: full.trim() };
 }
 
 async function auto_recover_context() {
   const targets = new Set();
-  const scan = dir => {
-    if (!fs.existsSync(dir)) return;
-    fs.readdirSync(dir, { withFileTypes: true }).forEach(ent => {
+  const scan = async dir => {
+    try {
+      await fsp.access(dir);
+    } catch {
+      return;
+    }
+    const entries = await fsp.readdir(dir, { withFileTypes: true });
+    for (const ent of entries) {
       const abs = path.join(dir, ent.name);
-      if (ent.isDirectory()) return scan(abs);
-      if (!ent.name.endsWith('.md')) return;
-      const raw = fs.readFileSync(abs, 'utf-8');
+      if (ent.isDirectory()) {
+        await scan(abs);
+        continue;
+      }
+      if (!ent.name.endsWith('.md')) continue;
+      const raw = await fsp.readFile(abs, 'utf-8');
       const { meta } = parseFrontMatter(raw);
       if ((meta.context_priority || '').toLowerCase() === 'high') {
         targets.add(path.relative(__dirname, abs).replace(/\\/g, '/'));
       }
-    });
+    }
   };
-  scan(path.join(__dirname, 'memory', 'lessons'));
-  scan(path.join(__dirname, 'memory', 'context'));
+  await scan(path.join(__dirname, 'memory', 'lessons'));
+  await scan(path.join(__dirname, 'memory', 'context'));
 
   const indexVariants = [
     path.join(__dirname, 'memory', 'context', 'autocontext-index.md'),
     path.join(__dirname, 'memory', 'autocontext-index.md'),
   ];
   for (const idx of indexVariants) {
-    if (!fs.existsSync(idx)) continue;
-    const raw = fs.readFileSync(idx, 'utf-8');
+    try {
+      await fsp.access(idx);
+    } catch {
+      continue;
+    }
+    const raw = await fsp.readFile(idx, 'utf-8');
     const meta = parseAutoIndex(raw);
     if ((meta.context_priority || '').toLowerCase() === 'high') {
       (meta.files || []).forEach(p => {
@@ -435,7 +452,7 @@ async function auto_recover_context() {
   }
   if (!loaded.length) return null;
   await ensureContext();
-  fs.writeFileSync(contextFilename, full.trim() + '\n');
+  await fsp.writeFile(contextFilename, full.trim() + '\n');
   logger.info(`Context restored from: ${loaded.join(', ')}`);
   return { files: loaded, content: full.trim() };
 }
