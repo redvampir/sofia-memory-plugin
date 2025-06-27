@@ -100,12 +100,26 @@ async function saveMemory(req, res) {
   }
 
   if (filename.trim().endsWith('.json')) {
+    let data;
     try {
-      const data = JSON.parse(content);
-      await updateOrInsertJsonEntry(filePath, data, null, effectiveRepo, effectiveToken);
+      data = JSON.parse(content);
     } catch (e) {
       logError('saveMemory invalid JSON', e);
       return res.status(400).json({ status: 'error', message: 'Invalid JSON' });
+    }
+    try {
+      await updateOrInsertJsonEntry(
+        filePath,
+        data,
+        null,
+        effectiveRepo,
+        effectiveToken
+      );
+    } catch (e) {
+      const code = e.status || 500;
+      return res
+        .status(code)
+        .json({ status: 'error', message: e.message, code, detail: e.githubMessage });
     }
   } else {
     try {
@@ -140,22 +154,41 @@ async function saveMemory(req, res) {
   }
 
   const meta = fs.existsSync(filePath) ? fs.statSync(filePath) : { mtime: new Date() };
-  await updateIndexEntry(effectiveRepo, effectiveToken, {
-    path: normalizedFilename,
-    type: categorizeMemoryFile(path.basename(normalizedFilename)),
-    title: generateTitleFromPath(normalizedFilename),
-    description: '',
-    lastModified: meta.mtime.toISOString(),
-  }, userId);
+  try {
+    await updateIndexEntry(
+      effectiveRepo,
+      effectiveToken,
+      {
+        path: normalizedFilename,
+        type: categorizeMemoryFile(path.basename(normalizedFilename)),
+        title: generateTitleFromPath(normalizedFilename),
+        description: '',
+        lastModified: meta.mtime.toISOString(),
+      },
+      userId
+    );
+  } catch (e) {
+    const code = e.status || 500;
+    return res
+      .status(code)
+      .json({ status: 'error', message: e.message, code, detail: e.githubMessage });
+  }
 
   if (normalizedFilename.startsWith('memory/') && normalizedFilename !== 'memory/index.json') {
-    await index_manager.addOrUpdateEntry({
-      path: normalizedFilename,
-      title: generateTitleFromPath(normalizedFilename),
-      type: inferTypeFromPath(normalizedFilename),
-      lastModified: new Date().toISOString(),
-    });
-    await index_manager.saveIndex(effectiveToken, effectiveRepo, userId);
+    try {
+      await index_manager.addOrUpdateEntry({
+        path: normalizedFilename,
+        title: generateTitleFromPath(normalizedFilename),
+        type: inferTypeFromPath(normalizedFilename),
+        lastModified: new Date().toISOString(),
+      });
+      await index_manager.saveIndex(effectiveToken, effectiveRepo, userId);
+    } catch (e) {
+      const code = e.status || 500;
+      return res
+        .status(code)
+        .json({ status: 'error', message: e.message, code, detail: e.githubMessage });
+    }
   }
 
   res.json({ status: 'success', action: 'saveMemory', filePath: normalizedFilename });
@@ -260,18 +293,23 @@ async function saveLessonPlan(req, res) {
   const done = title ? [title] : [];
   const upcoming = Array.isArray(plannedLessons) ? plannedLessons : [];
 
-  const plan = await updatePlan({
-    token: effectiveToken,
-    repo: effectiveRepo,
-    userId,
-    updateFn: p => {
-      p.done = [...new Set([...p.done, ...done])];
-      p.upcoming = p.upcoming.filter(l => !done.includes(l));
-      p.upcoming = [...new Set([...p.upcoming, ...upcoming])];
-      return p;
-    },
-  });
-  res.json({ status: 'success', action: 'saveLessonPlan', plan });
+  try {
+    const plan = await updatePlan({
+      token: effectiveToken,
+      repo: effectiveRepo,
+      userId,
+      updateFn: p => {
+        p.done = [...new Set([...p.done, ...done])];
+        p.upcoming = p.upcoming.filter(l => !done.includes(l));
+        p.upcoming = [...new Set([...p.upcoming, ...upcoming])];
+        return p;
+      },
+    });
+    res.json({ status: 'success', action: 'saveLessonPlan', plan });
+  } catch (e) {
+    const code = e.status || 500;
+    res.status(code).json({ status: 'error', message: e.message, code, detail: e.githubMessage });
+  }
 }
 
 async function saveContext(req, res) {
@@ -280,7 +318,14 @@ async function saveContext(req, res) {
   const { repo: effectiveRepo, token: effectiveToken } = await getRepoInfo('memory/context.md', userId, repo, token);
 
   ensure_dir(contextFilename);
-  await writeFileSafe(contextFilename, content || '');
+  try {
+    await writeFileSafe(contextFilename, content || '');
+  } catch (e) {
+    const code = e.status || 500;
+    return res
+      .status(code)
+      .json({ status: 'error', message: e.message, code, detail: e.githubMessage });
+  }
 
   if (effectiveRepo && effectiveToken) {
     try {
@@ -293,6 +338,10 @@ async function saveContext(req, res) {
       );
     } catch (e) {
       logError('GitHub write context', e);
+      const code = e.status || 500;
+      return res
+        .status(code)
+        .json({ status: 'error', message: e.message, code, detail: e.githubMessage });
     }
   }
 
@@ -300,6 +349,10 @@ async function saveContext(req, res) {
     await rebuildIndex(effectiveRepo, effectiveToken, userId);
   } catch (e) {
     logError('saveContext rebuild', e);
+    const code = e.status || 500;
+    return res
+      .status(code)
+      .json({ status: 'error', message: e.message, code, detail: e.githubMessage });
   }
 
   res.json({ status: 'success', action: 'saveContext' });
@@ -329,8 +382,13 @@ async function updateIndexManual(req, res) {
   const { entries, repo, userId } = req.body;
   const token = await extractToken(req);
   const { repo: effectiveRepo, token: effectiveToken } = await getRepoInfo('memory/index.json', userId, repo, token);
-  const result = await updateIndexFileManually(entries, effectiveRepo, effectiveToken, userId);
-  res.json({ status: 'success', entries: result });
+  try {
+    const result = await updateIndexFileManually(entries, effectiveRepo, effectiveToken, userId);
+    res.json({ status: 'success', entries: result });
+  } catch (e) {
+    const code = e.status || 500;
+    res.status(code).json({ status: 'error', message: e.message, code, detail: e.githubMessage });
+  }
 }
 
 async function getToken(req, res) {
