@@ -15,6 +15,7 @@ const { sort_by_priority } = require('../tools/index_utils');
 const index_tree = require('../tools/index_tree');
 const { indexSettings, validateIndex } = require('./index_validator');
 const { checkAndSplitIndex } = require('../tools/index_splitter');
+const { persistIndex } = require('./memory_operations');
 
 const indexPath = path.join(__dirname, '..', 'memory', 'index.json');
 let indexData = null;
@@ -376,6 +377,8 @@ async function saveIndex(token, repo, userId) {
       indexSettings.max_index_size || 100 * 1024
     );
   }
+  const rootData = JSON.parse(fs.readFileSync(indexPath, 'utf-8'));
+  await persistIndex(rootData, repo, token, userId);
   return { saved: true };
 }
 

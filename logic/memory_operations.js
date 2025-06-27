@@ -577,34 +577,63 @@ async function fetchIndex(repo, token) {
 }
 
 async function persistIndex(data, repo, token, userId) {
-  const clean = await sanitizeIndex(data);
   ensure_dir(indexFilename);
+
+  const finalRepo =
+    repo || (userId ? await memory_config.getRepoUrl(userId) : await memory_config.getRepoUrl());
+  const finalToken = token || (userId ? await token_store.getToken(userId) : null);
+
+  let payload = data;
+  if (Array.isArray(data)) {
+    payload = await sanitizeIndex(data);
+  }
+
   try {
-    await writeFileSafe(indexFilename, JSON.stringify(clean, null, 2));
+    await writeFileSafe(indexFilename, JSON.stringify(payload, null, 2));
     console.log('[persistIndex] local index saved');
   } catch (e) {
     console.error('[persistIndex] local write error', e.message);
     throw e;
   }
 
-  const finalRepo = repo || (userId ? await memory_config.getRepoUrl(userId) : await memory_config.getRepoUrl());
-  const finalToken = token || (userId ? await token_store.getToken(userId) : null);
-
   if (finalRepo && finalToken) {
+    const relRoot = path.relative(path.join(__dirname, '..'), indexFilename);
     try {
-      await github.writeFileSafe(
-        finalToken,
-        finalRepo,
-        path.relative(path.join(__dirname, '..'), indexFilename),
-        JSON.stringify(clean, null, 2),
-        'update index.json'
-      );
+      await github.writeFileSafe(finalToken, finalRepo, relRoot, JSON.stringify(payload, null, 2), 'update index.json');
+
+      if (payload && payload.type === 'index-root' && Array.isArray(payload.branches)) {
+        for (const b of payload.branches) {
+          const branchAbs = path.join(path.join(__dirname, '..', 'memory'), b.path);
+          try {
+            const content = await fsp.readFile(branchAbs, 'utf-8');
+            const rel = path.relative(path.join(__dirname, '..'), branchAbs);
+            await github.writeFileSafe(finalToken, finalRepo, rel, content, `update ${b.path}`);
+            const dir = path.dirname(branchAbs);
+            const base = path.basename(branchAbs, '.json');
+            const parts = await fsp.readdir(dir);
+            for (const part of parts) {
+              if (part.startsWith(base + '.part') && part.endsWith('.json')) {
+                const partAbs = path.join(dir, part);
+                const partContent = await fsp.readFile(partAbs, 'utf-8');
+                const partRel = path.relative(path.join(__dirname, '..'), partAbs);
+                await github.writeFileSafe(finalToken, finalRepo, partRel, partContent, `update ${partRel}`);
+              }
+            }
+          } catch (e) {
+            console.error('[persistIndex] push branch error', e.message);
+            throw e;
+          }
+        }
+      }
+
       console.log('[persistIndex] pushed index to GitHub');
     } catch (e) {
       console.error('[persistIndex] GitHub write error', e.message);
       throw e;
     }
   }
+
+  return payload;
 }
 
 async function updateIndexEntry(repo, token, { path: filePath, type, title, description, lastModified }, userId) {
