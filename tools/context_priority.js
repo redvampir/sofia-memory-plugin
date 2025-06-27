@@ -1,12 +1,12 @@
-const fs = require('fs');
+const fs = require('fs/promises');
 const path = require('path');
 
 const index_file = path.join(__dirname, '..', 'memory', 'index.json');
 const { index_to_array, array_to_index } = require('./index_utils');
 
-function load_index() {
+async function load_index() {
   try {
-    const raw = fs.readFileSync(index_file, 'utf-8');
+    const raw = await fs.readFile(index_file, 'utf-8');
     const data = JSON.parse(raw);
     return index_to_array(data);
   } catch {
@@ -14,37 +14,39 @@ function load_index() {
   }
 }
 
-function save_index(data) {
+async function save_index(data) {
   try {
-    fs.writeFileSync(index_file, JSON.stringify(array_to_index(data), null, 2), 'utf-8');
-  } catch {}
+    await fs.writeFile(index_file, JSON.stringify(array_to_index(data), null, 2), 'utf-8');
+  } catch {
+    // ignore errors
+  }
 }
 
-function touchIndexEntry(file_path) {
+async function touchIndexEntry(file_path) {
   if (!file_path) return;
-  const index = load_index();
+  const index = await load_index();
   const idx = index.findIndex(e => e.path === file_path);
   if (idx >= 0) {
     const entry = index[idx];
     entry.last_accessed = new Date().toISOString();
     entry.access_count = (entry.access_count || 0) + 1;
-    save_index(index);
+    await save_index(index);
   }
 }
 
-function incrementEditCount(file_path) {
+async function incrementEditCount(file_path) {
   if (!file_path) return;
-  const index = load_index();
+  const index = await load_index();
   const idx = index.findIndex(e => e.path === file_path);
   if (idx >= 0) {
     const entry = index[idx];
     entry.edit_count = (entry.edit_count || 0) + 1;
-    save_index(index);
+    await save_index(index);
   }
 }
 
-function updateContextPriority() {
-  const index = load_index();
+async function updateContextPriority() {
+  const index = await load_index();
   const now = Date.now();
   let changed = false;
   const keep = [];
@@ -84,7 +86,7 @@ function updateContextPriority() {
     keep.push(entry);
   });
 
-  if (changed) save_index(keep);
+  if (changed) await save_index(keep);
 }
 
 module.exports = { updateContextPriority, touchIndexEntry, incrementEditCount };

@@ -28,16 +28,16 @@ const { saveReferenceAnswer } = require('../memory');
 const { load_memory_to_context, load_context_from_index } = require('../memory');
 const logger = require('../utils/logger');
 
-function setMemoryRepo(req, res) {
+async function setMemoryRepo(req, res) {
   const { repoUrl, userId } = req.body;
-  memory_config.setRepoUrl(userId, repoUrl);
+  await memory_config.setRepoUrl(userId, repoUrl);
   res.json({ status: 'success', repo: repoUrl });
 }
 
 async function saveMemory(req, res) {
   const { repo, filename, content, userId } = req.body;
-  const token = extractToken(req);
-  const { repo: effectiveRepo, token: effectiveToken } = getRepoInfo(filename, userId, repo, token);
+  const token = await extractToken(req);
+  const { repo: effectiveRepo, token: effectiveToken } = await getRepoInfo(filename, userId, repo, token);
 
   if (!filename || content === undefined) {
     return res.status(400).json({ status: 'error', message: 'Missing required fields.' });
@@ -163,12 +163,12 @@ async function saveMemory(req, res) {
 
 async function saveAnswer(req, res) {
   const { key, content, repo, userId } = req.body;
-  const token = extractToken(req);
+  const token = await extractToken(req);
   if (!key || content === undefined) {
     return res.status(400).json({ status: 'error', message: 'Missing key or content' });
   }
   try {
-    const { repo: r, token: t } = getRepoInfo(`memory/answers/${key}.md`, userId, repo, token);
+    const { repo: r, token: t } = await getRepoInfo(`memory/answers/${key}.md`, userId, repo, token);
     await saveReferenceAnswer(r, t, key, content);
     res.json({ status: 'success', path: `memory/answers/${key}.md` });
   } catch (e) {
@@ -179,8 +179,8 @@ async function saveAnswer(req, res) {
 
 async function readMemory(req, res) {
   const { repo, filename, userId } = req.body;
-  const token = extractToken(req);
-  const { repo: effectiveRepo, token: effectiveToken } = getRepoInfo(filename, userId, repo, token);
+  const token = await extractToken(req);
+  const { repo: effectiveRepo, token: effectiveToken } = await getRepoInfo(filename, userId, repo, token);
 
   const normalizedFilename = normalize_memory_path(filename);
   const filePath = path.join(__dirname, '..', normalizedFilename);
@@ -232,8 +232,8 @@ async function readMemory(req, res) {
 
 async function readFileRoute(req, res) {
   const { repo, filename, userId } = req.body || {};
-  const token = extractToken(req);
-  const { repo: effectiveRepo, token: effectiveToken } = getRepoInfo(filename, userId, repo, token);
+  const token = await extractToken(req);
+  const { repo: effectiveRepo, token: effectiveToken } = await getRepoInfo(filename, userId, repo, token);
   try {
     const content = await readMarkdownFile(filename, { repo: effectiveRepo, token: effectiveToken });
     res.json({ status: 'success', content });
@@ -255,8 +255,8 @@ function readMemoryGET(req, res) {
 
 async function saveLessonPlan(req, res) {
   const { title, plannedLessons, repo, userId } = req.body;
-  const token = extractToken(req);
-  const { repo: effectiveRepo, token: effectiveToken } = getRepoInfo('memory/plan.md', userId, repo, token);
+  const token = await extractToken(req);
+  const { repo: effectiveRepo, token: effectiveToken } = await getRepoInfo('memory/plan.md', userId, repo, token);
   const done = title ? [title] : [];
   const upcoming = Array.isArray(plannedLessons) ? plannedLessons : [];
 
@@ -276,8 +276,8 @@ async function saveLessonPlan(req, res) {
 
 async function saveContext(req, res) {
   const { repo, content, userId } = req.body;
-  const token = extractToken(req);
-  const { repo: effectiveRepo, token: effectiveToken } = getRepoInfo('memory/context.md', userId, repo, token);
+  const token = await extractToken(req);
+  const { repo: effectiveRepo, token: effectiveToken } = await getRepoInfo('memory/context.md', userId, repo, token);
 
   ensure_dir(contextFilename);
   await writeFileSafe(contextFilename, content || '');
@@ -307,8 +307,8 @@ async function saveContext(req, res) {
 
 async function readContext(req, res) {
   const { repo, userId } = req.body;
-  const token = extractToken(req);
-  const { repo: effectiveRepo, token: effectiveToken } = getRepoInfo('memory/context.md', userId, repo, token);
+  const token = await extractToken(req);
+  const { repo: effectiveRepo, token: effectiveToken } = await getRepoInfo('memory/context.md', userId, repo, token);
 
   ensure_dir(contextFilename);
 
@@ -327,28 +327,28 @@ async function readContext(req, res) {
 
 async function updateIndexManual(req, res) {
   const { entries, repo, userId } = req.body;
-  const token = extractToken(req);
-  const { repo: effectiveRepo, token: effectiveToken } = getRepoInfo('memory/index.json', userId, repo, token);
+  const token = await extractToken(req);
+  const { repo: effectiveRepo, token: effectiveToken } = await getRepoInfo('memory/index.json', userId, repo, token);
   const result = await updateIndexFileManually(entries, effectiveRepo, effectiveToken, userId);
   res.json({ status: 'success', entries: result });
 }
 
-function getToken(req, res) {
+async function getToken(req, res) {
   const userId = req.body && req.body.userId;
-  const token = token_store.getToken(userId);
+  const token = await token_store.getToken(userId);
   res.json({ token: token || null });
 }
 
-function setToken(req, res) {
+async function setToken(req, res) {
   const token = req.body && req.body.token ? req.body.token : '';
   const userId = req.body && req.body.userId;
-  if (userId) token_store.setToken(userId, token);
+  if (userId) await token_store.setToken(userId, token);
   res.json({ status: 'success', action: 'setToken', connected: !!token });
 }
 
-function tokenStatus(req, res) {
+async function tokenStatus(req, res) {
   const userId = req.query.userId || (req.body && req.body.userId);
-  const token = userId ? token_store.getToken(userId) : null;
+  const token = userId ? await token_store.getToken(userId) : null;
   res.json({ connected: !!token });
 }
 
@@ -420,7 +420,7 @@ router.post('/setMemoryRepo', setMemoryRepo);
 router.post('/saveLessonPlan', saveLessonPlan);
 router.post('/saveMemoryWithIndex', async (req, res) => {
   const { userId, repo, token, filename, content } = req.body;
-  const { repo: effectiveRepo, token: effectiveToken } = getRepoInfo(filename, userId, repo, token || extractToken(req));
+  const { repo: effectiveRepo, token: effectiveToken } = await getRepoInfo(filename, userId, repo, token || await extractToken(req));
   try {
     const pathSaved = await index_manager.saveMemoryWithIndex(
       userId,
@@ -447,11 +447,11 @@ router.get('/readContext', readContext);
 router.post('/saveContext', saveContext);
 router.post('/loadMemoryToContext', async (req, res) => {
   const { filename, repo, userId } = req.body || {};
-  const token = extractToken(req);
+  const token = await extractToken(req);
   if (!filename) {
     return res.status(400).json({ status: 'error', message: 'Missing filename' });
   }
-  const { repo: effectiveRepo, token: effectiveToken } = getRepoInfo(
+  const { repo: effectiveRepo, token: effectiveToken } = await getRepoInfo(
     filename,
     userId,
     repo,
@@ -471,11 +471,11 @@ router.post('/loadMemoryToContext', async (req, res) => {
 });
 router.post('/loadContextFromIndex', async (req, res) => {
   const { index, repo, userId } = req.body || {};
-  const token = extractToken(req);
+  const token = await extractToken(req);
   if (!index) {
     return res.status(400).json({ status: 'error', message: 'Missing index' });
   }
-  const { repo: effectiveRepo, token: effectiveToken } = getRepoInfo(
+  const { repo: effectiveRepo, token: effectiveToken } = await getRepoInfo(
     index,
     userId,
     repo,
@@ -493,11 +493,11 @@ router.post('/loadContextFromIndex', async (req, res) => {
     res.status(code).json({ status: 'error', message: e.message, code, detail: e.githubMessage });
   }
 });
-router.post('/chat/setup', (req, res) => {
+router.post('/chat/setup', async (req, res) => {
   const text = req.body && req.body.text ? req.body.text : '';
   // Используем функцию разбора команды из утилит
   const { parse_user_memory_setup } = require('../tools/utils');
-  const parsed = parse_user_memory_setup(text);
+  const parsed = await parse_user_memory_setup(text);
   if (!parsed) return res.status(400).json({ status: 'error', message: 'Invalid command' });
   const { userId, repo } = parsed;
   res.json({ status: 'success', message: `Memory configured for user: ${userId}`, repo });

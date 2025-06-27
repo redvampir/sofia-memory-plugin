@@ -12,7 +12,7 @@ function logDebug(...args) {
   if (DEBUG) console.log(...args);
 }
 
-function getRepoInfo(relPath, userId, repoOverride, tokenOverride) {
+async function getRepoInfo(relPath, userId, repoOverride, tokenOverride) {
   const normalized = normalize_memory_path(relPath);
   const cfg = rootConfig.loadConfig();
   let repo = repoOverride || null;
@@ -27,19 +27,19 @@ function getRepoInfo(relPath, userId, repoOverride, tokenOverride) {
       console.log(`[repoSelect] ${usePlugin ? 'plugin' : 'student'} -> ${repo}`);
   }
 
-  if (!repo) repo = memory_config.getRepoUrl(userId);
-  if (!token) token = token_store.getToken(userId);
+  if (!repo) repo = await memory_config.getRepoUrl(userId);
+  if (!token) token = await token_store.getToken(userId);
 
   return { repo, token };
 }
 
-function extractToken(req) {
+async function extractToken(req) {
   if (req.body && req.body.token) return req.body.token;
   const auth = req.headers['authorization'];
   if (auth && auth.startsWith('token ')) return auth.slice(6);
   const userId = (req.body && req.body.userId) || null;
   if (userId) {
-    const stored = token_store.getToken(userId);
+    const stored = await token_store.getToken(userId);
     if (stored) return stored;
   }
   return null;

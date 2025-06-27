@@ -4,7 +4,7 @@ const { setMemoryRepo, checkAndRestoreContext, getTokenCounter, formatTokenCount
 const context_state = require('../tools/context_state');
 
 async function run() {
-  setMemoryRepo(null, null);
+  await setMemoryRepo(null, null);
   context_state.reset_tokens();
   context_state.set_needs_refresh(false);
 

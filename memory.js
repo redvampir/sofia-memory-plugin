@@ -56,8 +56,8 @@ function normalize_repo(repo) {
 }
 
 async function readMemory(repo, token, filename) {
-  const final_repo = repo || memory_config.getRepoUrl(null);
-  const final_token = token || token_store.getToken(null);
+  const final_repo = repo || await memory_config.getRepoUrl(null);
+  const final_token = token || await token_store.getToken(null);
   const masked_token = final_token ? `${final_token.slice(0, 4)}...` : 'null';
 
   await autoRefreshContext(final_repo, final_token);
@@ -125,8 +125,8 @@ async function readMemory(repo, token, filename) {
 }
 
 async function saveMemory(repo, token, filename, content) {
-  const final_repo = repo || memory_config.getRepoUrl(null);
-  const final_token = token || token_store.getToken(null);
+  const final_repo = repo || await memory_config.getRepoUrl(null);
+  const final_token = token || await token_store.getToken(null);
   const masked_token = final_token ? `${final_token.slice(0, 4)}...` : 'null';
   const normalized_file = normalize_memory_path(filename);
 
@@ -177,14 +177,14 @@ async function saveReferenceAnswer(repo, token, key, content) {
   return saveMemory(repo, token, file, content);
 }
 
-function setMemoryRepo(token, repo) {
+async function setMemoryRepo(token, repo) {
   const user_id = null;
   const masked = token ? `${token.slice(0, 4)}...` : 'null';
   logger.info('[setMemoryRepo] called', { repo, token: masked });
 
   try {
-    if (token !== undefined) token_store.setToken(user_id, token);
-    if (repo !== undefined) memory_config.setRepoUrl(user_id, repo);
+    if (token !== undefined) await token_store.setToken(user_id, token);
+    if (repo !== undefined) await memory_config.setRepoUrl(user_id, repo);
     logger.info('[setMemoryRepo] stored settings');
   } catch (e) {
     logger.error('[setMemoryRepo] error', e.message);
@@ -193,8 +193,8 @@ function setMemoryRepo(token, repo) {
 }
 
 async function refreshContextFromMemoryFiles(repo, token, keywords = []) {
-  const final_repo = repo || memory_config.getRepoUrl(null);
-  const final_token = token || token_store.getToken(null);
+  const final_repo = repo || await memory_config.getRepoUrl(null);
+  const final_token = token || await token_store.getToken(null);
   const masked_token = final_token ? `${final_token.slice(0, 4)}...` : 'null';
 
   logger.info('[refreshContextFromMemoryFiles] called', {
@@ -202,7 +202,7 @@ async function refreshContextFromMemoryFiles(repo, token, keywords = []) {
     token: masked_token,
   });
 
-  updateContextPriority();
+  await updateContextPriority();
 
   const context_files = Array.isArray(keywords) && keywords.length
     ? getContextFilesForKeywords(keywords)
@@ -240,7 +240,10 @@ async function refreshContextFromMemoryFiles(repo, token, keywords = []) {
 
 async function read_memory_file(filename, opts = {}) {
   const { repo = null, token = null, source = 'chat' } = opts;
-  await autoRefreshContext(repo || memory_config.getRepoUrl(null), token || token_store.getToken(null));
+  await autoRefreshContext(
+    repo || (await memory_config.getRepoUrl(null)),
+    token || (await token_store.getToken(null))
+  );
   const normalized = normalize_memory_path(filename);
   logger.info('[read_memory_file] open', { path: normalized, source });
   try {
@@ -274,7 +277,7 @@ async function read_memory_file(filename, opts = {}) {
       }
     }
     logger.info('[read_memory_file] success', { path: normalized, source });
-    touchIndexEntry(normalized);
+    await touchIndexEntry(normalized);
     return content;
   } catch (e) {
     logger.error('[read_memory_file] error', {
@@ -289,8 +292,8 @@ async function read_memory_file(filename, opts = {}) {
 async function readMarkdownFile(filepath, opts = {}) {
   const { repo = null, token = null } = opts;
   let target = filepath;
-  const finalRepo = repo || memory_config.getRepoUrl(null);
-  const finalToken = token || token_store.getToken(null);
+  const finalRepo = repo || (await memory_config.getRepoUrl(null));
+  const finalToken = token || (await token_store.getToken(null));
 
   await autoRefreshContext(finalRepo, finalToken);
 
@@ -320,7 +323,7 @@ async function readMarkdownFile(filepath, opts = {}) {
 
   try {
     const content = await read_memory(null, finalRepo, finalToken, normalized);
-    touchIndexEntry(normalized);
+    await touchIndexEntry(normalized);
     return content;
   } catch (e) {
     logger.error('[readMarkdownFile] error', e.message);

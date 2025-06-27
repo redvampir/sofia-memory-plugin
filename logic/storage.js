@@ -23,8 +23,8 @@ function count_tokens(text = '') {
 async function read_memory(user_id, repo, token, filename, opts = {}) {
   const normalized = normalize_memory_path(filename);
   const parse_json = opts.parseJson || false;
-  const finalRepo = repo || memory_config.getRepoUrl(user_id);
-  const finalToken = token || token_store.getToken(user_id);
+  const finalRepo = repo || (await memory_config.getRepoUrl(user_id));
+  const finalToken = token || (await token_store.getToken(user_id));
 
   const masked = finalToken ? `${finalToken.slice(0, 4)}...` : 'null';
   console.log('[read_memory] repo:', finalRepo);
@@ -63,8 +63,8 @@ async function read_memory(user_id, repo, token, filename, opts = {}) {
 
 async function save_memory(user_id, repo, token, filename, content) {
   const normalized = normalize_memory_path(filename);
-  const finalRepo = repo || memory_config.getRepoUrl(user_id);
-  const finalToken = token || token_store.getToken(user_id);
+  const finalRepo = repo || (await memory_config.getRepoUrl(user_id));
+  const finalToken = token || (await token_store.getToken(user_id));
   const masked = finalToken ? `${finalToken.slice(0, 4)}...` : 'null';
   console.log('[save_memory] repo:', finalRepo);
   console.log('[save_memory] token:', masked);
@@ -102,8 +102,8 @@ async function save_memory(user_id, repo, token, filename, content) {
       console.error(`[storage.saveMemory] GitHub write failed for ${normalized}`, e.message);
     }
   }
-  touchIndexEntry(normalized);
-  incrementEditCount(normalized);
+  await touchIndexEntry(normalized);
+  await incrementEditCount(normalized);
   return normalized;
 }
 

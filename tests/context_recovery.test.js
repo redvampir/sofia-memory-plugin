@@ -6,7 +6,7 @@ const { auto_recover_context, load_memory_to_context, setMemoryRepo } = require(
 const { contextFilename } = require('../logic/memory_operations');
 
 async function run() {
-  setMemoryRepo(null, null);
+  await setMemoryRepo(null, null);
   const rel = 'memory/lessons/tmp_recover.md';
   const abs = path.join(__dirname, '..', rel);
   const data = ['---','context_priority: high','---','Temp'].join('\n');

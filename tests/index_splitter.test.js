@@ -5,7 +5,7 @@ const assert = require('assert');
 const { checkAndSplitIndex } = require('../tools/index_splitter');
 const index_tree = require('../tools/index_tree');
 
-(function run(){
+(async function run(){
   const idxPath = path.join(__dirname, '..', 'memory', 'drafts', 'index.json');
   const original = fs.readFileSync(idxPath, 'utf-8');
   const data = JSON.parse(original);
@@ -14,7 +14,7 @@ const index_tree = require('../tools/index_tree');
   }
   fs.writeFileSync(idxPath, JSON.stringify(data, null, 2), 'utf-8');
 
-  checkAndSplitIndex(idxPath, 1000);
+  await checkAndSplitIndex(idxPath, 1000);
   const part = path.join(__dirname, '..', 'memory', 'drafts', 'index.part2.json');
   assert.ok(fs.existsSync(part), 'part index created');
   const entries = index_tree.loadBranch('drafts');

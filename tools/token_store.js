@@ -1,5 +1,6 @@
 // Хранилище токенов пользователей с простым шифрованием
 const fs = require('fs');
+const fsp = fs.promises;
 const path = require('path');
 const crypto = require('crypto');
 
@@ -33,58 +34,59 @@ const cacheDir = path.join(__dirname, '.cache');
 const tokensDir = path.join(cacheDir, 'tokens');
 const tokenCache = {};
 
-function ensure_dir() {
-  if (!fs.existsSync(tokensDir)) {
-    fs.mkdirSync(tokensDir, { recursive: true });
-  }
+async function ensure_dir() {
+  try {
+    await fsp.mkdir(tokensDir, { recursive: true });
+  } catch {}
 }
 
 function tokenPath(userId) {
   return path.join(tokensDir, `${userId}.txt`);
 }
 
-function loadToken(userId) {
+async function loadToken(userId) {
   if (Object.prototype.hasOwnProperty.call(tokenCache, userId)) {
     return tokenCache[userId];
   }
   const file = tokenPath(userId);
-  if (fs.existsSync(file)) {
-    try {
-      const data = fs.readFileSync(file, 'utf-8').trim();
-      const decrypted = decryptToken(data);
-      tokenCache[userId] = decrypted || data || null;
-    } catch (e) {
-      tokenCache[userId] = null;
-    }
-  } else {
+  try {
+    const data = await fsp.readFile(file, 'utf-8');
+    const decrypted = decryptToken(data.trim());
+    tokenCache[userId] = decrypted || data.trim() || null;
+  } catch {
     tokenCache[userId] = null;
   }
   return tokenCache[userId];
 }
 
-function saveToken(userId, token) {
-  ensure_dir();
+async function saveToken(userId, token) {
+  await ensure_dir();
   const file = tokenPath(userId);
   try {
     if (token) {
       const encrypted = encryptToken(token);
-      fs.writeFileSync(file, encrypted, 'utf-8');
-    } else if (fs.existsSync(file)) {
-      fs.unlinkSync(file);
+      await fsp.writeFile(file, encrypted, 'utf-8');
+    } else {
+      await fsp.unlink(file).catch(() => {});
     }
   } catch (e) {
     console.error(`[tokenStore] failed to save token for ${userId}`, e.message);
   }
 }
 
-exports.setToken = (userId, token) => {
+exports.setToken = async (userId, token) => {
   tokenCache[userId] = token || null;
-  saveToken(userId, token);
+  await saveToken(userId, token);
 };
 
 exports.getToken = userId => loadToken(userId);
 
-exports.getAllUsers = () => {
-  if (!fs.existsSync(tokensDir)) return [];
-  return fs.readdirSync(tokensDir).map(f => path.basename(f, '.txt'));
+exports.getAllUsers = async () => {
+  try {
+    await fsp.access(tokensDir);
+  } catch {
+    return [];
+  }
+  const files = await fsp.readdir(tokensDir);
+  return files.map(f => path.basename(f, '.txt'));
 };

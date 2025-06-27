@@ -352,7 +352,7 @@ async function saveIndex(token, repo, userId) {
 
   const root = index_tree.loadRoot();
   if (!root || !Array.isArray(root.branches)) return;
-  root.branches.forEach(b => {
+  for (const b of root.branches) {
     const dir = b.path.replace(/\/index\.json$/, '');
     const branchEntries = indexData.filter(e =>
       e.path.replace(/^memory\//, '').startsWith(dir)
@@ -371,11 +371,11 @@ async function saveIndex(token, repo, userId) {
       JSON.stringify({ type: 'index-branch', category: b.category, files }, null, 2),
       'utf-8'
     );
-    checkAndSplitIndex(
+    await checkAndSplitIndex(
       abs,
       indexSettings.max_index_size || 100 * 1024
     );
-  });
+  }
   return { saved: true };
 }
 

@@ -13,7 +13,7 @@ const memory_config = require('./memory_config');
  * @returns {{userId: string, repo: string, token: string}|null}
  */
 // Разбор команды настройки памяти пользователя
-function parse_user_memory_setup(message = '') {
+async function parse_user_memory_setup(message = '') {
   if (typeof message !== 'string') return null;
 
   const userMatch = message.match(/(?:for|user)\s+([\w_]+)/i);
@@ -39,8 +39,8 @@ function parse_user_memory_setup(message = '') {
     return null;
   }
 
-  token_store.setToken(userId, token);
-  memory_config.setRepoUrl(userId, repo);
+  await token_store.setToken(userId, token);
+  await memory_config.setRepoUrl(userId, repo);
   console.log(`[MemorySetup] Configured user: ${userId}`);
 
   return { userId, repo, token };
