@@ -6,7 +6,7 @@ const { load_context_from_index, setMemoryRepo } = require('../memory');
 const { contextFilename } = require('../logic/memory_operations');
 
 async function run() {
-  setMemoryRepo(null, null);
+  await setMemoryRepo(null, null);
   const idx_rel = 'memory/context/autocontext-index-test.md';
   const idx_abs = path.join(__dirname, '..', idx_rel);
 

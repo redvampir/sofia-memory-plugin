@@ -7,9 +7,10 @@ const token_store = require('../tools/token_store');
 const memory_config = require('../tools/memory_config');
 
 // ensure no remote repo/token to avoid network operations
-setMemoryRepo(null, null);
+
 
 async function run() {
+  await setMemoryRepo(null, null);
   const index_raw = await readMemory(null, null, 'memory/index.json');
   const index = JSON.parse(index_raw);
   assert.strictEqual(index.type, 'index-root');
@@ -70,20 +71,20 @@ async function run() {
   assert.ok(lesson_read.includes('Edit B'));
   console.log('lesson edit ok');
 
-  setMemoryRepo('tok', 'repo');
-  assert.strictEqual(token_store.getToken(null), 'tok');
-  assert.strictEqual(memory_config.getRepoUrl(null), 'repo');
+  await setMemoryRepo('tok', 'repo');
+  assert.strictEqual(await token_store.getToken(null), 'tok');
+  assert.strictEqual(await memory_config.getRepoUrl(null), 'repo');
   console.log('setMemoryRepo ok');
 
   // disable network writes for cleanup
-  setMemoryRepo(null, null);
+  await setMemoryRepo(null, null);
 
   await saveMemory(null, null, lesson_rel, original_lesson);
   await saveMemory(null, null, checklist_rel, original_checklist);
   fs.rmSync(path.join(__dirname, '..', 'memory/tmp_memory'), { recursive: true, force: true });
 
   // final cleanup
-  setMemoryRepo(null, null);
+  await setMemoryRepo(null, null);
 
   console.log('memory functions tests passed');
 }

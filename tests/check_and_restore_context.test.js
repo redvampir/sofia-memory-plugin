@@ -4,7 +4,7 @@ const { checkAndRestoreContext, setMemoryRepo } = require('../memory');
 const context_state = require('../tools/context_state');
 
 async function run() {
-  setMemoryRepo(null, null);
+  await setMemoryRepo(null, null);
   context_state.reset_tokens();
 
   await checkAndRestoreContext('theory', 50);

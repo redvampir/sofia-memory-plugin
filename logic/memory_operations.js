@@ -166,7 +166,7 @@ async function updatePlan({ token, repo, updateFn, userId } = {}) {
   const relPath = 'memory/plan.md';
   const absPath = path.join(path.join(__dirname, '..'), relPath);
 
-  const { repo: finalRepo, token: finalToken } = getRepoInfo(relPath, userId, repo, token);
+  const { repo: finalRepo, token: finalToken } = await getRepoInfo(relPath, userId, repo, token);
 
   let md = '';
   if (finalRepo && finalToken) {
@@ -584,8 +584,8 @@ async function persistIndex(data, repo, token, userId) {
     console.error('[persistIndex] local write error', e.message);
   }
 
-  const finalRepo = repo || (userId ? memory_config.getRepoUrl(userId) : memory_config.getRepoUrl());
-  const finalToken = token || (userId ? token_store.getToken(userId) : null);
+  const finalRepo = repo || (userId ? await memory_config.getRepoUrl(userId) : await memory_config.getRepoUrl());
+  const finalToken = token || (userId ? await token_store.getToken(userId) : null);
 
   if (finalRepo && finalToken) {
     try {

@@ -1,16 +1,24 @@
 const fs = require('fs');
+const fsp = fs.promises;
 const path = require('path');
 
-function checkAndSplitIndex(indexPath, maxSize = 100 * 1024) {
-  if (!fs.existsSync(indexPath)) return;
-  const stats = fs.statSync(indexPath);
-  if (stats.size <= maxSize) return;
-  splitIndexFile(indexPath, maxSize);
+async function checkAndSplitIndex(indexPath, maxSize = 100 * 1024) {
+  try {
+    const stats = await fsp.stat(indexPath);
+    if (stats.size <= maxSize) return;
+    await splitIndexFile(indexPath, maxSize);
+  } catch {
+    // ignore missing file
+  }
 }
 
-function splitIndexFile(indexPath, maxSize = 100 * 1024) {
-  if (!fs.existsSync(indexPath)) return;
-  const raw = fs.readFileSync(indexPath, 'utf-8');
+async function splitIndexFile(indexPath, maxSize = 100 * 1024) {
+  try {
+    await fsp.access(indexPath);
+  } catch {
+    return;
+  }
+  const raw = await fsp.readFile(indexPath, 'utf-8');
   let data;
   try {
     data = JSON.parse(raw);
@@ -43,19 +51,19 @@ function splitIndexFile(indexPath, maxSize = 100 * 1024) {
   }
   flush();
 
-  parts.forEach((files, idx) => {
+  for (const [idx, files] of parts.entries()) {
     const outPath = idx === 0 ? indexPath : path.join(dir, `${base}.part${idx + 1}.json`);
-    fs.writeFileSync(outPath, JSON.stringify({ ...data, files }, null, 2), 'utf-8');
-  });
+    await fsp.writeFile(outPath, JSON.stringify({ ...data, files }, null, 2), 'utf-8');
+  }
 
   // remove old extra parts
   let n = parts.length + 1;
   while (true) {
     const extra = path.join(dir, `${base}.part${n}.json`);
-    if (fs.existsSync(extra)) {
-      fs.unlinkSync(extra);
+    try {
+      await fsp.unlink(extra);
       n++;
-    } else {
+    } catch {
       break;
     }
   }
