@@ -248,6 +248,7 @@ async function savePlan(repo, token) {
       );
     } catch (e) {
       console.error('GitHub write plan error', e.message);
+      throw e;
     }
   }
   await rebuildIndex(repo, token);
@@ -320,6 +321,7 @@ async function updateOrInsertJsonEntry(filePath, newData, matchKey, repo, token)
       );
     } catch (e) {
       console.error('GitHub write error', e.message);
+      throw e;
     }
   }
 
@@ -582,6 +584,7 @@ async function persistIndex(data, repo, token, userId) {
     console.log('[persistIndex] local index saved');
   } catch (e) {
     console.error('[persistIndex] local write error', e.message);
+    throw e;
   }
 
   const finalRepo = repo || (userId ? await memory_config.getRepoUrl(userId) : await memory_config.getRepoUrl());
@@ -599,6 +602,7 @@ async function persistIndex(data, repo, token, userId) {
       console.log('[persistIndex] pushed index to GitHub');
     } catch (e) {
       console.error('[persistIndex] GitHub write error', e.message);
+      throw e;
     }
   }
 }
@@ -718,6 +722,7 @@ async function updateIndexFileManually(newEntries, repo, token, userId) {
       if (updated) results.push(updated);
     } catch (e) {
       console.error('[updateIndexFileManually]', e.message);
+      throw e;
     }
   }
   return results;

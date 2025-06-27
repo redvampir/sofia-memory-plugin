@@ -99,7 +99,11 @@ async function save_memory(user_id, repo, token, filename, content) {
         `update ${filename}`
       );
     } catch (e) {
-      console.error(`[storage.saveMemory] GitHub write failed for ${normalized}`, e.message);
+      console.error(
+        `[storage.saveMemory] GitHub write failed for ${normalized}`,
+        e.message
+      );
+      throw e;
     }
   }
   await touchIndexEntry(normalized);
