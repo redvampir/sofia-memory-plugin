@@ -117,8 +117,18 @@ exports.writeFileSafe = async function(
   filePath,
   content,
   message,
-  attempts = 2
+  attempts = 4
 ) {
+  const networkCodes = new Set([
+    'ECONNRESET',
+    'ETIMEDOUT',
+    'ENOTFOUND',
+    'EAI_AGAIN',
+    'ECONNREFUSED',
+    'ECONNABORTED',
+    'ENETUNREACH',
+    'EHOSTUNREACH'
+  ]);
   for (let i = 1; i <= attempts; i++) {
     try {
       await exports.writeFile(token, repo, filePath, content, message);
@@ -126,6 +136,10 @@ exports.writeFileSafe = async function(
     } catch (e) {
       logError(`writeFile attempt ${i}`, e);
       if (i === attempts) throw e;
+      if (e && (e.status >= 500 || (e.code && networkCodes.has(e.code)))) {
+        const delay = Math.pow(2, i - 1) * 1000;
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
     }
   }
 };
