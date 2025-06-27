@@ -119,7 +119,7 @@ async function saveMemory(req, res) {
       const code = e.status || 500;
       return res
         .status(code)
-        .json({ status: 'error', message: e.message, code, detail: e.githubMessage });
+        .json({ status: code, message: e.message, detail: e.githubMessage });
     }
   } else {
     try {
@@ -128,7 +128,7 @@ async function saveMemory(req, res) {
       const code = e.status || 500;
       return res
         .status(code)
-        .json({ status: 'error', message: e.message, code, detail: e.githubMessage });
+        .json({ status: code, message: e.message, detail: e.githubMessage });
     }
 
     if (effectiveRepo) {
@@ -148,7 +148,7 @@ async function saveMemory(req, res) {
         const code = e.status || 500;
         return res
           .status(code)
-          .json({ status: 'error', message: e.message, code, detail: e.githubMessage });
+          .json({ status: code, message: e.message, detail: e.githubMessage });
       }
     }
   }
@@ -171,7 +171,7 @@ async function saveMemory(req, res) {
     const code = e.status || 500;
     return res
       .status(code)
-      .json({ status: 'error', message: e.message, code, detail: e.githubMessage });
+      .json({ status: code, message: e.message, detail: e.githubMessage });
   }
 
   if (normalizedFilename.startsWith('memory/') && normalizedFilename !== 'memory/index.json') {
@@ -187,7 +187,7 @@ async function saveMemory(req, res) {
       const code = e.status || 500;
       return res
         .status(code)
-        .json({ status: 'error', message: e.message, code, detail: e.githubMessage });
+        .json({ status: code, message: e.message, detail: e.githubMessage });
     }
   }
 
@@ -206,7 +206,7 @@ async function saveAnswer(req, res) {
     res.json({ status: 'success', path: `memory/answers/${key}.md` });
   } catch (e) {
     const code = e.status || 500;
-    res.status(code).json({ status: 'error', message: e.message, code, detail: e.githubMessage });
+    res.status(code).json({ status: code, message: e.message, detail: e.githubMessage });
   }
 }
 
@@ -232,7 +232,7 @@ async function readMemory(req, res) {
           return res.json({ status: 'success', content, json });
         } catch (e) {
           logError('readMemory parse json', e);
-          return res.status(500).json({ status: 'error', message: 'Failed to parse JSON' });
+          return res.status(500).json({ status: 500, message: 'Failed to parse JSON' });
         }
       }
       return res.json({ status: 'success', content });
@@ -241,7 +241,7 @@ async function readMemory(req, res) {
       const code = e.status || 500;
       return res
         .status(code)
-        .json({ status: 'error', message: e.message, code, detail: e.githubMessage });
+        .json({ status: code, message: e.message, detail: e.githubMessage });
     }
   }
 
@@ -257,7 +257,7 @@ async function readMemory(req, res) {
       return res.json({ status: 'success', content, json });
     } catch (e) {
       logError('readMemory parse json', e);
-      return res.status(500).json({ status: 'error', message: 'Failed to parse JSON' });
+      return res.status(500).json({ status: 500, message: 'Failed to parse JSON' });
     }
   }
   res.json({ status: 'success', content });
@@ -272,7 +272,7 @@ async function readFileRoute(req, res) {
     res.json({ status: 'success', content });
   } catch (e) {
     const code = e.status || (/not found/i.test(e.message) ? 404 : 500);
-    res.status(code).json({ status: 'error', message: e.message, code, detail: e.githubMessage });
+    res.status(code).json({ status: code, message: e.message, detail: e.githubMessage });
   }
 }
 
@@ -308,7 +308,7 @@ async function saveLessonPlan(req, res) {
     res.json({ status: 'success', action: 'saveLessonPlan', plan });
   } catch (e) {
     const code = e.status || 500;
-    res.status(code).json({ status: 'error', message: e.message, code, detail: e.githubMessage });
+    res.status(code).json({ status: code, message: e.message, detail: e.githubMessage });
   }
 }
 
@@ -324,7 +324,7 @@ async function saveContext(req, res) {
     const code = e.status || 500;
     return res
       .status(code)
-      .json({ status: 'error', message: e.message, code, detail: e.githubMessage });
+      .json({ status: code, message: e.message, detail: e.githubMessage });
   }
 
   if (effectiveRepo && effectiveToken) {
@@ -341,7 +341,7 @@ async function saveContext(req, res) {
       const code = e.status || 500;
       return res
         .status(code)
-        .json({ status: 'error', message: e.message, code, detail: e.githubMessage });
+        .json({ status: code, message: e.message, detail: e.githubMessage });
     }
   }
 
@@ -352,7 +352,7 @@ async function saveContext(req, res) {
     const code = e.status || 500;
     return res
       .status(code)
-      .json({ status: 'error', message: e.message, code, detail: e.githubMessage });
+      .json({ status: code, message: e.message, detail: e.githubMessage });
   }
 
   res.json({ status: 'success', action: 'saveContext' });
@@ -387,7 +387,7 @@ async function updateIndexManual(req, res) {
     res.json({ status: 'success', entries: result });
   } catch (e) {
     const code = e.status || 500;
-    res.status(code).json({ status: 'error', message: e.message, code, detail: e.githubMessage });
+    res.status(code).json({ status: code, message: e.message, detail: e.githubMessage });
   }
 }
 
@@ -417,7 +417,8 @@ function readPlan(req, res) {
     const plan = JSON.parse(content || '{}');
     res.json({ status: 'success', plan });
   } catch (e) {
-    res.status(500).json({ status: 'error', message: e.message });
+    const code = e.status || 500;
+    res.status(code).json({ status: code, message: e.message, detail: e.githubMessage });
   }
 }
 
@@ -456,7 +457,7 @@ async function save(req, res) {
   } catch (e) {
     logError('save endpoint', e);
     const code = e.status || 500;
-    res.status(code).json({ status: 'error', message: e.message, code, detail: e.githubMessage });
+    res.status(code).json({ status: code, message: e.message, detail: e.githubMessage });
   }
 }
 
@@ -513,7 +514,7 @@ router.post('/saveMemoryWithIndex', async (req, res) => {
     res.json({ status: 'success', path: pathSaved });
   } catch (e) {
     const code = e.status || 500;
-    res.status(code).json({ status: 'error', message: e.message, code, detail: e.githubMessage });
+    res.status(code).json({ status: code, message: e.message, detail: e.githubMessage });
   }
 });
 router.post('/saveAnswer', saveAnswer);
@@ -547,7 +548,7 @@ router.post('/loadMemoryToContext', async (req, res) => {
     res.json({ status: 'success', loaded: result.file });
   } catch (e) {
     const code = e.status || 500;
-    res.status(code).json({ status: 'error', message: e.message, code, detail: e.githubMessage });
+    res.status(code).json({ status: code, message: e.message, detail: e.githubMessage });
   }
 });
 router.post('/loadContextFromIndex', async (req, res) => {
@@ -571,7 +572,7 @@ router.post('/loadContextFromIndex', async (req, res) => {
     res.json({ status: 'success', loaded: result ? result.files : [] });
   } catch (e) {
     const code = e.status || 500;
-    res.status(code).json({ status: 'error', message: e.message, code, detail: e.githubMessage });
+    res.status(code).json({ status: code, message: e.message, detail: e.githubMessage });
   }
 });
 router.post('/chat/setup', async (req, res) => {
