@@ -289,6 +289,8 @@ components:
           type: string
         content:
           type: string
+        userId:
+          type: string
         type:
           type: string
           enum: [memory, context]
@@ -300,6 +302,8 @@ components:
         token:
           type: string
         filename:
+          type: string
+        userId:
           type: string
         type:
           type: string
