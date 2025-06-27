@@ -1,6 +1,6 @@
 process.env.NO_GIT = "true";
 const assert = require('assert');
-const { checkAndRestoreContext, setMemoryRepo } = require('../memory');
+const { checkAndRestoreContext, setMemoryRepo } = require('../src/memory');
 const context_state = require('../tools/context_state');
 
 async function run() {

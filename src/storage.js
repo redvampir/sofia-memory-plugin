@@ -3,7 +3,7 @@ const path = require('path');
 const github_client = require('../tools/github_client');
 const token_store = require('../tools/token_store');
 const memory_config = require('../tools/memory_config');
-const index_manager = require('./index_manager');
+const index_manager = require('../logic/index_manager');
 const {
   touchIndexEntry,
   incrementEditCount,

@@ -3,7 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const bodyParser = require('body-parser');
 const config = require('./config');
-const { setMemoryRepo, auto_recover_context } = require('./memory');
+const { setMemoryRepo, auto_recover_context } = require('./src/memory');
 
 // Мидлвар для разрешения CORS без внешних зависимостей
 function allow_cors(req, res, next) {
@@ -15,7 +15,7 @@ function allow_cors(req, res, next) {
   }
   next();
 }
-const memory_routes = require("./ui/memory_routes");
+const memory_routes = require("./api/memory_routes");
 const { listMemoryFiles } = require("./logic/memory_operations");
 const versioning = require('./versioning');
 

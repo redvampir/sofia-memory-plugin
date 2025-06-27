@@ -2,7 +2,7 @@ process.env.NO_GIT = "true";
 const fs = require('fs');
 const path = require('path');
 const assert = require('assert');
-const { auto_recover_context, load_memory_to_context, setMemoryRepo } = require('../memory');
+const { auto_recover_context, load_memory_to_context, setMemoryRepo } = require('../src/memory');
 const { contextFilename } = require('../logic/memory_operations');
 
 async function run() {

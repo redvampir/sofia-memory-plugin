@@ -3,7 +3,7 @@ const path = require('path');
 const assert = require('assert');
 process.env.NO_INDEX_UPDATE = 'true';
 const { split_memory_file } = require('../tools/memory_splitter');
-const { readMemory } = require('../memory');
+const { readMemory } = require('../src/memory');
 const index_manager = require('../logic/index_manager');
 
 const tmp_dir = path.join(__dirname, '..', 'memory', 'tmp_split');

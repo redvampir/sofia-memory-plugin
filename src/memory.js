@@ -1,27 +1,28 @@
-const { read_memory, save_memory, get_file } = require('./logic/storage');
+const { read_memory, save_memory, get_file } = require('./storage');
 const { restore_context, maybeRestoreContext } = require('./context');
-const { getContextFiles, getContextFilesForKeywords } = require('./logic/index_manager');
+const { getContextFiles, getContextFilesForKeywords } = require('../logic/index_manager');
 const {
   updateContextPriority,
   touchIndexEntry,
-} = require('./tools/context_priority');
-const memory_config = require('./tools/memory_config');
-const token_store = require('./tools/token_store');
-const { normalize_memory_path } = require('./tools/file_utils');
+} = require('../tools/context_priority');
+const memory_config = require('../tools/memory_config');
+const token_store = require('../tools/token_store');
+const { normalize_memory_path } = require('../tools/file_utils');
 const path = require('path');
-const logger = require('./utils/logger');
-const { parseFrontMatter, parseAutoIndex } = require('./utils/markdown_utils');
-const { encodePath } = require('./tools/github_client');
-const context_state = require('./tools/context_state');
-const index_tree = require('./tools/index_tree');
-const { split_memory_file } = require('./tools/memory_splitter');
-const memory_settings = require('./tools/memory_settings');
+const ROOT_DIR = path.join(__dirname, '..');
+const logger = require('../utils/logger');
+const { parseFrontMatter, parseAutoIndex } = require('../utils/markdown_utils');
+const { encodePath } = require('../tools/github_client');
+const context_state = require('../tools/context_state');
+const index_tree = require('../tools/index_tree');
+const { split_memory_file } = require('../tools/memory_splitter');
+const memory_settings = require('../tools/memory_settings');
 const fs = require('fs');
 const fsp = fs.promises;
 const {
   ensureContext,
   contextFilename,
-} = require('./logic/memory_operations');
+} = require('../logic/memory_operations');
 
 function count_tokens(text = '') {
   return String(text).split(/\s+/).filter(Boolean).length;
@@ -347,7 +348,7 @@ async function load_memory_to_context(filename, repo, token) {
 
 async function load_context_from_index(index_path, repo, token) {
   const normalized = normalize_memory_path(index_path);
-  const abs = path.join(__dirname, normalized);
+  const abs = path.join(ROOT_DIR, normalized);
   try {
     await fsp.access(abs);
   } catch {
@@ -401,16 +402,16 @@ async function auto_recover_context() {
       const raw = await fsp.readFile(abs, 'utf-8');
       const { meta } = parseFrontMatter(raw);
       if ((meta.context_priority || '').toLowerCase() === 'high') {
-        targets.add(path.relative(__dirname, abs).replace(/\\/g, '/'));
+        targets.add(path.relative(ROOT_DIR, abs).replace(/\\/g, '/'));
       }
     }
   };
-  await scan(path.join(__dirname, 'memory', 'lessons'));
-  await scan(path.join(__dirname, 'memory', 'context'));
+  await scan(path.join(ROOT_DIR, 'memory', 'lessons'));
+  await scan(path.join(ROOT_DIR, 'memory', 'context'));
 
   const indexVariants = [
-    path.join(__dirname, 'memory', 'context', 'autocontext-index.md'),
-    path.join(__dirname, 'memory', 'autocontext-index.md'),
+    path.join(ROOT_DIR, 'memory', 'context', 'autocontext-index.md'),
+    path.join(ROOT_DIR, 'memory', 'autocontext-index.md'),
   ];
   for (const idx of indexVariants) {
     try {

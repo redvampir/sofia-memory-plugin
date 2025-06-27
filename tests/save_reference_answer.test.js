@@ -2,8 +2,8 @@ process.env.NO_GIT = "true";
 const fs = require('fs');
 const path = require('path');
 const assert = require('assert');
-const { saveReferenceAnswer } = require('../memory');
-const { parse_save_reference_answer } = require('../tools/utils');
+const { saveReferenceAnswer } = require('../src/memory');
+const { parse_save_reference_answer } = require('../utils/helpers');
 
 (async function run(){
   const cmd = 'Сохрани это как эталонный ответ vector_basics';
