@@ -1,8 +1,9 @@
 const fs = require('fs');
 const path = require('path');
-const { get_file } = require('./logic/storage');
-const rootConfig = require('./config');
-const context_state = require('./tools/context_state');
+const ROOT_DIR = path.join(__dirname, '..');
+const { get_file } = require('./storage');
+const rootConfig = require('../config');
+const context_state = require('../tools/context_state');
 
 /**
  * Helper to read a file either from GitHub or local disk.
@@ -92,11 +93,11 @@ async function loadIndexFile(debug, opts = {}) {
       const skipped = [];
 
       if (Array.isArray(index) || index.lessons || index.plans) {
-        const list = require('./tools/index_utils').index_to_array(index);
+        const list = require('../tools/index_utils').index_to_array(index);
         const lessons = [];
         list.forEach(entry => {
           if (!entry || !entry.path) return;
-          const abs = path.join(__dirname, entry.path);
+          const abs = path.join(ROOT_DIR, entry.path);
           if (!fs.existsSync(abs)) {
             if (debug) skipped.push(`${entry.path} (missing)`);
             return;
@@ -165,13 +166,13 @@ function fileEmpty(p) {
 function shouldRestoreContext({ userPrompt = '', gptOutput = '', tokensSinceLastRead = 0 } = {}) {
   if (context_state.get_needs_refresh()) return true;
   try {
-    const idxPath = path.join(__dirname, 'memory', 'index.json');
+    const idxPath = path.join(ROOT_DIR, 'memory', 'index.json');
     if (fileEmpty(idxPath)) return true;
     const index = JSON.parse(fs.readFileSync(idxPath, 'utf-8'));
     let planPath = '';
     let profilePath = '';
     if (Array.isArray(index) || index.lessons || index.plans) {
-      const list = require('./tools/index_utils').index_to_array(index);
+      const list = require('../tools/index_utils').index_to_array(index);
       for (const entry of list) {
         if (!entry || !entry.path) continue;
         if (!planPath && (entry.type === 'plan' || /plan\.md$/i.test(entry.path))) {
@@ -184,8 +185,8 @@ function shouldRestoreContext({ userPrompt = '', gptOutput = '', tokensSinceLast
       planPath = index.plan;
       profilePath = index.profile;
     }
-    planPath = planPath ? path.join(__dirname, planPath) : '';
-    profilePath = profilePath ? path.join(__dirname, profilePath) : '';
+    planPath = planPath ? path.join(ROOT_DIR, planPath) : '';
+    profilePath = profilePath ? path.join(ROOT_DIR, profilePath) : '';
     if (fileEmpty(planPath) || fileEmpty(profilePath)) return true;
   } catch {
     return true;

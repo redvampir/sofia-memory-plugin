@@ -2,7 +2,7 @@ process.env.NO_GIT = "true";
 const fs = require('fs');
 const path = require('path');
 const assert = require('assert');
-const { readMemory, saveMemory, refreshContextFromMemoryFiles, setMemoryRepo } = require('../memory');
+const { readMemory, saveMemory, refreshContextFromMemoryFiles, setMemoryRepo } = require('../src/memory');
 const token_store = require('../tools/token_store');
 const memory_config = require('../tools/memory_config');
 

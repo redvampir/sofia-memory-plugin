@@ -1,7 +1,7 @@
 // Вспомогательные функции для плагина памяти Софии
 
-const token_store = require('./token_store');
-const memory_config = require('./memory_config');
+const token_store = require('../tools/token_store');
+const memory_config = require('../tools/memory_config');
 
 /**
  * Parse a chat command that configures memory settings for a user.

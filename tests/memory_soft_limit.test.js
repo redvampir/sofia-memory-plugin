@@ -2,7 +2,7 @@ process.env.NO_GIT = "true";
 const fs = require('fs');
 const path = require('path');
 const assert = require('assert');
-const { saveMemory } = require('../memory');
+const { saveMemory } = require('../src/memory');
 const settings = require('../tools/memory_settings');
 
 async function run() {

@@ -23,9 +23,9 @@ const { generateTitleFromPath, inferTypeFromPath, normalize_memory_path, ensure_
 const { parseMarkdownStructure, mergeMarkdownTrees, serializeMarkdownTree } = require('../logic/markdown_merge_engine.ts');
 const { getRepoInfo, extractToken, categorizeMemoryFile, logDebug } = require('../tools/memory_helpers');
 const { logError } = require('../tools/error_handler');
-const { readMarkdownFile } = require('../memory');
-const { saveReferenceAnswer } = require('../memory');
-const { load_memory_to_context, load_context_from_index } = require('../memory');
+const { readMarkdownFile } = require('../src/memory');
+const { saveReferenceAnswer } = require('../src/memory');
+const { load_memory_to_context, load_context_from_index } = require('../src/memory');
 const logger = require('../utils/logger');
 
 async function setMemoryRepo(req, res) {
@@ -496,7 +496,7 @@ router.post('/loadContextFromIndex', async (req, res) => {
 router.post('/chat/setup', async (req, res) => {
   const text = req.body && req.body.text ? req.body.text : '';
   // Используем функцию разбора команды из утилит
-  const { parse_user_memory_setup } = require('../tools/utils');
+  const { parse_user_memory_setup } = require('../utils/helpers');
   const parsed = await parse_user_memory_setup(text);
   if (!parsed) return res.status(400).json({ status: 'error', message: 'Invalid command' });
   const { userId, repo } = parsed;
