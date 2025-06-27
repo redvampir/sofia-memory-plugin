@@ -2,23 +2,10 @@ const fs = require('fs');
 const path = require('path');
 const index_manager = require('../logic/index_manager');
 const { normalize_memory_path, generateTitleFromPath, inferTypeFromPath } = require('./file_utils');
+const { parseFrontMatter } = require('../utils/markdown_utils');
 
 const LATEST_VERSION = '1.2';
 
-function parse_front_matter(text = '') {
-  if (!text.startsWith('---')) return { meta: {}, body: text };
-  const end = text.indexOf('\n---', 3);
-  if (end < 0) return { meta: {}, body: text };
-  const header = text.slice(3, end).trim();
-  const body = text.slice(end + 4);
-  const meta = {};
-  header.split(/\r?\n/).forEach(line => {
-    const parts = line.split(':');
-    const key = parts.shift().trim();
-    meta[key] = parts.join(':').trim();
-  });
-  return { meta, body };
-}
 
 function build_front_matter(meta) {
   const lines = ['---'];
@@ -48,7 +35,7 @@ async function migrateMemoryFile(filename) {
   const abs = path.join(__dirname, '..', normalized);
   if (!fs.existsSync(abs)) throw new Error('File not found');
   const raw = fs.readFileSync(abs, 'utf-8');
-  const { meta, body } = parse_front_matter(raw);
+  const { meta, body } = parseFrontMatter(raw);
   const current_version = meta.version || null;
   if (current_version && parseFloat(current_version) >= parseFloat(LATEST_VERSION)) {
     return normalized;
