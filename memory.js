@@ -10,6 +10,7 @@ const token_store = require('./tools/token_store');
 const { normalize_memory_path } = require('./tools/file_utils');
 const path = require('path');
 const logger = require('./utils/logger');
+const { parseFrontMatter, parseAutoIndex } = require('./utils/markdown_utils');
 const { encodePath } = require('./tools/github_client');
 const context_state = require('./tools/context_state');
 const index_tree = require('./tools/index_tree');
@@ -327,46 +328,6 @@ async function readMarkdownFile(filepath, opts = {}) {
   }
 }
 
-function parse_front_matter(text = '') {
-  if (!text.startsWith('---')) return {};
-  const end = text.indexOf('\n---', 3);
-  if (end < 0) return {};
-  const header = text.slice(3, end).trim();
-  const meta = {};
-  header.split(/\r?\n/).forEach(l => {
-    const m = l.split(':');
-    if (m[0]) meta[m[0].trim()] = m.slice(1).join(':').trim();
-  });
-  return meta;
-}
-
-function parse_auto_index(text = '') {
-  const meta = parse_front_matter(text);
-  if (!meta.files) {
-    const lines = text.split(/\r?\n/);
-    const idx = lines.findIndex(l => /^files:\s*/i.test(l.trim()));
-    if (idx >= 0) {
-      const arr = [];
-      for (let i = idx + 1; i < lines.length; i++) {
-        const ln = lines[i];
-        if (/^\s*-\s+/.test(ln)) {
-          arr.push(ln.replace(/^\s*-\s+/, '').trim());
-        } else if (/^[\w_-]+:\s*/.test(ln.trim())) {
-          break;
-        }
-      }
-      if (arr.length) meta.files = arr;
-    }
-  } else if (typeof meta.files === 'string') {
-    meta.files = meta.files
-      .replace(/^\[/, '')
-      .replace(/\]$/, '')
-      .split(/,|\r?\n/)
-      .map(t => t.replace(/^\s*-\s*/, '').trim())
-      .filter(Boolean);
-  }
-  return meta;
-}
 
 async function load_memory_to_context(filename, repo, token) {
   const normalized = normalize_memory_path(filename);
@@ -385,7 +346,7 @@ async function load_context_from_index(index_path, repo, token) {
   const abs = path.join(__dirname, normalized);
   if (!fs.existsSync(abs)) throw new Error('Index not found');
   const raw = fs.readFileSync(abs, 'utf-8');
-  const meta = parse_auto_index(raw);
+  const meta = parseAutoIndex(raw);
   const files = Array.isArray(meta.files) ? meta.files : [];
   if (!files.length) return null;
   const loaded = [];
@@ -422,7 +383,7 @@ async function auto_recover_context() {
       if (ent.isDirectory()) return scan(abs);
       if (!ent.name.endsWith('.md')) return;
       const raw = fs.readFileSync(abs, 'utf-8');
-      const meta = parse_front_matter(raw);
+      const { meta } = parseFrontMatter(raw);
       if ((meta.context_priority || '').toLowerCase() === 'high') {
         targets.add(path.relative(__dirname, abs).replace(/\\/g, '/'));
       }
@@ -438,7 +399,7 @@ async function auto_recover_context() {
   for (const idx of indexVariants) {
     if (!fs.existsSync(idx)) continue;
     const raw = fs.readFileSync(idx, 'utf-8');
-    const meta = parse_auto_index(raw);
+    const meta = parseAutoIndex(raw);
     if ((meta.context_priority || '').toLowerCase() === 'high') {
       (meta.files || []).forEach(p => {
         const rel = p.startsWith('memory/') ? p : `memory/${p}`;
