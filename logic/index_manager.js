@@ -18,12 +18,13 @@ const { checkAndSplitIndex } = require('../tools/index_splitter');
 const { persistIndex } = require('./memory_operations');
 
 const indexPath = path.join(__dirname, '..', 'memory', 'index.json');
+const maxFiles = 15; // limit number of loaded files
 let indexData = null;
 let validationReport = null;
 
 function loadIndexSync() {
   try {
-    return sort_by_priority(index_tree.listAllEntries());
+    return sort_by_priority(index_tree.listAllEntries()).slice(0, maxFiles);
   } catch {
     return [];
   }
@@ -109,7 +110,7 @@ function readLocalIndex() {
   try {
     const raw = fs.readFileSync(indexPath, 'utf-8');
     const parsed = JSON.parse(raw);
-    return sort_by_priority(index_to_array(parsed));
+    return sort_by_priority(index_to_array(parsed)).slice(0, maxFiles);
   } catch (e) {
     console.warn('[indexManager] failed to read local index', e.message);
     return [];
@@ -179,14 +180,15 @@ function getContextFilesForKeywords(keywords = []) {
       return reList.some(r => fields.some(v => v && r.test(String(v))));
     });
   }
-  return sort_by_priority(entries)
+  const sortedEntries = sort_by_priority(entries).slice(0, maxFiles);
+  return sortedEntries
     .filter(e => e && e.path)
     .map(e => e.path);
 }
 
 async function sortIndexByPriority() {
   if (!indexData) await loadIndex();
-  indexData = sort_by_priority(indexData);
+  indexData = sort_by_priority(indexData).slice(0, maxFiles);
   await saveIndex();
   return indexData;
 }
@@ -242,7 +244,7 @@ async function loadIndex() {
       list = res.entries;
       validationReport = res.report;
     }
-    indexData = sort_by_priority(list.map(e => ({ ...e, path: e.path })));
+    indexData = sort_by_priority(list.map(e => ({ ...e, path: e.path }))).slice(0, maxFiles);
     if (
       indexSettings.validate_on_load &&
       (indexSettings.auto_clean_invalid || indexSettings.auto_clean_missing)
@@ -286,13 +288,13 @@ async function addOrUpdateEntry(entry) {
     });
     if (process.env.DEBUG) console.log(`[indexManager] Added entry ${entry.path}`);
   }
-  indexData = sort_by_priority(indexData);
+  indexData = sort_by_priority(indexData).slice(0, maxFiles);
   await saveIndex();
 }
 
 async function removeEntry(p) {
   if (!indexData) await loadIndex();
-  indexData = sort_by_priority(indexData.filter(e => e.path !== p));
+  indexData = sort_by_priority(indexData.filter(e => e.path !== p)).slice(0, maxFiles);
 }
 
 async function moveFileAndUpdateIndex(oldPath, newPath) {
@@ -347,7 +349,7 @@ async function saveIndex(token, repo, userId) {
     });
     fs.writeFileSync(logPath, JSON.stringify(log, null, 2), 'utf-8');
 
-    indexData = sort_by_priority(old_list.map(e => ({ ...e }))); // revert changes
+    indexData = sort_by_priority(old_list.map(e => ({ ...e }))).slice(0, maxFiles); // revert changes
     return { warning: 'index update aborted due to large diff' };
   }
 
