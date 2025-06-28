@@ -11,7 +11,7 @@ const {
   inferTypeFromPath
 } = require('../tools/file_utils');
 const { logError } = require('../tools/error_handler');
-const { sort_by_priority } = require('../tools/index_utils');
+const { sort_by_priority, hasMatchingTag } = require('../tools/index_utils');
 const index_tree = require('../tools/index_tree');
 const { indexSettings, validateIndex } = require('./index_validator');
 const { checkAndSplitIndex } = require('../tools/index_splitter');
@@ -139,7 +139,7 @@ function getByPath(p) {
 }
 
 function getByTag(tag) {
-  return loadIndexSync().filter(e => Array.isArray(e.tags) && e.tags.includes(tag));
+  return loadIndexSync().filter(e => hasMatchingTag(e, tag));
 }
 
 function filterByStatus(status) {
@@ -148,9 +148,7 @@ function filterByStatus(status) {
 
 function filterByTags(tags) {
   const arr = Array.isArray(tags) ? tags : [tags];
-  return loadIndexSync().filter(
-    e => Array.isArray(e.tags) && arr.every(t => e.tags.includes(t))
-  );
+  return loadIndexSync().filter(e => arr.every(t => hasMatchingTag(e, t)));
 }
 
 function filterByDate(field, days) {
