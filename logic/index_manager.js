@@ -245,6 +245,11 @@ async function loadIndex() {
       validationReport = res.report;
     }
     indexData = sort_by_priority(list.map(e => ({ ...e, path: e.path }))).slice(0, maxFiles);
+    indexData.forEach(entry =>
+      console.log(
+        `[CTX] Загружается файл: ${entry.file}, приоритет: ${entry.context_priority}`
+      )
+    );
     if (
       indexSettings.validate_on_load &&
       (indexSettings.auto_clean_invalid || indexSettings.auto_clean_missing)
