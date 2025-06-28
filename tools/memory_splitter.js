@@ -3,6 +3,8 @@ const path = require('path');
 const index_manager = require('../logic/index_manager');
 const { ensure_dir, normalize_memory_path } = require('./file_utils');
 
+const MIN_TOKENS = 30; // minimum tokens per part to avoid tiny fragments
+
 function count_tokens(text = '') {
   return String(text).split(/\s+/).filter(Boolean).length;
 }
@@ -97,7 +99,9 @@ async function split_memory_file(filename, max_tokens) {
   };
   blocks.forEach(b => {
     const t = count_tokens(b);
-    if (buf.length && tok + t > max_tokens) flush();
+    if (buf.length && tok + t > max_tokens) {
+      if (tok >= MIN_TOKENS) flush();
+    }
     buf.push(b);
     tok += t;
   });
