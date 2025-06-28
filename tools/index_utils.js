@@ -76,4 +76,15 @@ function sort_by_priority(arr) {
   });
 }
 
-module.exports = { index_to_array, array_to_index, sort_by_priority };
+function hasMatchingTag(entry, queryTag) {
+  const tags = Array.isArray(entry.tags) ? entry.tags : [];
+  const aliases = Array.isArray(entry.aliases) ? entry.aliases : [];
+  return [...tags, ...aliases].includes(queryTag);
+}
+
+module.exports = {
+  index_to_array,
+  array_to_index,
+  sort_by_priority,
+  hasMatchingTag
+};
