@@ -464,7 +464,7 @@ async function loadIndex() {
   } catch {
     console.warn('[loadIndex] index.json not found - creating new');
     ensure_dir(indexFilename);
-    await writeFileSafe(indexFilename, '[]');
+    await fsp.writeFile(indexFilename, '[]');
     return [];
   }
 
@@ -473,7 +473,7 @@ async function loadIndex() {
     return Array.isArray(parsed) ? parsed : [];
   } catch (e) {
     console.warn('[loadIndex] failed to parse index.json, resetting', e.message);
-    await writeFileSafe(indexFilename, '[]');
+    await fsp.writeFile(indexFilename, '[]');
     return [];
   }
 }
@@ -621,7 +621,7 @@ async function persistIndex(data, repo, token, userId) {
         await safeUpdateIndexEntry(entry);
       }
     } else {
-      await writeFileSafe(indexFilename, JSON.stringify(payload, null, 2));
+      await fsp.writeFile(indexFilename, JSON.stringify(payload, null, 2));
     }
     console.log('[persistIndex] local index saved');
   } catch (e) {
