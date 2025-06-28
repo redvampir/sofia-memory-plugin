@@ -254,9 +254,7 @@ async function loadIndex() {
       .filter(e => ['high', 'medium'].includes(e.context_priority || 'medium'))
       .slice(0, maxFiles);
     indexData.forEach(entry =>
-      console.log(
-        `[CTX] Загружается файл: ${entry.file}, приоритет: ${entry.context_priority}`
-      )
+      console.log(`[CTX] Загружается файл: ${entry.file}, приоритет: ${entry.context_priority}`)
     );
     if (
       indexSettings.validate_on_load &&
