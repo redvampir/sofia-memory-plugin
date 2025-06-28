@@ -24,7 +24,9 @@ let validationReport = null;
 
 function loadIndexSync() {
   try {
-    return sort_by_priority(index_tree.listAllEntries()).slice(0, maxFiles);
+    return sort_by_priority(index_tree.listAllEntries())
+      .filter(e => ['high', 'medium'].includes(e.context_priority || 'medium'))
+      .slice(0, maxFiles);
   } catch {
     return [];
   }
@@ -110,7 +112,9 @@ function readLocalIndex() {
   try {
     const raw = fs.readFileSync(indexPath, 'utf-8');
     const parsed = JSON.parse(raw);
-    return sort_by_priority(index_to_array(parsed)).slice(0, maxFiles);
+    return sort_by_priority(index_to_array(parsed))
+      .filter(e => ['high', 'medium'].includes(e.context_priority || 'medium'))
+      .slice(0, maxFiles);
   } catch (e) {
     console.warn('[indexManager] failed to read local index', e.message);
     return [];
@@ -180,7 +184,9 @@ function getContextFilesForKeywords(keywords = []) {
       return reList.some(r => fields.some(v => v && r.test(String(v))));
     });
   }
-  const sortedEntries = sort_by_priority(entries).slice(0, maxFiles);
+  const sortedEntries = sort_by_priority(entries)
+    .filter(e => ['high', 'medium'].includes(e.context_priority || 'medium'))
+    .slice(0, maxFiles);
   return sortedEntries
     .filter(e => e && e.path)
     .map(e => e.path);
@@ -244,7 +250,9 @@ async function loadIndex() {
       list = res.entries;
       validationReport = res.report;
     }
-    indexData = sort_by_priority(list.map(e => ({ ...e, path: e.path }))).slice(0, maxFiles);
+    indexData = sort_by_priority(list.map(e => ({ ...e, path: e.path })))
+      .filter(e => ['high', 'medium'].includes(e.context_priority || 'medium'))
+      .slice(0, maxFiles);
     indexData.forEach(entry =>
       console.log(
         `[CTX] Загружается файл: ${entry.file}, приоритет: ${entry.context_priority}`
