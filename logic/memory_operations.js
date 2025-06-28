@@ -25,6 +25,27 @@ const indexFilename = path.join(__dirname, '..', 'memory', 'index.json');
 
 let planCache = null;
 
+async function safeUpdateIndexEntry(newEntry) {
+  let index = [];
+  try {
+    const raw = fs.readFileSync(indexFilename, 'utf-8');
+    index = JSON.parse(raw);
+  } catch (e) {
+    console.warn('[INDEX] index.json not found or corrupted, creating new');
+  }
+
+  const existingIndex = index.findIndex(entry => entry.path === newEntry.path);
+  if (existingIndex !== -1) {
+    index[existingIndex] = { ...index[existingIndex], ...newEntry };
+    console.log(`[INDEX] Updated entry: ${newEntry.path}`);
+  } else {
+    index.push(newEntry);
+    console.log(`[INDEX] Added new entry: ${newEntry.path}`);
+  }
+
+  fs.writeFileSync(indexFilename, JSON.stringify(index, null, 2), 'utf-8');
+}
+
 function parsePlanMarkdown(md) {
   const plan = { completedLessons: [], requestedClarifications: [], nextLesson: '' };
   const lines = md.split(/\r?\n/);
@@ -811,5 +832,6 @@ module.exports = {
   scanMemoryDir,
   deduplicateEntries,
   sanitizeIndex,
+  safeUpdateIndexEntry,
   readIndexSafe,
 };
