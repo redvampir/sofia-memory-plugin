@@ -480,7 +480,13 @@ async function loadIndex() {
 
 async function saveIndex(data) {
   ensure_dir(indexFilename);
-  await writeFileSafe(indexFilename, JSON.stringify(data, null, 2));
+  if (Array.isArray(data)) {
+    for (const entry of data) {
+      await safeUpdateIndexEntry(entry);
+    }
+  } else {
+    await safeUpdateIndexEntry(data);
+  }
 }
 
 async function updateIndexFile(entry, repo, token, userId) {
@@ -610,7 +616,13 @@ async function persistIndex(data, repo, token, userId) {
   }
 
   try {
-    await writeFileSafe(indexFilename, JSON.stringify(payload, null, 2));
+    if (Array.isArray(payload)) {
+      for (const entry of payload) {
+        await safeUpdateIndexEntry(entry);
+      }
+    } else {
+      await writeFileSafe(indexFilename, JSON.stringify(payload, null, 2));
+    }
     console.log('[persistIndex] local index saved');
   } catch (e) {
     console.error('[persistIndex] local write error', e.message);
