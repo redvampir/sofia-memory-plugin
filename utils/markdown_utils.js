@@ -124,9 +124,21 @@ function updateMarkdownBlock(fileContent = '', tag = '', newContent = '') {
   return `${before}\n${newContent}\n${after}`;
 }
 
+function deduplicateTasks(existingLines = [], newLines = []) {
+  const normalize = line =>
+    String(line)
+      .replace(/^\s*[-*]\s+\[[ xX]\]\s*/, '')
+      .replace(/\s+/g, '')
+      .toLowerCase();
+
+  const existingSet = new Set(existingLines.map(normalize));
+  return newLines.filter(l => !existingSet.has(normalize(l)));
+}
+
 module.exports = {
   parseFrontMatter,
   parseAutoIndex,
   parseMarkdownSections,
   updateMarkdownBlock,
+  deduplicateTasks,
 };
