@@ -3,8 +3,9 @@ const path = require('path');
 const { parseMarkdownStructure, serializeMarkdownTree } = require('../logic/markdown_merge_engine.ts');
 
 // Константы для максимального размера файлов
-const MAX_MD_FILE_SIZE = 500 * 1024;  // 500 KB для Markdown файлов
-const MAX_INDEX_FILE_SIZE = 500 * 1024;  // 500 KB для файлов путей или индексов
+// Увеличенные лимиты для хранимых и записываемых файлов
+const MAX_MD_FILE_SIZE = 5 * 1024 * 1024;  // 5 MB для Markdown файлов
+const MAX_INDEX_FILE_SIZE = 3 * 1024 * 1024;  // 3 MB для файлов путей или индексов
 
 /**
  * Split a file into parts if it exceeds provided size limit.
