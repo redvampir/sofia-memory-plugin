@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { MAX_INDEX_FILE_SIZE } = require('../utils/file_splitter');
 
 const indexSettings = {
   validate_on_load: true,
@@ -7,7 +8,7 @@ const indexSettings = {
   auto_clean_missing: false,
   require_manual_meta: true,
   block_plugin_paths: true,
-  max_index_size: 100 * 1024,
+  max_index_size: MAX_INDEX_FILE_SIZE,
 };
 
 function normalize(p) {
