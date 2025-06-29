@@ -21,5 +21,13 @@ if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir);
   assert.ok(text.includes('- [ ] two'), 'new task added');
   assert.strictEqual((text.match(/- \[ \] one/g) || []).length, 1, 'no duplicate');
 
+  // change status and revert
+  await safeUpdateMarkdownChecklist(file, 'todo', ['- [x] two']);
+  text = fs.readFileSync(file, 'utf-8');
+  assert.ok(text.includes('- [x] two'), 'status updated');
+  await safeUpdateMarkdownChecklist(file, 'todo', ['- [ ] two']);
+  text = fs.readFileSync(file, 'utf-8');
+  assert.ok(text.includes('- [ ] two'), 'status reverted');
+
   console.log('markdown_utils safe update tests passed');
 })();
