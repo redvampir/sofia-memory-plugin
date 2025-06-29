@@ -815,6 +815,23 @@ async function rebuildIndex(repo, token, userId) {
 
   const clean = await sanitizeIndex(deduplicateEntries(entries));
   await persistIndex(clean, repo, token, userId);
+
+  const rootIndex = {
+    type: 'index-root',
+    branches: [
+      { category: 'lessons', path: 'lessons/index.json' },
+      { category: 'plans', path: 'plans/index.json' },
+      { category: 'drafts', path: 'drafts/index.json' },
+    ],
+  };
+
+  const base = path.join(__dirname, '..');
+  await fs.promises.writeFile(
+    path.join(base, 'memory', 'index.json'),
+    JSON.stringify(rootIndex, null, 2),
+    'utf-8',
+  );
+
   return clean;
 }
 

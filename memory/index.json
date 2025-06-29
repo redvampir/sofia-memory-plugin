@@ -1,11 +1,17 @@
 {
   "type": "index-root",
   "branches": [
-    { "category": "context", "path": "plans/context/index.json" },
-    { "category": "structure", "path": "plans/structure/index.json" },
-    { "category": "features", "path": "plans/features/index.json" },
-    { "category": "safety", "path": "plans/safety/index.json" },
-    { "category": "lessons", "path": "lessons/index.json" },
-    { "category": "drafts", "path": "drafts/index.json" }
+    {
+      "category": "lessons",
+      "path": "lessons/index.json"
+    },
+    {
+      "category": "plans",
+      "path": "plans/index.json"
+    },
+    {
+      "category": "drafts",
+      "path": "drafts/index.json"
+    }
   ]
 }
