@@ -1,0 +1,11 @@
+{
+  "max_operations": 30,
+  "priority_tags": ["core", "memory"],
+  "group_limits": {
+    "index": 5,
+    "memory": 7,
+    "checklist": 7,
+    "plan": 5
+  },
+  "preserve": ["rebuildIndex", "splitMemoryFile"]
+}
