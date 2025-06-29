@@ -89,7 +89,12 @@ async function safe_markdown_edit(filePath, command, opts = {}) {
     newContent = result.content;
   } else {
     const original = readMarkdownFile(filePath);
-    newContent = await process_with_sofia(original, command);
+    let content = original;
+    if (original.startsWith('---')) {
+      const end = original.indexOf('---', 3);
+      if (end !== -1) content = original.slice(end + 3).trim();
+    }
+    newContent = await process_with_sofia(content, command);
   }
   if (newContent === undefined || newContent === null) return false;
   if (dryRun) return { updated: true, content: newContent };
