@@ -24,6 +24,16 @@ const contextFilename = path.join(__dirname, '..', 'memory', 'context.md');
 const planFilename = path.join(__dirname, '..', 'memory', 'plan.md');
 const indexFilename = path.join(__dirname, '..', 'memory', 'index.json');
 
+const logsDir = path.join(__dirname, '..', 'logs');
+const summaryFile = path.join(logsDir, 'summary.log');
+
+const opCounts = { added: 0, updated: 0, skipped: 0, preserved: 0 };
+
+function appendSummaryLog(line) {
+  fs.mkdirSync(logsDir, { recursive: true });
+  fs.appendFileSync(summaryFile, line + '\n');
+}
+
 let planCache = null;
 
 async function safeUpdateIndexEntry(newEntry) {
@@ -294,9 +304,14 @@ async function writeFileSafe(filePath, data, force = false) {
       mdEditor.createBackup(filePath);
     }
     const tokens = String(data).split(/\s+/).filter(Boolean).length;
-    if (tokens > memory_settings.token_soft_limit && memory_settings.enforce_soft_limit) {
-      console.warn('[writeFileSafe] token limit reached', tokens);
-      return;
+    if (tokens > memory_settings.token_soft_limit) {
+      if (memory_settings.enforce_soft_limit && !force) {
+        console.warn('[writeFileSafe] token limit reached', tokens);
+        return;
+      }
+      console.log('[Preserve] Saved despite context limit:', filePath);
+      opCounts.preserved++;
+      appendSummaryLog(`[Preserve] Saved despite context limit: ${filePath}`);
     }
     await fsp.writeFile(filePath, data, 'utf-8');
     logDebug('[writeFileSafe] wrote', filePath);
@@ -524,9 +539,11 @@ async function updateIndexFile(entry, repo, token, userId) {
   const idx = data.findIndex(i => i.path === entry.path);
   if (idx >= 0) {
     data[idx] = { ...data[idx], ...entry };
+    opCounts.updated++;
     console.log('[updateIndexFile] updated', entry.path);
   } else {
     data.push(entry);
+    opCounts.added++;
     console.log('[updateIndexFile] added', entry.path);
   }
   const clean = await sanitizeIndex(deduplicateEntries(data));
@@ -696,6 +713,14 @@ async function persistIndex(data, repo, token, userId) {
     }
   }
 
+  const summary = { ...opCounts };
+  console.log('[Index Summary]', summary);
+  appendSummaryLog(`[Index Summary] ${JSON.stringify(summary)}`);
+  opCounts.added = 0;
+  opCounts.updated = 0;
+  opCounts.skipped = 0;
+  opCounts.preserved = 0;
+
   return payload;
 }
 
@@ -745,8 +770,10 @@ async function updateIndexEntry(repo, token, { path: filePath, type, title, desc
 
   await persistIndex(indexData, repo, token, userId);
   if (op === 'skipped') {
+    opCounts.skipped++;
     logDebug('[updateIndexEntry] skipped', normalized, 'no changes detected');
   } else {
+    if (op === 'added') opCounts.added++; else opCounts.updated++;
     console.log('[updateIndexEntry]', op, normalized);
   }
   return entry;
