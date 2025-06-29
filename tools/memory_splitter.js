@@ -40,6 +40,11 @@ async function split_memory_file(filename, max_tokens) {
   const abs = path.join(__dirname, '..', normalized);
   if (!fs.existsSync(abs)) throw new Error('File not found');
   const original = fs.readFileSync(abs, 'utf-8');
+  let content = original;
+  if (original.startsWith('---')) {
+    const end = original.indexOf('---', 3);
+    if (end !== -1) content = original.slice(end + 3).trim();
+  }
   const backupPath = `${abs}.bak`;
   try {
     fs.copyFileSync(abs, backupPath);
@@ -78,7 +83,7 @@ async function split_memory_file(filename, max_tokens) {
     return out;
   }
 
-  const total_tokens = count_tokens(original);
+  const total_tokens = count_tokens(content);
   if (total_tokens <= max_tokens) return [normalized];
 
   const dir = is_index ? path.dirname(abs) : abs.replace(/\.md$/i, '');
@@ -87,7 +92,7 @@ async function split_memory_file(filename, max_tokens) {
     ? path.posix.dirname(normalized)
     : normalized.replace(/\.md$/i, '');
 
-  const blocks = split_into_blocks(original);
+  const blocks = split_into_blocks(content);
   const parts = [];
   let buf = [];
   let tok = 0;
@@ -125,7 +130,7 @@ async function split_memory_file(filename, max_tokens) {
     fs.writeFileSync(part_path, meta + p + '\n', 'utf-8');
   });
 
-  const title_match = original.match(/^#\s*(.+)/);
+  const title_match = content.match(/^#\s*(.+)/);
   const title = title_match ? title_match[1].trim() : path.basename(filename, '.md');
   const meta_lines = [
     '---',
