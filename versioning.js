@@ -10,6 +10,8 @@ function appendSummaryLog(line) {
   fs.appendFileSync(summaryFile, line + '\n');
 }
 
+exports.appendSummaryLog = appendSummaryLog;
+
 exports.commit_instructions = async (req, res) => {
   try {
     const { version = 'base', content } = req.body || {};
