@@ -109,7 +109,14 @@ async function split_memory_file(filename, max_tokens) {
 
   parts.forEach((p, idx) => {
     const part_path = path.join(dir, `part${idx + 1}.md`);
-    fs.writeFileSync(part_path, p + '\n', 'utf-8');
+    const meta = [
+      '---',
+      `part_index: ${idx + 1}`,
+      'tag: split-part',
+      '---',
+      ''
+    ].join('\n');
+    fs.writeFileSync(part_path, meta + p + '\n', 'utf-8');
   });
 
   const title_match = original.match(/^#\s*(.+)/);
