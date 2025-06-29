@@ -19,20 +19,13 @@ const {
 } = require('../tools/memory_helpers');
 const memory_settings = require('../tools/memory_settings');
 const { parseFrontMatter } = require('../utils/markdown_utils');
+const { appendSummaryLog } = require('../versioning');
 
 const contextFilename = path.join(__dirname, '..', 'memory', 'context.md');
 const planFilename = path.join(__dirname, '..', 'memory', 'plan.md');
 const indexFilename = path.join(__dirname, '..', 'memory', 'index.json');
 
-const logsDir = path.join(__dirname, '..', 'logs');
-const summaryFile = path.join(logsDir, 'summary.log');
-
 const opCounts = { added: 0, updated: 0, skipped: 0, preserved: 0 };
-
-function appendSummaryLog(line) {
-  fs.mkdirSync(logsDir, { recursive: true });
-  fs.appendFileSync(summaryFile, line + '\n');
-}
 
 let planCache = null;
 
@@ -713,9 +706,9 @@ async function persistIndex(data, repo, token, userId) {
     }
   }
 
-  const summary = { ...opCounts };
-  console.log('[Index Summary]', summary);
-  appendSummaryLog(`[Index Summary] ${JSON.stringify(summary)}`);
+  const summary = `[Index Summary] added: ${opCounts.added}, updated: ${opCounts.updated}, skipped: ${opCounts.skipped}, preserved: ${opCounts.preserved}`;
+  console.log(summary);
+  appendSummaryLog(summary);
   opCounts.added = 0;
   opCounts.updated = 0;
   opCounts.skipped = 0;
