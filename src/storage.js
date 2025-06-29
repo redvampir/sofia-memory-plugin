@@ -17,10 +17,6 @@ const { logError } = require('../tools/error_handler');
 const memory_settings = require('../tools/memory_settings');
 const { estimate_cost } = require('../tools/text_utils');
 
-function count_tokens(text = '') {
-  return estimate_cost(text, 'tokens');
-}
-
 async function read_memory(user_id, repo, token, filename, opts = {}) {
   const normalized = normalize_memory_path(filename);
   const parse_json = opts.parseJson || false;

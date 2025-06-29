@@ -25,10 +25,6 @@ const {
   contextFilename,
 } = require('../logic/memory_operations');
 
-function count_tokens(text = '') {
-  return estimate_cost(text, 'tokens');
-}
-
 function getTokenCounter() {
   const { used, limit } = context_state.get_status();
   const remaining = limit - used;
