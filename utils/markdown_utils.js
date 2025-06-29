@@ -41,7 +41,74 @@ function parseAutoIndex(text = '') {
   return meta;
 }
 
+function parseMarkdownSections(fileContent = '') {
+  const lines = String(fileContent).split(/\r?\n/);
+  const blocks = [];
+
+  const escapeRegExp = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i];
+    const header = line.match(/^(#{1,3})\s+(.*)$/);
+    if (header) {
+      const start = i;
+      const title = header[2].trim();
+      i++;
+      while (i < lines.length) {
+        const l = lines[i];
+        if (/^(#{1,3})\s+/.test(l) || /<!--\s*START:/i.test(l)) break;
+        i++;
+      }
+      const end = i - 1;
+      blocks.push({
+        type: 'header',
+        title,
+        startIndex: start,
+        endIndex: end,
+        content: lines.slice(start, end + 1).join('\n')
+      });
+      continue;
+    }
+
+    const anchor = line.match(/<!--\s*START:\s*(.+?)\s*-->/i);
+    if (anchor) {
+      const tag = anchor[1].trim();
+      const start = i;
+      i++;
+      const endRegex = new RegExp(`<!--\\s*END:\\s*${escapeRegExp(tag)}\\s*-->`, 'i');
+      while (i < lines.length && !endRegex.test(lines[i])) i++;
+      if (i < lines.length) {
+        const end = i;
+        blocks.push({
+          type: 'anchor',
+          tag,
+          startIndex: start,
+          endIndex: end,
+          content: lines.slice(start, end + 1).join('\n')
+        });
+        i++;
+      } else {
+        blocks.push({
+          type: 'anchor',
+          tag,
+          startIndex: start,
+          endIndex: lines.length - 1,
+          content: lines.slice(start).join('\n')
+        });
+        break;
+      }
+      continue;
+    }
+
+    i++;
+  }
+
+  return blocks;
+}
+
 module.exports = {
   parseFrontMatter,
   parseAutoIndex,
+  parseMarkdownSections,
 };
