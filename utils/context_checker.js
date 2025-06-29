@@ -6,6 +6,9 @@ const { contextFilename } = require('../logic/memory_operations');
 const logger = require('./logger');
 
 const CHECK_INTERVAL_MS = 30 * 60 * 1000;
+const CACHE_TTL_MS = 5 * 60 * 1000;
+const BATCH_SIZE = 10;
+const BATCH_DELAY_MS = 1000;
 const DEFAULT_CONTEXT_FILE = 'memory/context/autocontext-index.md';
 const PORT = process.env.PORT || 10000;
 
@@ -34,12 +37,35 @@ async function restore_context(user_id) {
   }
 }
 
+const lastChecked = {};
+
+function should_check(id) {
+  const last = lastChecked[id] || 0;
+  return Date.now() - last > CACHE_TTL_MS;
+}
+
+function mark_checked(id) {
+  lastChecked[id] = Date.now();
+}
+
+async function delay(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 async function check_context() {
   if (context_exists()) return;
   const users = await memory_config.getAllUsers();
   if (!users.length) users.push(null);
-  for (const id of users) {
-    await restore_context(id);
+  for (let i = 0; i < users.length; i += BATCH_SIZE) {
+    const batch = users.slice(i, i + BATCH_SIZE);
+    for (const id of batch) {
+      if (!should_check(id)) continue;
+      await restore_context(id);
+      mark_checked(id);
+    }
+    if (i + BATCH_SIZE < users.length) {
+      await delay(BATCH_DELAY_MS);
+    }
   }
 }
 
