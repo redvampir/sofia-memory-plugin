@@ -18,6 +18,7 @@ const {
   logDebug,
 } = require('../tools/memory_helpers');
 const memory_settings = require('../tools/memory_settings');
+const { parseFrontMatter } = require('../utils/markdown_utils');
 
 const contextFilename = path.join(__dirname, '..', 'memory', 'context.md');
 const planFilename = path.join(__dirname, '..', 'memory', 'plan.md');
@@ -443,13 +444,42 @@ async function extractMeta(fullPath) {
   const result = { lastModified: stats.mtime.toISOString() };
   if (fullPath.endsWith('.md')) {
     try {
-      const lines = (await fsp.readFile(fullPath, 'utf-8')).split(/\r?\n/);
+      const raw = await fsp.readFile(fullPath, 'utf-8');
+      const { meta, body } = parseFrontMatter(raw);
+      const lines = body.split(/\r?\n/);
       const titleLine = lines.find(l => l.trim());
       if (titleLine && titleLine.startsWith('#')) {
         result.title = titleLine.replace(/^#+\s*/, '');
       }
       if (lines.length > 1) {
         result.description = lines.slice(1, 3).join(' ').slice(0, 100);
+      }
+      if (meta.tags) {
+        try {
+          result.tags = JSON.parse(meta.tags);
+        } catch {
+          result.tags = String(meta.tags)
+            .replace(/^\[/, '')
+            .replace(/\]$/, '')
+            .split(/,|\r?\n/)
+            .map(t => t.replace(/^\s*-?\s*/, '').trim())
+            .filter(Boolean);
+        }
+      }
+      if (meta.aliases) {
+        try {
+          result.aliases = JSON.parse(meta.aliases);
+        } catch {
+          result.aliases = String(meta.aliases)
+            .replace(/^\[/, '')
+            .replace(/\]$/, '')
+            .split(/,|\r?\n/)
+            .map(t => t.replace(/^\s*-?\s*/, '').trim())
+            .filter(Boolean);
+        }
+      }
+      if (meta.context_priority) {
+        result.context_priority = meta.context_priority;
       }
     } catch {
       // ignore parsing errors
@@ -736,9 +766,13 @@ async function scanMemoryDir(dirPath) {
         if (abs === indexFilename) continue;
         const rel = path.relative(path.join(__dirname, '..'), abs);
         const meta = await extractMeta(abs);
+        const idx = index_tree.findEntryByPath(rel) || {};
         results.push({
           path: rel,
           type: categorizeMemoryFile(item),
+          tags: meta.tags || idx.tags,
+          aliases: meta.aliases || idx.aliases,
+          context_priority: meta.context_priority || idx.context_priority,
           ...meta,
         });
       }
@@ -760,12 +794,16 @@ async function rebuildIndex(repo, token, userId) {
   for (const rel of paths) {
     const abs = path.join(path.join(__dirname, '..'), rel);
     const meta = await extractMeta(abs);
+    const idx = index_tree.findEntryByPath(rel) || {};
     entries.push({
       path: rel,
       type: categorizeMemoryFile(path.basename(rel)),
       title: meta.title,
       description: meta.description,
       lastModified: meta.lastModified,
+      tags: meta.tags || idx.tags,
+      aliases: meta.aliases || idx.aliases,
+      context_priority: meta.context_priority || idx.context_priority,
     });
   }
 
