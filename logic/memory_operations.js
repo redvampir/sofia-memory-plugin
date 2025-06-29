@@ -793,17 +793,24 @@ async function rebuildIndex(repo, token, userId) {
   const entries = [];
   for (const rel of paths) {
     const abs = path.join(path.join(__dirname, '..'), rel);
-    const meta = await extractMeta(abs);
-    entries.push({
-      path: rel,
-      type: categorizeMemoryFile(path.basename(rel)),
-      title: meta.title,
-      description: meta.description,
-      tags: meta.tags || [],
-      aliases: meta.aliases || [],
-      context_priority: meta.context_priority || 'medium',
-      lastModified: meta.lastModified,
-    });
+    try {
+      const meta = await extractMeta(abs);
+      entries.push({
+        path: rel,
+        type: categorizeMemoryFile(path.basename(rel)),
+        title: meta.title,
+        description: meta.description,
+        tags: meta.tags || [],
+        aliases: meta.aliases || [],
+        context_priority: meta.context_priority || 'medium',
+        lastModified: meta.lastModified,
+      });
+    } catch (e) {
+      console.warn(
+        `[REBUILD] Не удалось прочитать мета из файла: ${rel}`,
+        e.message,
+      );
+    }
   }
 
   const clean = await sanitizeIndex(deduplicateEntries(entries));
