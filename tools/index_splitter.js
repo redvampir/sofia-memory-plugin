@@ -1,8 +1,9 @@
 const fs = require('fs');
 const fsp = fs.promises;
 const path = require('path');
+const { MAX_INDEX_FILE_SIZE } = require('../utils/file_splitter');
 
-async function checkAndSplitIndex(indexPath, maxSize = 100 * 1024) {
+async function checkAndSplitIndex(indexPath, maxSize = MAX_INDEX_FILE_SIZE) {
   try {
     const stats = await fsp.stat(indexPath);
     if (stats.size <= maxSize) return;
@@ -12,7 +13,7 @@ async function checkAndSplitIndex(indexPath, maxSize = 100 * 1024) {
   }
 }
 
-async function splitIndexFile(indexPath, maxSize = 100 * 1024) {
+async function splitIndexFile(indexPath, maxSize = MAX_INDEX_FILE_SIZE) {
   try {
     await fsp.access(indexPath);
   } catch {
