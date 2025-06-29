@@ -8,10 +8,6 @@ const COST_MODE = process.env.SOFIA_COST_MODE || 'bytes';
 
 const MIN_TOKENS = 30; // minimum tokens per part to avoid tiny fragments
 
-function count_tokens(text = '') {
-  return estimate_cost(text, COST_MODE);
-}
-
 function split_into_blocks(md) {
   const lines = md.split(/\r?\n/);
   const has_anchor = lines.some(l => /<!--\s*START:/i.test(l));

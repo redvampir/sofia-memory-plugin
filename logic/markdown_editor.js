@@ -4,10 +4,6 @@ const validator = require('./markdown_validator');
 const memory_settings = require('../tools/memory_settings');
 const { estimate_cost } = require('../tools/text_utils');
 
-function count_tokens(text = '') {
-  return estimate_cost(text, 'tokens');
-}
-
 function createBackup(filePath) {
   if (!fs.existsSync(filePath)) return null;
 
