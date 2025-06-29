@@ -182,6 +182,27 @@ function safeUpdateMarkdownChecklist(filePath, tag, newLines = []) {
   return true;
 }
 
+function ensureMarkdownBlock(filePath, tag, content = '', opts = {}) {
+  const fs = require('fs');
+  const raw = fs.existsSync(filePath) ? fs.readFileSync(filePath, 'utf-8') : '';
+  const startMarker = `<!-- START: ${tag} -->`;
+  const endMarker = `<!-- END: ${tag} -->`;
+
+  if (raw.includes(startMarker) && raw.includes(endMarker)) return false;
+
+  const timestamp = opts.created
+    ? opts.created
+    : opts.addTimestamp
+    ? new Date().toISOString().slice(0, 10)
+    : null;
+  const lines = [];
+  if (content) lines.push(content);
+  if (timestamp) lines.push(`<!-- created: ${timestamp} -->`);
+  const updated = updateMarkdownBlock(raw, tag, lines.join('\n'));
+  fs.writeFileSync(filePath, updated, 'utf-8');
+  return true;
+}
+
 module.exports = {
   parseFrontMatter,
   parseAutoIndex,
@@ -189,4 +210,5 @@ module.exports = {
   updateMarkdownBlock,
   deduplicateTasks,
   safeUpdateMarkdownChecklist,
+  ensureMarkdownBlock,
 };

@@ -10,3 +10,7 @@
   - Global instructions (in plugin, read-only)
   - Individual instructions (in student repository with versioning)
   - Support backup mode, commands and change history
+
+<!-- START: tag -->
+<!-- created: 2025-06-29 -->
+<!-- END: tag -->
