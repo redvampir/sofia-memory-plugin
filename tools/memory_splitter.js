@@ -4,10 +4,12 @@ const index_manager = require('../logic/index_manager');
 const { ensure_dir, normalize_memory_path } = require('./file_utils');
 const { estimate_cost } = require('./text_utils');
 
+const COST_MODE = process.env.SOFIA_COST_MODE || 'bytes';
+
 const MIN_TOKENS = 30; // minimum tokens per part to avoid tiny fragments
 
 function count_tokens(text = '') {
-  return estimate_cost(text, 'tokens');
+  return estimate_cost(text, COST_MODE);
 }
 
 function split_into_blocks(md) {
@@ -84,7 +86,7 @@ async function split_memory_file(filename, max_tokens) {
     return out;
   }
 
-  const total_tokens = estimate_cost(content, 'tokens');
+  const total_tokens = estimate_cost(content, COST_MODE);
   if (total_tokens <= max_tokens) return [normalized];
 
   const dir = is_index ? path.dirname(abs) : abs.replace(/\.md$/i, '');
@@ -104,7 +106,7 @@ async function split_memory_file(filename, max_tokens) {
     tok = 0;
   };
   blocks.forEach(b => {
-    const t = estimate_cost(b, 'tokens');
+    const t = estimate_cost(b, COST_MODE);
     if (buf.length && tok + t > max_tokens) {
       if (tok >= MIN_TOKENS) flush();
     }
