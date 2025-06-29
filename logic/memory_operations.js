@@ -33,7 +33,9 @@ async function safeUpdateIndexEntry(newEntry) {
   let index = [];
   try {
     const raw = fs.readFileSync(indexFilename, 'utf-8');
-    index = JSON.parse(raw);
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) index = parsed;
+    else return; // unsupported format
   } catch (e) {
     console.warn('[INDEX] index.json not found or corrupted, creating new');
   }
