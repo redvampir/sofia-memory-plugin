@@ -82,9 +82,25 @@ function hasMatchingTag(entry, queryTag) {
   return [...tags, ...aliases].includes(queryTag);
 }
 
+function findMatchingFile(indexObject, keyword) {
+  if (!indexObject || !keyword) return [];
+  const files = Array.isArray(indexObject.files) ? indexObject.files : [];
+  const query = String(keyword).toLowerCase();
+  const matches = files.filter(entry => {
+    const fields = [entry.title, entry.file];
+    if (Array.isArray(entry.tags)) fields.push(...entry.tags);
+    if (Array.isArray(entry.aliases)) fields.push(...entry.aliases);
+    return fields.some(v =>
+      v && String(v).toLowerCase().includes(query)
+    );
+  });
+  return sort_by_priority(matches);
+}
+
 module.exports = {
   index_to_array,
   array_to_index,
   sort_by_priority,
-  hasMatchingTag
+  hasMatchingTag,
+  findMatchingFile
 };
