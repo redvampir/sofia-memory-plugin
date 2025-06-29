@@ -107,8 +107,26 @@ function parseMarkdownSections(fileContent = '') {
   return blocks;
 }
 
+function updateMarkdownBlock(fileContent = '', tag = '', newContent = '') {
+  const startMarker = `<!-- START: ${tag} -->`;
+  const endMarker = `<!-- END: ${tag} -->`;
+  const startIdx = fileContent.indexOf(startMarker);
+  const endIdx = fileContent.indexOf(endMarker);
+
+  if (startIdx === -1 || endIdx === -1 || endIdx < startIdx) {
+    const trimmed = fileContent.replace(/\s*$/, '');
+    const nl = trimmed ? '\n' : '';
+    return `${trimmed}${nl}${startMarker}\n${newContent}\n${endMarker}\n`;
+  }
+
+  const before = fileContent.slice(0, startIdx + startMarker.length);
+  const after = fileContent.slice(endIdx);
+  return `${before}\n${newContent}\n${after}`;
+}
+
 module.exports = {
   parseFrontMatter,
   parseAutoIndex,
   parseMarkdownSections,
+  updateMarkdownBlock,
 };
