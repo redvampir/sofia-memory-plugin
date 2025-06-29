@@ -25,25 +25,25 @@ const {
   contextFilename,
 } = require('../logic/memory_operations');
 
-function getTokenCounter() {
-  const { used, limit } = context_state.get_status();
+function getTokenCounter(userId = 'default') {
+  const { used, limit } = context_state.get_status(userId);
   const remaining = limit - used;
   const percent = limit ? Math.floor((used / limit) * 100) : 0;
   return { used, limit, remaining, percent };
 }
 
-function formatTokenCounter(testMode = false) {
+function formatTokenCounter(testMode = false, userId = 'default') {
   if (!testMode) return '';
-  const { used, limit, remaining, percent } = getTokenCounter();
+  const { used, limit, remaining, percent } = getTokenCounter(userId);
   return `[Тестирование] Токенов использовано: ${used}/${limit} (${percent}%) | Осталось: ${remaining}`;
 }
 
-async function autoRefreshContext(repo, token) {
-  if (context_state.get_needs_refresh()) {
+async function autoRefreshContext(repo, token, userId = 'default') {
+  if (context_state.get_needs_refresh(userId)) {
     await refreshContextFromMemoryFiles(repo, token);
     logger.info('🔄 Context refreshed from memory repo');
-    context_state.set_needs_refresh(false);
-    context_state.reset_tokens();
+    context_state.set_needs_refresh(false, userId);
+    context_state.reset_tokens(userId);
   }
 }
 
@@ -53,12 +53,12 @@ function normalize_repo(repo) {
   return m ? m[1] : repo;
 }
 
-async function readMemory(repo, token, filename) {
-  const final_repo = repo || await memory_config.getRepoUrl(null);
-  const final_token = token || await token_store.getToken(null);
+async function readMemory(repo, token, filename, userId = 'default') {
+  const final_repo = repo || await memory_config.getRepoUrl(userId);
+  const final_token = token || await token_store.getToken(userId);
   const masked_token = final_token ? `${final_token.slice(0, 4)}...` : 'null';
 
-  await autoRefreshContext(final_repo, final_token);
+  await autoRefreshContext(final_repo, final_token, userId);
 
   logger.info('[readMemory] params', { repo: final_repo, token: masked_token, filename });
 
@@ -237,10 +237,11 @@ async function refreshContextFromMemoryFiles(repo, token, keywords = []) {
 }
 
 async function read_memory_file(filename, opts = {}) {
-  const { repo = null, token = null, source = 'chat' } = opts;
+  const { repo = null, token = null, source = 'chat', userId = 'default' } = opts;
   await autoRefreshContext(
-    repo || (await memory_config.getRepoUrl(null)),
-    token || (await token_store.getToken(null))
+    repo || (await memory_config.getRepoUrl(userId)),
+    token || (await token_store.getToken(userId)),
+    userId
   );
   const normalized = normalize_memory_path(filename);
   logger.info('[read_memory_file] open', { path: normalized, source });
@@ -288,12 +289,12 @@ async function read_memory_file(filename, opts = {}) {
 }
 
 async function readMarkdownFile(filepath, opts = {}) {
-  const { repo = null, token = null } = opts;
+  const { repo = null, token = null, userId = 'default' } = opts;
   let target = filepath;
-  const finalRepo = repo || (await memory_config.getRepoUrl(null));
-  const finalToken = token || (await token_store.getToken(null));
+  const finalRepo = repo || (await memory_config.getRepoUrl(userId));
+  const finalToken = token || (await token_store.getToken(userId));
 
-  await autoRefreshContext(finalRepo, finalToken);
+  await autoRefreshContext(finalRepo, finalToken, userId);
 
   if (!target) {
     try {
@@ -458,12 +459,12 @@ async function auto_recover_context() {
   return { files: loaded, content: full.trim() };
 }
 
-async function checkAndRestoreContext(currentStage = '', tokens = 0) {
-  context_state.increment_tokens(tokens);
+async function checkAndRestoreContext(currentStage = '', tokens = 0, userId = 'default') {
+  context_state.increment_tokens(tokens, userId);
   if (currentStage === 'theory' || currentStage === 'practice') {
     logger.info(`[checkAndRestoreContext] stage finished: ${currentStage}`);
   }
-  const result = await maybeRestoreContext();
+  const result = await maybeRestoreContext({ userId });
   if (result.restored) {
     logger.info('[checkAndRestoreContext] context restored from memory');
   }
