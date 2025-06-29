@@ -4,6 +4,7 @@ const ROOT_DIR = path.join(__dirname, '..');
 const { get_file } = require('./storage');
 const rootConfig = require('../config');
 const context_state = require('../tools/context_state');
+const logger = require('../utils/logger');
 
 /**
  * Helper to read a file either from GitHub or local disk.
@@ -74,6 +75,8 @@ async function loadIndexFile(debug, opts = {}) {
  * @returns {Promise<{plan:string|null, profile:string|null, currentLesson:string|null}>}
  */
   async function restore_context(debug = false, opts = {}) {
+    const userId = opts.userId || 'default';
+    logger.info('[restore_context] start', { user: userId });
     try {
       const indexPath = opts.indexPath || process.env.INDEX_PATH || 'memory/index.json';
       if (debug) console.log('[restoreContext] loading', indexPath);
@@ -151,10 +154,10 @@ async function loadIndexFile(debug, opts = {}) {
         console.log('[restoreContext] restored', restored.filter(Boolean).length, 'files');
         if (skipped.length) console.log('[restoreContext] skipped', skipped.join(', '));
       }
-
+      logger.info('[restore_context] success', { user: userId });
       return { plan, profile, currentLesson: lesson };
     } catch (e) {
-      console.error('[restoreContext]', e.message);
+      logger.error('[restore_context]', e.message);
       return { plan: null, profile: null, currentLesson: null };
     }
   }
@@ -215,6 +218,8 @@ async function maybeRestoreContext({ debug = false, testMode = false, userPrompt
     return { restored: false };
   }
 
+  logger.info('[maybeRestoreContext] need restore', { user: userId });
+
   if (testMode) {
     console.log('⚠️ I detected missing context. Do you want me to restore it from memory?');
     return { restored: false, confirmationNeeded: true };
@@ -223,6 +228,7 @@ async function maybeRestoreContext({ debug = false, testMode = false, userPrompt
   const context = await restore_context(debug, { userId });
   context_state.set_needs_refresh(false, userId);
   context_state.reset_tokens(userId);
+  logger.info('[maybeRestoreContext] restored', { user: userId });
   return { restored: true, context };
 }
 
