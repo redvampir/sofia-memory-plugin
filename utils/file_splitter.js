@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { parseMarkdownStructure, serializeMarkdownTree } = require('../logic/markdown_merge_engine.ts');
 
 // Константы для максимального размера файлов
 const MAX_MD_FILE_SIZE = 500 * 1024;  // 500 KB для Markdown файлов
@@ -35,4 +36,22 @@ function splitFile(filePath, maxSize) {
   return parts;
 }
 
-module.exports = { MAX_MD_FILE_SIZE, MAX_INDEX_FILE_SIZE, splitFile };
+/**
+ * Split a markdown file into parts respecting MAX_MD_FILE_SIZE.
+ * Each part is parsed and serialized to preserve structure.
+ * @param {string} filePath
+ * @param {number} [maxSize=MAX_MD_FILE_SIZE]
+ * @returns {string[]} array of part file paths
+ */
+function splitMarkdownFile(filePath, maxSize = MAX_MD_FILE_SIZE) {
+  const partPaths = splitFile(filePath, maxSize);
+  partPaths.forEach(p => {
+    const raw = fs.readFileSync(p, 'utf-8');
+    const tree = parseMarkdownStructure(raw);
+    const out = serializeMarkdownTree(tree);
+    fs.writeFileSync(p, out, 'utf-8');
+  });
+  return partPaths;
+}
+
+module.exports = { MAX_MD_FILE_SIZE, MAX_INDEX_FILE_SIZE, splitFile, splitMarkdownFile };
