@@ -107,6 +107,12 @@ async function split_memory_file(filename, max_tokens) {
   });
   flush();
 
+  const MAX_PARTS = 10;
+  if (parts.length > MAX_PARTS) {
+    console.warn(`[SPLIT] \u0421\u043b\u0438\u0448\u043a\u043e\u043c \u043c\u043d\u043e\u0433\u043e \u0447\u0430\u0441\u0442\u0435\u0439 (${parts.length}), \u0441\u043e\u043a\u0440\u0430\u0442\u0438\u043c.`);
+    parts.length = MAX_PARTS;
+  }
+
   parts.forEach((p, idx) => {
     const part_path = path.join(dir, `part${idx + 1}.md`);
     const meta = [
