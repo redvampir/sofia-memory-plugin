@@ -15,9 +15,10 @@ const {
 const { split_memory_file } = require('../tools/memory_splitter');
 const { logError } = require('../tools/error_handler');
 const memory_settings = require('../tools/memory_settings');
+const { estimate_cost } = require('../tools/text_utils');
 
 function count_tokens(text = '') {
-  return String(text).split(/\s+/).filter(Boolean).length;
+  return estimate_cost(text, 'tokens');
 }
 
 async function read_memory(user_id, repo, token, filename, opts = {}) {
@@ -69,7 +70,7 @@ async function save_memory(user_id, repo, token, filename, content) {
   console.log('[save_memory] repo:', finalRepo);
   console.log('[save_memory] token:', masked);
   console.log('[save_memory] file:', normalized);
-  const tokens = count_tokens(content);
+  const tokens = estimate_cost(content, 'tokens');
   if (tokens > memory_settings.token_soft_limit) {
     console.warn('[save_memory] token limit reached', tokens);
     if (memory_settings.enforce_soft_limit) {
@@ -115,7 +116,7 @@ async function save_memory_with_index(user_id, repo, token, filename, content) {
   const check = await index_manager.validateFilePathAgainstIndex(filename);
   if (check.warning) console.warn(`[index] ${check.warning}`);
   const finalPath = check.expectedPath || filename;
-  const tokens = count_tokens(content);
+  const tokens = estimate_cost(content, 'tokens');
   if (tokens > memory_settings.token_soft_limit) {
     console.warn('[save_memory_with_index] token limit reached', tokens);
     if (memory_settings.enforce_soft_limit) {

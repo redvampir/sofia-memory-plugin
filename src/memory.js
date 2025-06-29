@@ -19,13 +19,14 @@ const { split_memory_file } = require('../tools/memory_splitter');
 const memory_settings = require('../tools/memory_settings');
 const fs = require('fs');
 const fsp = fs.promises;
+const { estimate_cost } = require('../tools/text_utils');
 const {
   ensureContext,
   contextFilename,
 } = require('../logic/memory_operations');
 
 function count_tokens(text = '') {
-  return String(text).split(/\s+/).filter(Boolean).length;
+  return estimate_cost(text, 'tokens');
 }
 
 function getTokenCounter() {
@@ -143,7 +144,7 @@ async function saveMemory(repo, token, filename, content) {
     logger.debug('[saveMemory] request url', url);
   }
 
-  const tokens = count_tokens(content);
+  const tokens = estimate_cost(content, 'tokens');
   if (tokens > memory_settings.token_soft_limit) {
     logger.info('[saveMemory] token limit reached', tokens);
     if (memory_settings.enforce_soft_limit) {
@@ -343,7 +344,7 @@ async function load_memory_to_context(filename, repo, token) {
   });
   await ensureContext();
   await fsp.appendFile(contextFilename, `${content}\n`);
-  return { file: normalized, tokens: count_tokens(content) };
+  return { file: normalized, tokens: estimate_cost(content, 'tokens') };
 }
 
 async function load_context_from_index(index_path, repo, token) {

@@ -2,9 +2,10 @@ const fs = require('fs');
 const path = require('path');
 const validator = require('./markdown_validator');
 const memory_settings = require('../tools/memory_settings');
+const { estimate_cost } = require('../tools/text_utils');
 
 function count_tokens(text = '') {
-  return String(text).split(/\s+/).filter(Boolean).length;
+  return estimate_cost(text, 'tokens');
 }
 
 function createBackup(filePath) {
@@ -64,7 +65,7 @@ function writeLines(filePath, lines, force = false) {
   }
   createBackup(filePath);
   const data = Array.isArray(lines) ? lines.join('\n') : lines;
-  const tokens = count_tokens(data);
+  const tokens = estimate_cost(data, 'tokens');
   if (tokens > memory_settings.token_soft_limit && memory_settings.enforce_soft_limit) {
     console.warn('[writeLines] token limit reached', tokens);
     return false;
