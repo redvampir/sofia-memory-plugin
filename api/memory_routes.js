@@ -27,6 +27,59 @@ const { readMarkdownFile } = require('../src/memory');
 const { saveReferenceAnswer } = require('../src/memory');
 const { load_memory_to_context, load_context_from_index } = require('../src/memory');
 const logger = require('../utils/logger');
+const { restoreContext } = require('../utils/restore_context');
+
+function log_restore_action(user_id, success) {
+  if (success) {
+    logger.info(`Контекст восстановлен для пользователя: ${user_id}`);
+  } else {
+    logger.error(`Ошибка восстановления контекста для пользователя: ${user_id}`);
+  }
+}
+
+function get_context_for_user(_id) {
+  try {
+    const data = fs.readFileSync(contextFilename, 'utf-8');
+    return data.trim();
+  } catch {
+    return '';
+  }
+}
+
+async function restore_user_context(user_id) {
+  try {
+    await restoreContext(user_id);
+    log_restore_action(user_id, true);
+  } catch (e) {
+    log_restore_action(user_id, false);
+    logger.error('[restore_user_context]', e.message);
+  }
+}
+
+async function check_context_for_user(user_id) {
+  const context = get_context_for_user(user_id);
+  if (!context) {
+    await restore_user_context(user_id);
+  }
+}
+
+async function process_users_in_batches(users) {
+  const batch_size = 10;
+  for (let i = 0; i < users.length; i += batch_size) {
+    const batch = users.slice(i, i + batch_size);
+    for (const id of batch) {
+      await check_context_for_user(id);
+    }
+  }
+}
+
+async function check_context_periodically() {
+  const users = await memory_config.getAllUsers();
+  if (!users.length) users.push(null);
+  await process_users_in_batches(users);
+}
+
+setInterval(check_context_periodically, 30 * 60 * 1000);
 
 async function setMemoryRepo(req, res) {
   const { repoUrl, userId } = req.body;
@@ -588,4 +641,6 @@ router.post('/updateIndex', updateIndexManual);
 router.get('/plan', readPlan);
 router.get('/profile', readProfile);
 
+router._check_context_for_user = check_context_for_user;
+router._process_users_in_batches = process_users_in_batches;
 module.exports = router;
