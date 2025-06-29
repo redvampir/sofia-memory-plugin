@@ -38,6 +38,10 @@ function selectOperations(allOps, cfg) {
   const preserveSet = new Set(cfg.preserve || []);
 
   const preserved = allOps.filter(o => preserveSet.has(o.opId));
+  if (preserved.length) {
+    console.log('📌 Обязательные preserve операции включены:');
+    preserved.forEach(op => console.log(`  - ${op.opId}`));
+  }
   preserved.forEach(op => {
     counts[op.tag] = (counts[op.tag] || 0) + 1;
     selected.push(op);
@@ -66,7 +70,7 @@ function selectOperations(allOps, cfg) {
     selected.push(op);
   }
 
-  return { selected, removed };
+  return { selected, removed, counts };
 }
 
 function collectRefs(obj, refs) {
@@ -123,10 +127,19 @@ function buildLiteSpec(spec, ops) {
 }
 
 function main() {
+  console.log('🧠 Генерация openapi_lite.yaml');
   const spec = loadYaml(OPENAPI_PATH);
   const cfg = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf-8'));
   const allOps = gatherOperations(spec);
-  const { selected, removed } = selectOperations(allOps, cfg);
+  const { selected, removed, counts } = selectOperations(allOps, cfg);
+
+  Object.entries(counts).forEach(([tag, count]) => {
+    console.log(`🧩 Отобрано по тегу "${tag}": ${count}`);
+  });
+
+  const skippedCount = Math.max(0, allOps.length - selected.length);
+  console.log(`🔁 Всего отобрано операций: ${selected.length}`);
+  console.log(`⛔️ Отброшено операций из-за лимита: ${skippedCount}`);
 
   removed.forEach(op => {
     console.log(`Dropped: ${op.opId}`);
@@ -134,7 +147,7 @@ function main() {
 
   const liteSpec = buildLiteSpec(spec, selected);
   saveYaml(OUTPUT_PATH, liteSpec);
-  console.log(`Generated ${OUTPUT_PATH} with ${selected.length} operations`);
+  console.log(`✅ Файл успешно создан: ${OUTPUT_PATH}`);
 }
 
 main();
