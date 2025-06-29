@@ -179,6 +179,83 @@ function mergeTaskLines(existingLines = [], newLines = []) {
   });
 }
 
+function slugify(text = '') {
+  return String(text)
+    .toLowerCase()
+    .trim()
+    .replace(/[^\p{Letter}\p{Number}\s-]/gu, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-');
+}
+
+function generateMarkdownTOC(markdownText = '', headingLevels = [2, 3]) {
+  const lines = String(markdownText).split(/\r?\n/);
+  const levels = new Set(headingLevels.map(l => Number(l)));
+  const headings = [];
+  for (const line of lines) {
+    const m = line.match(/^(#{1,6})\s+(.*)$/);
+    if (!m) continue;
+    const lvl = m[1].length;
+    if (lvl === 1) continue;
+    if (!levels.has(lvl)) continue;
+    const title = m[2].trim();
+    headings.push({ title, anchor: `#${slugify(title)}` });
+  }
+  if (!headings.length) return '';
+  const tocLines = ['## Оглавление', ''];
+  headings.forEach(h => {
+    tocLines.push(`- [${h.title}](${h.anchor})`);
+  });
+  return tocLines.join('\n');
+}
+
+async function insertTOCInMarkdownFile(
+  filePath,
+  { useTOCAnchor = true, headingLevels = [2, 3] } = {}
+) {
+  const fs = require('fs');
+
+  if (!fs.existsSync(filePath)) return false;
+  const original = fs.readFileSync(filePath, 'utf-8');
+
+  const toc = generateMarkdownTOC(original, headingLevels);
+  if (!toc) return false;
+
+  const anchorTag = '<!-- TOC -->';
+  let updated = original;
+
+  if (useTOCAnchor && original.includes(anchorTag)) {
+    updated = original.replace(anchorTag, toc);
+  } else {
+    const lines = original.split(/\r?\n/);
+    let start = lines.findIndex(l => l.trim().toLowerCase() === '## оглавление');
+    if (start !== -1) {
+      let end = start + 1;
+      while (end < lines.length && !/^#/u.test(lines[end])) end++;
+      lines.splice(start, end - start, ...toc.split(/\r?\n/));
+      updated = lines.join('\n');
+    } else {
+      let insertPos = 0;
+      for (let i = 0; i < lines.length; i++) {
+        if (/^#\s+/.test(lines[i])) {
+          insertPos = i + 1;
+          break;
+        }
+      }
+      while (insertPos < lines.length && lines[insertPos].trim() === '') {
+        insertPos++;
+      }
+      const tocArr = toc.split(/\r?\n/);
+      lines.splice(insertPos, 0, ...tocArr, '');
+      updated = lines.join('\n');
+    }
+  }
+
+  if (updated === original) return false;
+  fs.writeFileSync(filePath, updated, 'utf-8');
+  return true;
+}
+
 async function safeUpdateMarkdownChecklist(filePath, tag, newTasks = []) {
   const fs = require('fs');
   const path = require('path');
@@ -341,6 +418,8 @@ module.exports = {
   updateMarkdownBlock,
   deduplicateTasks,
   mergeTaskLines,
+  generateMarkdownTOC,
+  insertTOCInMarkdownFile,
   safeUpdateMarkdownChecklist,
   ensureMarkdownBlock,
   splitMarkdownFile,
