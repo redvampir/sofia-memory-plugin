@@ -5,7 +5,7 @@ const assert = require('assert');
 const index_manager = require('../logic/index_manager');
 
 (async function run() {
-  const idxPath = path.join(__dirname, '..', 'memory', 'plans', 'features', 'index.json');
+  const idxPath = path.join(__dirname, '..', 'memory', 'plans', 'index.json');
   const original = fs.readFileSync(idxPath, 'utf-8');
 
   await index_manager.loadIndex();
