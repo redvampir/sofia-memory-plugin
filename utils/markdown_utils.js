@@ -183,6 +183,114 @@ function ensureMarkdownBlock(filePath, tag, content = '', opts = {}) {
   return true;
 }
 
+async function splitMarkdownFile(
+  filePath,
+  { maxLines = 100, maxChars = 8000, splitBy = '##', outputDir = 'memory/' } = {}
+) {
+  const fs = require('fs');
+  const path = require('path');
+
+  if (!fs.existsSync(filePath)) return [];
+  const text = fs.readFileSync(filePath, 'utf-8');
+  const lines = String(text).split(/\r?\n/);
+  const base = path.basename(filePath, '.md');
+
+  const ensureDir = dir => {
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  };
+
+  const splitByHeader = (arr, level) => {
+    const parts = [];
+    const regex = new RegExp(`^${'#'.repeat(level)}\\s+(.*)`);
+    let current = [];
+    let title = '';
+    arr.forEach(line => {
+      const m = line.match(regex);
+      if (m) {
+        if (current.length) parts.push({ title, lines: current });
+        current = [line];
+        title = m[1].trim();
+      } else {
+        current.push(line);
+      }
+    });
+    if (current.length) parts.push({ title, lines: current });
+    return parts;
+  };
+
+  const splitByTag = arr => {
+    const parts = [];
+    let current = [];
+    let title = '';
+    let tag = null;
+    for (let i = 0; i < arr.length; i++) {
+      const line = arr[i];
+      const start = line.match(/<!--\s*START:\s*(.+?)\s*-->/i);
+      if (start) {
+        if (current.length) parts.push({ title, lines: current });
+        current = [line];
+        tag = start[1].trim();
+        title = tag;
+        continue;
+      }
+      const end = line.match(/<!--\s*END:\s*(.+?)\s*-->/i);
+      current.push(line);
+      if (end && tag && end[1].trim() === tag) {
+        parts.push({ title, lines: current });
+        current = [];
+        title = '';
+        tag = null;
+      }
+    }
+    if (current.length) parts.push({ title, lines: current });
+    return parts;
+  };
+
+  const processParts = (parts, method) => {
+    const results = [];
+    for (const part of parts) {
+      const text = part.lines.join('\n');
+      if (part.lines.length > maxLines || text.length > maxChars) {
+        let next = null;
+        if (method === '##') next = splitByHeader(part.lines, 3);
+        else if (method === 'tag') next = splitByHeader(part.lines, 2);
+        if (next && next.length > 1) {
+          results.push(...processParts(next, method === 'tag' ? '##' : '###'));
+        } else {
+          for (let i = 0; i < part.lines.length; i += maxLines) {
+            results.push({
+              title: part.title,
+              lines: part.lines.slice(i, i + maxLines),
+            });
+          }
+        }
+      } else {
+        results.push(part);
+      }
+    }
+    return results;
+  };
+
+  let initial;
+  if (splitBy === 'tag') initial = splitByTag(lines);
+  else if (splitBy === '###') initial = splitByHeader(lines, 3);
+  else initial = splitByHeader(lines, 2);
+
+  const finalParts = processParts(initial, splitBy);
+
+  ensureDir(outputDir);
+  const index = { parts: [] };
+  finalParts.forEach((p, idx) => {
+    const fname = `${base}_part_${idx + 1}.md`;
+    fs.writeFileSync(path.join(outputDir, fname), p.lines.join('\n'), 'utf-8');
+    index.parts.push({ title: p.title || `Part ${idx + 1}`, file: fname });
+  });
+
+  const indexPath = path.join(outputDir, `index_split_${base}.json`);
+  fs.writeFileSync(indexPath, JSON.stringify(index, null, 2), 'utf-8');
+  return index.parts.map(p => p.file);
+}
+
 module.exports = {
   parseFrontMatter,
   parseAutoIndex,
@@ -191,4 +299,5 @@ module.exports = {
   deduplicateTasks,
   safeUpdateMarkdownChecklist,
   ensureMarkdownBlock,
+  splitMarkdownFile,
 };
