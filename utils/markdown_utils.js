@@ -135,10 +135,58 @@ function deduplicateTasks(existingLines = [], newLines = []) {
   return newLines.filter(l => !existingSet.has(normalize(l)));
 }
 
+function safeUpdateMarkdownChecklist(filePath, tag, newLines = []) {
+  const fs = require('fs');
+
+  const raw = fs.existsSync(filePath) ? fs.readFileSync(filePath, 'utf-8') : '';
+  const blocks = parseMarkdownSections(raw);
+  const block = blocks.find(b => b.type === 'anchor' && b.tag === tag);
+
+  const normalize = line =>
+    String(line)
+      .replace(/^\s*[-*]\s+\[[ xX]\]\s*/, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .toLowerCase();
+
+  const seen = new Set();
+  const existing = [];
+
+  if (block) {
+    const lines = block.content.split(/\r?\n/).slice(1, -1);
+    for (const l of lines) {
+      const key = normalize(l);
+      if (!seen.has(key)) {
+        seen.add(key);
+        existing.push(l);
+      }
+    }
+  }
+
+  const added = [];
+  for (const l of newLines) {
+    const key = normalize(l);
+    if (!seen.has(key)) {
+      seen.add(key);
+      added.push(l);
+    }
+  }
+
+  if (!added.length && existing.length === (block ? block.content.split(/\r?\n/).length - 2 : 0)) {
+    return false;
+  }
+
+  const finalLines = existing.concat(added).join('\n');
+  const updated = updateMarkdownBlock(raw, tag, finalLines);
+  fs.writeFileSync(filePath, updated, 'utf-8');
+  return true;
+}
+
 module.exports = {
   parseFrontMatter,
   parseAutoIndex,
   parseMarkdownSections,
   updateMarkdownBlock,
   deduplicateTasks,
+  safeUpdateMarkdownChecklist,
 };
