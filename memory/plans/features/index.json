@@ -2,7 +2,19 @@
   "type": "index-branch",
   "category": "features",
   "files": [
-    { "title": "Token Limit Guard", "file": "plans/features/limit_guard.md", "tags": ["limits", "token"], "context_priority": "high" },
-    { "title": "Search API", "file": "plans/features/search_api.md", "tags": ["search", "api"], "context_priority": "high" }
+    {
+      "title": "Token Limit Guard",
+      "file": "plans/features/limit_guard.md",
+      "tags": ["limits", "token"],
+      "aliases": [],
+      "context_priority": "high"
+    },
+    {
+      "title": "Search API",
+      "file": "plans/features/search_api.md",
+      "tags": ["search", "api"],
+      "aliases": [],
+      "context_priority": "high"
+    }
   ]
 }
