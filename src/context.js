@@ -163,8 +163,8 @@ function fileEmpty(p) {
   return !fs.existsSync(p) || !fs.readFileSync(p, 'utf-8').trim();
 }
 
-function shouldRestoreContext({ userPrompt = '', gptOutput = '', tokensSinceLastRead = 0 } = {}) {
-  if (context_state.get_needs_refresh()) return true;
+function shouldRestoreContext({ userPrompt = '', gptOutput = '', tokensSinceLastRead = 0, userId = 'default' } = {}) {
+  if (context_state.get_needs_refresh(userId)) return true;
   try {
     const idxPath = path.join(ROOT_DIR, 'memory', 'index.json');
     if (fileEmpty(idxPath)) return true;
@@ -192,15 +192,15 @@ function shouldRestoreContext({ userPrompt = '', gptOutput = '', tokensSinceLast
     return true;
   }
 
-  const totalTokens = context_state.get_tokens() + tokensSinceLastRead;
+  const totalTokens = context_state.get_tokens(userId) + tokensSinceLastRead;
   if (totalTokens > 2000) {
-    context_state.set_needs_refresh(true);
+    context_state.set_needs_refresh(true, userId);
     return true;
   }
 
   const promptTriggers = [/restore context/i, /!debug-restore/i, /did you forget/i, /ты ничего не помнишь/i, /ты потеряла контекст/i, /вспомни урок/i];
   if (promptTriggers.some(r => r.test(userPrompt))) {
-    context_state.set_needs_refresh(true);
+    context_state.set_needs_refresh(true, userId);
     return true;
   }
 
@@ -210,8 +210,8 @@ function shouldRestoreContext({ userPrompt = '', gptOutput = '', tokensSinceLast
   return false;
 }
 
-async function maybeRestoreContext({ debug = false, testMode = false, userPrompt = '', gptOutput = '', tokensSinceLastRead = 0 } = {}) {
-  if (!shouldRestoreContext({ userPrompt, gptOutput, tokensSinceLastRead })) {
+async function maybeRestoreContext({ debug = false, testMode = false, userPrompt = '', gptOutput = '', tokensSinceLastRead = 0, userId = 'default' } = {}) {
+  if (!shouldRestoreContext({ userPrompt, gptOutput, tokensSinceLastRead, userId })) {
     return { restored: false };
   }
 
@@ -220,9 +220,9 @@ async function maybeRestoreContext({ debug = false, testMode = false, userPrompt
     return { restored: false, confirmationNeeded: true };
   }
 
-  const context = await restore_context(debug);
-  context_state.set_needs_refresh(false);
-  context_state.reset_tokens();
+  const context = await restore_context(debug, { userId });
+  context_state.set_needs_refresh(false, userId);
+  context_state.reset_tokens(userId);
   return { restored: true, context };
 }
 

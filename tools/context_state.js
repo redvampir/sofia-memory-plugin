@@ -6,7 +6,7 @@ const state_file = path.join(cache_dir, 'context_state.json');
 
 const TOKEN_LIMIT = 3000;
 
-let state = { needs_refresh: false, tokens: 0, _loaded: false };
+let state = { _loaded: false, users: {} };
 
 function load() {
   if (state._loaded) return;
@@ -14,8 +14,9 @@ function load() {
     if (fs.existsSync(state_file)) {
       const raw = fs.readFileSync(state_file, 'utf-8');
       const data = JSON.parse(raw);
-      state.needs_refresh = !!data.needs_refresh;
-      state.tokens = data.tokens || 0;
+      if (data && typeof data === 'object') {
+        state.users = data.users || {};
+      }
     }
   } catch {}
   state._loaded = true;
@@ -23,36 +24,46 @@ function load() {
 
 function save() {
   if (!fs.existsSync(cache_dir)) fs.mkdirSync(cache_dir, { recursive: true });
-  const data = { needs_refresh: state.needs_refresh, tokens: state.tokens };
+  const data = { users: state.users };
   fs.writeFileSync(state_file, JSON.stringify(data, null, 2), 'utf-8');
 }
 
-function get_needs_refresh() {
+function ensure(userId) {
+  if (!state.users[userId]) {
+    state.users[userId] = { needs_refresh: false, tokens: 0 };
+  }
+}
+function get_needs_refresh(userId = 'default') {
   load();
-  return !!state.needs_refresh;
+  ensure(userId);
+  return !!state.users[userId].needs_refresh;
 }
 
-function set_needs_refresh(val) {
+function set_needs_refresh(val, userId = 'default') {
   load();
-  state.needs_refresh = !!val;
+  ensure(userId);
+  state.users[userId].needs_refresh = !!val;
   save();
 }
 
-function get_tokens() {
+function get_tokens(userId = 'default') {
   load();
-  return state.tokens || 0;
+  ensure(userId);
+  return state.users[userId].tokens || 0;
 }
 
-function increment_tokens(n = 0) {
+function increment_tokens(n = 0, userId = 'default') {
   load();
-  state.tokens += n;
-  if (state.tokens > 2000) state.needs_refresh = true;
+  ensure(userId);
+  state.users[userId].tokens += n;
+  if (state.users[userId].tokens > 2000) state.users[userId].needs_refresh = true;
   save();
 }
 
-function reset_tokens() {
+function reset_tokens(userId = 'default') {
   load();
-  state.tokens = 0;
+  ensure(userId);
+  state.users[userId].tokens = 0;
   save();
 }
 
@@ -60,21 +71,22 @@ function get_token_limit() {
   return TOKEN_LIMIT;
 }
 
-function get_status() {
+function get_status(userId = 'default') {
   load();
-  return { used: state.tokens, limit: TOKEN_LIMIT };
+  ensure(userId);
+  return { used: state.users[userId].tokens, limit: TOKEN_LIMIT };
 }
 
-function register_user_prompt(prompt = '') {
+function register_user_prompt(prompt = '', userId = 'default') {
   const len = typeof prompt === 'string' ? prompt.length : 0;
-  increment_tokens(len);
+  increment_tokens(len, userId);
   const triggers = [
     /ты ничего не помнишь/i,
     /ты потеряла контекст/i,
     /вспомни урок/i,
   ];
   if (triggers.some(r => r.test(prompt))) {
-    set_needs_refresh(true);
+    set_needs_refresh(true, userId);
   }
 }
 
