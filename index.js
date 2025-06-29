@@ -4,6 +4,7 @@ const fs = require('fs');
 const bodyParser = require('body-parser');
 const config = require('./config');
 const { setMemoryRepo, auto_recover_context } = require('./src/memory');
+const { start_context_checker } = require('./utils/context_checker');
 
 // Мидлвар для разрешения CORS без внешних зависимостей
 function allow_cors(req, res, next) {
@@ -81,6 +82,7 @@ app.get('/debug/index', (req, res) => {
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
   console.log(`[START] Sofia Plugin is running on port ${PORT}`);
+  start_context_checker();
 });
 
 // Проверка доступности сервера
