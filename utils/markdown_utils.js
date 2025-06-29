@@ -135,6 +135,50 @@ function deduplicateTasks(existingLines = [], newLines = []) {
   return newLines.filter(l => !existingSet.has(normalize(l)));
 }
 
+function mergeTaskLines(existingLines = [], newLines = []) {
+  const normalize = line =>
+    String(line)
+      .replace(/^\s*[-*]\s+\[[ xX]\]\s*/, '')
+      .replace(/\s+/g, '')
+      .toLowerCase();
+
+  const parse = line => {
+    const m = String(line).match(/^\s*([-*])\s+\[([ xX])\]\s*(.*)$/);
+    if (!m) return null;
+    return { bullet: m[1], checked: m[2].toLowerCase() === 'x', text: m[3] };
+  };
+
+  const map = new Map();
+  const order = [];
+
+  for (const line of existingLines) {
+    const info = parse(line);
+    if (!info) continue;
+    const key = normalize(line);
+    map.set(key, info);
+    order.push(key);
+  }
+
+  for (const line of newLines) {
+    const info = parse(line);
+    if (!info) continue;
+    const key = normalize(line);
+    if (map.has(key)) {
+      const prev = map.get(key);
+      prev.checked = info.checked;
+      map.set(key, prev);
+    } else {
+      map.set(key, info);
+      order.push(key);
+    }
+  }
+
+  return order.map(key => {
+    const { bullet, checked, text } = map.get(key);
+    return `${bullet} [${checked ? 'x' : ' '}] ${text}`;
+  });
+}
+
 async function safeUpdateMarkdownChecklist(filePath, tag, newTasks = []) {
   const fs = require('fs');
   const path = require('path');
@@ -154,8 +198,7 @@ async function safeUpdateMarkdownChecklist(filePath, tag, newTasks = []) {
     existing = block.content.split(/\r?\n/).slice(1, -1);
   }
 
-  const filtered = deduplicateTasks(existing, newTasks);
-  const merged = existing.concat(filtered);
+  const merged = mergeTaskLines(existing, newTasks);
 
   const updated = updateMarkdownBlock(text, tag, merged.join('\n'));
   fs.writeFileSync(filePath, updated, 'utf-8');
@@ -297,6 +340,7 @@ module.exports = {
   parseMarkdownSections,
   updateMarkdownBlock,
   deduplicateTasks,
+  mergeTaskLines,
   safeUpdateMarkdownChecklist,
   ensureMarkdownBlock,
   splitMarkdownFile,

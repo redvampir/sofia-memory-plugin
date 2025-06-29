@@ -29,5 +29,17 @@ if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir);
   text = fs.readFileSync(file, 'utf-8');
   assert.strictEqual((text.match(/- \[ \] c/g) || []).length, 1);
 
+  // update status of existing task
+  safeUpdateMarkdownChecklist(file, 'todo', ['- [x] b']);
+  text = fs.readFileSync(file, 'utf-8');
+  assert.strictEqual((text.match(/- \[x\] b/g) || []).length, 1);
+  assert.strictEqual((text.match(/- \[ \] b/g) || []).length, 0);
+
+  // revert status
+  safeUpdateMarkdownChecklist(file, 'todo', ['- [ ] b']);
+  text = fs.readFileSync(file, 'utf-8');
+  assert.strictEqual((text.match(/- \[ \] b/g) || []).length, 1);
+  assert.strictEqual((text.match(/- \[x\] b/g) || []).length, 0);
+
   console.log('safeUpdateMarkdownChecklist test passed');
 })();
