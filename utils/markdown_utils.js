@@ -135,49 +135,29 @@ function deduplicateTasks(existingLines = [], newLines = []) {
   return newLines.filter(l => !existingSet.has(normalize(l)));
 }
 
-function safeUpdateMarkdownChecklist(filePath, tag, newLines = []) {
+async function safeUpdateMarkdownChecklist(filePath, tag, newTasks = []) {
   const fs = require('fs');
+  const path = require('path');
 
-  const raw = fs.existsSync(filePath) ? fs.readFileSync(filePath, 'utf-8') : '';
-  const blocks = parseMarkdownSections(raw);
-  const block = blocks.find(b => b.type === 'anchor' && b.tag === tag);
+  let text = '';
+  if (fs.existsSync(filePath)) {
+    text = fs.readFileSync(filePath, 'utf-8');
+  } else {
+    fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  }
 
-  const normalize = line =>
-    String(line)
-      .replace(/^\s*[-*]\s+\[[ xX]\]\s*/, '')
-      .replace(/\s+/g, ' ')
-      .trim()
-      .toLowerCase();
+  const sections = parseMarkdownSections(text);
+  const block = sections.find(b => b.type === 'anchor' && b.tag === tag);
 
-  const seen = new Set();
-  const existing = [];
-
+  let existing = [];
   if (block) {
-    const lines = block.content.split(/\r?\n/).slice(1, -1);
-    for (const l of lines) {
-      const key = normalize(l);
-      if (!seen.has(key)) {
-        seen.add(key);
-        existing.push(l);
-      }
-    }
+    existing = block.content.split(/\r?\n/).slice(1, -1);
   }
 
-  const added = [];
-  for (const l of newLines) {
-    const key = normalize(l);
-    if (!seen.has(key)) {
-      seen.add(key);
-      added.push(l);
-    }
-  }
+  const filtered = deduplicateTasks(existing, newTasks);
+  const merged = existing.concat(filtered);
 
-  if (!added.length && existing.length === (block ? block.content.split(/\r?\n/).length - 2 : 0)) {
-    return false;
-  }
-
-  const finalLines = existing.concat(added).join('\n');
-  const updated = updateMarkdownBlock(raw, tag, finalLines);
+  const updated = updateMarkdownBlock(text, tag, merged.join('\n'));
   fs.writeFileSync(filePath, updated, 'utf-8');
   return true;
 }
