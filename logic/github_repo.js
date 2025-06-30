@@ -39,9 +39,59 @@ async function saveRepositoryData(owner, repo, data) {
   return file.replace(path.join(__dirname, '..') + '/', '');
 }
 
+async function createOrUpdateRepoIndex(token, owner, repo) {
+  const url = `${BASE_URL}/repos/${owner}/${repo}/git/trees/HEAD?recursive=1`;
+  const res = await axios.get(url, { headers: headers(token) });
+  const list = Array.isArray(res.data && res.data.tree)
+    ? res.data.tree.map(item => ({
+        name: path.basename(item.path),
+        path: item.path,
+        type: item.type,
+      }))
+    : [];
+
+  const dir = path.join(__dirname, '..', 'memory', 'github');
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  const indexPath = path.join(dir, `${owner}-${repo}-index.json`);
+  let existing = [];
+  if (fs.existsSync(indexPath)) {
+    try {
+      existing = JSON.parse(fs.readFileSync(indexPath, 'utf-8'));
+    } catch {}
+  }
+  const map = new Map();
+  existing.forEach(e => map.set(e.path, e));
+  list.forEach(f => {
+    const prev = map.get(f.path) || {};
+    map.set(f.path, { ...f, checked: prev.checked || false });
+  });
+  const merged = Array.from(map.values()).sort((a, b) => a.path.localeCompare(b.path));
+  fs.writeFileSync(indexPath, JSON.stringify(merged, null, 2), 'utf-8');
+  return merged;
+}
+
+async function markFileChecked(owner, repo, filePath) {
+  const dir = path.join(__dirname, '..', 'memory', 'github');
+  const indexPath = path.join(dir, `${owner}-${repo}-index.json`);
+  if (!fs.existsSync(indexPath)) return;
+  let data;
+  try {
+    data = JSON.parse(fs.readFileSync(indexPath, 'utf-8'));
+  } catch {
+    return;
+  }
+  const idx = data.findIndex(f => f.path === filePath);
+  if (idx >= 0) {
+    data[idx].checked = true;
+    fs.writeFileSync(indexPath, JSON.stringify(data, null, 2), 'utf-8');
+  }
+}
+
 module.exports = {
   listUserRepos,
   getRepoContents,
   fetchFileContent,
-  saveRepositoryData
+  saveRepositoryData,
+  createOrUpdateRepoIndex,
+  markFileChecked
 };
