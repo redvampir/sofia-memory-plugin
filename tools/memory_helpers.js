@@ -68,4 +68,17 @@ function categorizeMemoryFile(name) {
   return 'memory';
 }
 
-module.exports = { getRepoInfo, extractToken, categorizeMemoryFile, logDebug };
+function processMemoryFiles(filePath) {
+  if (filePath.startsWith('memory/')) {
+    return 'memory';
+  }
+  return 'project';
+}
+
+module.exports = {
+  getRepoInfo,
+  extractToken,
+  categorizeMemoryFile,
+  logDebug,
+  processMemoryFiles,
+};

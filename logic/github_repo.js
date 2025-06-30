@@ -1,6 +1,9 @@
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
+const { processMemoryFiles } = require('../tools/memory_helpers');
+const { checkAndSplitIndex } = require('../tools/index_splitter');
+const { MAX_INDEX_FILE_SIZE } = require('../utils/file_splitter');
 
 const BASE_URL = 'https://api.github.com';
 
@@ -53,21 +56,48 @@ async function createOrUpdateRepoIndex(token, owner, repo) {
   const dir = path.join(__dirname, '..', 'memory', 'github');
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   const indexPath = path.join(dir, `${owner}-${repo}-index.json`);
+  const memoryIndexPath = path.join(dir, `${owner}-${repo}-memory-index.json`);
+
   let existing = [];
+  let existingMemory = [];
   if (fs.existsSync(indexPath)) {
     try {
       existing = JSON.parse(fs.readFileSync(indexPath, 'utf-8'));
     } catch {}
   }
-  const map = new Map();
-  existing.forEach(e => map.set(e.path, e));
+  if (fs.existsSync(memoryIndexPath)) {
+    try {
+      existingMemory = JSON.parse(fs.readFileSync(memoryIndexPath, 'utf-8'));
+    } catch {}
+  }
+
+  const projectMap = new Map();
+  const memoryMap = new Map();
+  existing.forEach(e => projectMap.set(e.path, e));
+  existingMemory.forEach(e => memoryMap.set(e.path, e));
+
   list.forEach(f => {
-    const prev = map.get(f.path) || {};
-    map.set(f.path, { ...f, checked: prev.checked || false });
+    const dest = processMemoryFiles(f.path);
+    if (dest === 'memory') {
+      if (!memoryMap.has(f.path)) {
+        memoryMap.set(f.path, { ...f, checked: false });
+      }
+    } else {
+      if (!projectMap.has(f.path)) {
+        projectMap.set(f.path, { ...f, checked: false });
+      }
+    }
   });
-  const merged = Array.from(map.values()).sort((a, b) => a.path.localeCompare(b.path));
-  fs.writeFileSync(indexPath, JSON.stringify(merged, null, 2), 'utf-8');
-  return merged;
+
+  const projectIndex = Array.from(projectMap.values()).sort((a, b) => a.path.localeCompare(b.path));
+  fs.writeFileSync(indexPath, JSON.stringify(projectIndex, null, 2), 'utf-8');
+  await checkAndSplitIndex(indexPath, MAX_INDEX_FILE_SIZE);
+
+  const memoryIndex = Array.from(memoryMap.values()).sort((a, b) => a.path.localeCompare(b.path));
+  fs.writeFileSync(memoryIndexPath, JSON.stringify(memoryIndex, null, 2), 'utf-8');
+  await checkAndSplitIndex(memoryIndexPath, MAX_INDEX_FILE_SIZE);
+
+  return projectIndex;
 }
 
 async function markFileChecked(owner, repo, filePath) {
