@@ -4,8 +4,14 @@ const path = require('path');
 const { processMemoryFiles } = require('../tools/memory_helpers');
 const { checkAndSplitIndex } = require('../tools/index_splitter');
 const { MAX_INDEX_FILE_SIZE } = require('../utils/file_splitter');
+const LRUCache = require('../utils/lru_cache');
 
 const BASE_URL = 'https://api.github.com';
+
+const reposCache = new LRUCache(100);
+const contentsCache = new LRUCache(100);
+const fileCache = new LRUCache(100);
+const treeCache = new LRUCache(100);
 
 function headers(token) {
   return {
@@ -15,13 +21,22 @@ function headers(token) {
 }
 
 async function listUserRepos(token) {
+  const key = `repos:${token}`;
+  const cached = reposCache.get(key);
+  if (cached) return cached;
   const res = await axios.get(`${BASE_URL}/user/repos`, { headers: headers(token) });
+  reposCache.set(key, res.data);
   return res.data;
 }
 
 async function getRepoContents(token, owner, repo, dirPath = '', page = 1, per_page = 100) {
+  const tokenKey = token ? token.slice(0, 8) : 'none';
+  const key = `contents:${tokenKey}:${owner}/${repo}:${dirPath}:${page}:${per_page}`;
+  const cached = contentsCache.get(key);
+  if (cached) return cached;
   const url = `${BASE_URL}/repos/${owner}/${repo}/contents/${encodeURIComponent(dirPath)}?per_page=${per_page}&page=${page}`;
   const res = await axios.get(url, { headers: headers(token) });
+  contentsCache.set(key, res.data);
   return res.data;
 }
 
@@ -31,10 +46,16 @@ function filterRepoFiles(files, fileType = '.js') {
 }
 
 async function fetchFileContent(token, owner, repo, filePath) {
+  const tokenKey = token ? token.slice(0, 8) : 'none';
+  const key = `file:${tokenKey}:${owner}/${repo}:${filePath}`;
+  const cached = fileCache.get(key);
+  if (cached) return cached;
   const url = `${BASE_URL}/repos/${owner}/${repo}/contents/${encodeURIComponent(filePath)}`;
   const res = await axios.get(url, { headers: headers(token) });
   if (res.data && res.data.content) {
-    return Buffer.from(res.data.content, 'base64').toString('utf-8');
+    const content = Buffer.from(res.data.content, 'base64').toString('utf-8');
+    fileCache.set(key, content);
+    return content;
   }
   return '';
 }
@@ -48,15 +69,20 @@ async function saveRepositoryData(owner, repo, data) {
 }
 
 async function createOrUpdateRepoIndex(token, owner, repo) {
-  const url = `${BASE_URL}/repos/${owner}/${repo}/git/trees/HEAD?recursive=1`;
-  const res = await axios.get(url, { headers: headers(token) });
-  const list = Array.isArray(res.data && res.data.tree)
-    ? res.data.tree.map(item => ({
-        name: path.basename(item.path),
-        path: item.path,
-        type: item.type,
-      }))
-    : [];
+  const tokenKey = token ? token.slice(0, 8) : 'none';
+  const cacheKey = `tree:${tokenKey}:${owner}/${repo}`;
+  let tree = treeCache.get(cacheKey);
+  if (!tree) {
+    const url = `${BASE_URL}/repos/${owner}/${repo}/git/trees/HEAD?recursive=1`;
+    const res = await axios.get(url, { headers: headers(token) });
+    tree = Array.isArray(res.data && res.data.tree) ? res.data.tree : [];
+    treeCache.set(cacheKey, tree);
+  }
+  const list = tree.map(item => ({
+    name: path.basename(item.path),
+    path: item.path,
+    type: item.type,
+  }));
 
   const dir = path.join(__dirname, '..', 'memory', 'github');
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
@@ -103,6 +129,13 @@ async function createOrUpdateRepoIndex(token, owner, repo) {
   await checkAndSplitIndex(memoryIndexPath, MAX_INDEX_FILE_SIZE);
 
   return projectIndex;
+}
+
+function clearCache() {
+  reposCache.clear();
+  contentsCache.clear();
+  fileCache.clear();
+  treeCache.clear();
 }
 
 async function markFileChecked(owner, repo, filePath) {
@@ -176,5 +209,6 @@ module.exports = {
   createOrUpdateRepoIndex,
   markFileChecked,
   filterRepoFiles,
-  mergeRepoFilesIntoIndex
+  mergeRepoFilesIntoIndex,
+  clearCache
 };
