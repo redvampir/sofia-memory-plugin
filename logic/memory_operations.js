@@ -12,6 +12,7 @@ const {
   deepMerge,
   normalize_memory_path,
 } = require('../tools/file_utils');
+const { checkAccess } = require('../utils/access_control');
 const {
   getRepoInfo,
   categorizeMemoryFile,
@@ -283,6 +284,14 @@ async function savePlan(repo, token) {
 
 async function writeFileSafe(filePath, data, force = false) {
   try {
+    const relPath = path
+      .relative(path.join(__dirname, '..'), filePath)
+      .replace(/\\/g, '/');
+    const accessCheck = checkAccess(relPath, 'write');
+    if (!accessCheck.allowed) {
+      console.error(`[writeFileSafe] ${accessCheck.message}`);
+      throw new Error(accessCheck.message);
+    }
     ensure_dir(filePath);
     if (filePath.toLowerCase().endsWith('.md')) {
       const check = validator.validateMarkdownSyntax(data, filePath);
