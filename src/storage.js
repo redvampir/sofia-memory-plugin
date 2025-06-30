@@ -51,6 +51,16 @@ async function read_memory(user_id, repo, token, filename, opts = {}) {
     }
   }
 
+  if (!index_manager.validatePath(normalized)) {
+    await index_manager.addOrUpdateEntry({
+      path: normalized,
+      title: index_manager.generateTitleFromPath(normalized),
+      type: index_manager.inferTypeFromPath(normalized),
+      lastModified: new Date().toISOString(),
+    });
+    await index_manager.saveIndex(token, repo, user_id);
+  }
+
   if (parse_json && normalized.endsWith('.json')) {
     try {
       return JSON.parse(content);

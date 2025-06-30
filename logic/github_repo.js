@@ -138,21 +138,39 @@ function clearCache() {
   treeCache.clear();
 }
 
-async function markFileChecked(owner, repo, filePath) {
+async function updateRepoIndexEntry(owner, repo, filePath, meta = {}) {
   const dir = path.join(__dirname, '..', 'memory', 'github');
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   const indexPath = path.join(dir, `${owner}-${repo}-index.json`);
-  if (!fs.existsSync(indexPath)) return;
-  let data;
-  try {
-    data = JSON.parse(fs.readFileSync(indexPath, 'utf-8'));
-  } catch {
-    return;
+  const memoryIndexPath = path.join(dir, `${owner}-${repo}-memory-index.json`);
+
+  let project = [];
+  let memory = [];
+  if (fs.existsSync(indexPath)) {
+    try { project = JSON.parse(fs.readFileSync(indexPath, 'utf-8')); } catch {}
   }
-  const idx = data.findIndex(f => f.path === filePath);
+  if (fs.existsSync(memoryIndexPath)) {
+    try { memory = JSON.parse(fs.readFileSync(memoryIndexPath, 'utf-8')); } catch {}
+  }
+
+  const dest = processMemoryFiles(filePath);
+  const list = dest === 'memory' ? memory : project;
+  const target = dest === 'memory' ? memoryIndexPath : indexPath;
+
+  const idx = list.findIndex(e => e.path === filePath);
+  const base = { path: filePath, type: 'blob' };
   if (idx >= 0) {
-    data[idx].checked = true;
-    fs.writeFileSync(indexPath, JSON.stringify(data, null, 2), 'utf-8');
+    list[idx] = { ...list[idx], ...meta };
+  } else {
+    list.push({ ...base, ...meta });
   }
+  list.sort((a, b) => a.path.localeCompare(b.path));
+  fs.writeFileSync(target, JSON.stringify(list, null, 2), 'utf-8');
+  return list.find(e => e.path === filePath);
+}
+
+async function markFileChecked(owner, repo, filePath) {
+  await updateRepoIndexEntry(owner, repo, filePath, { checked: true });
 }
 
 async function mergeRepoFilesIntoIndex(owner, repo, files) {
@@ -210,5 +228,6 @@ module.exports = {
   markFileChecked,
   filterRepoFiles,
   mergeRepoFilesIntoIndex,
+  updateRepoIndexEntry,
   clearCache
 };
