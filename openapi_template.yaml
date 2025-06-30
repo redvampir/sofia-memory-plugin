@@ -216,6 +216,48 @@ paths:
       responses:
         '200':
           description: File list
+  /github/repos:
+    post:
+      summary: List user repositories
+      operationId: listRepos
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                token:
+                  type: string
+      responses:
+        '200':
+          description: Repository list
+  /github/repository:
+    post:
+      summary: Get repository contents
+      operationId: repoContents
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RepoRequest'
+      responses:
+        '200':
+          description: Repository data
+  /github/file:
+    post:
+      summary: Fetch file with lint info
+      operationId: fileData
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FileRequest'
+      responses:
+        '200':
+          description: File data
   /version/commit:
     post:
       summary: Commit instructions version
@@ -443,4 +485,28 @@ components:
       type: object
       properties:
         version:
+          type: string
+    RepoRequest:
+      type: object
+      properties:
+        token:
+          type: string
+        owner:
+          type: string
+        repo:
+          type: string
+        path:
+          type: string
+        page:
+          type: integer
+    FileRequest:
+      type: object
+      properties:
+        token:
+          type: string
+        owner:
+          type: string
+        repo:
+          type: string
+        filePath:
           type: string
