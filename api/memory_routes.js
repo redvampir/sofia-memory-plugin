@@ -4,6 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const github = require('../tools/github_client');
 const router = express.Router();
+const { checkAccess } = require('../utils/access_control');
 
 const {
   writeFileSafe,
@@ -187,6 +188,11 @@ async function saveMemory(req, res) {
     if (effectiveRepo) {
       if (!effectiveToken) {
         return res.status(401).json({ status: 'error', message: 'Missing GitHub token' });
+      }
+      const access = checkAccess(normalizedFilename, 'write');
+      if (!access.allowed) {
+        logError('access denied', new Error(access.message));
+        return res.status(403).json({ status: 403, message: access.message });
       }
       try {
         await github.writeFileSafe(
@@ -381,6 +387,11 @@ async function saveContext(req, res) {
   }
 
   if (effectiveRepo && effectiveToken) {
+    const access = checkAccess('memory/context.md', 'write');
+    if (!access.allowed) {
+      logError('access denied', new Error(access.message));
+      return res.status(403).json({ status: 403, message: access.message });
+    }
     try {
       await github.writeFileSafe(
         effectiveToken,
@@ -505,6 +516,11 @@ async function save(req, res) {
     }
 
     const normalized = normalize_memory_path(filename);
+    const access = checkAccess(normalized, 'write');
+    if (!access.allowed) {
+      logError('access denied', new Error(access.message));
+      return res.status(403).json({ status: 403, message: access.message });
+    }
     await github.writeFileSafe(token, repo, normalized, content, `Update ${normalized}`);
     res.json({ status: 'ok' });
   } catch (e) {
