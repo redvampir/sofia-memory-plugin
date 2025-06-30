@@ -13,6 +13,10 @@ const {
   normalize_memory_path,
 } = require('../tools/file_utils');
 const { split_memory_file } = require('../tools/memory_splitter');
+const {
+  splitMarkdownFile,
+  MAX_MD_FILE_SIZE,
+} = require('../utils/file_splitter');
 const { logError } = require('../tools/error_handler');
 const memory_settings = require('../tools/memory_settings');
 const { estimate_cost } = require('../tools/text_utils');
@@ -84,6 +88,18 @@ async function save_memory(user_id, repo, token, filename, content) {
     const backup = `${localPath}.bak`;
     fs.copyFileSync(localPath, backup);
   }
+
+  const byteSize = Buffer.byteLength(content, 'utf-8');
+  if (byteSize > MAX_MD_FILE_SIZE) {
+    fs.writeFileSync(localPath, content, 'utf-8');
+    const parts = splitMarkdownFile(localPath, MAX_MD_FILE_SIZE);
+    fs.unlinkSync(localPath);
+    const relParts = parts.map(p =>
+      path.relative(path.join(__dirname, '..'), p).replace(/\\/g, '/')
+    );
+    return { split: true, parts: relParts };
+  }
+
   fs.writeFileSync(localPath, content, 'utf-8');
 
   if (finalRepo && finalToken) {
@@ -128,21 +144,54 @@ async function save_memory_with_index(user_id, repo, token, filename, content) {
     const parts = await split_memory_file(finalPath, memory_settings.max_tokens_per_file);
     return { split: true, parts };
   }
+  const byteSize = Buffer.byteLength(content, 'utf-8');
+  if (byteSize > MAX_MD_FILE_SIZE) {
+    const abs = path.join(__dirname, '..', normalize_memory_path(finalPath));
+    ensure_dir(abs);
+    fs.writeFileSync(abs, content, 'utf-8');
+    const parts = splitMarkdownFile(abs, MAX_MD_FILE_SIZE);
+    fs.unlinkSync(abs);
+    const relParts = parts.map(p =>
+      path.relative(path.join(__dirname, '..'), p).replace(/\\/g, '/')
+    );
+    for (const p of relParts) {
+      await index_manager.addOrUpdateEntry({
+        path: p,
+        title: index_manager.generateTitleFromPath(p),
+        type: index_manager.inferTypeFromPath(p),
+        lastModified: new Date().toISOString(),
+      });
+    }
+    return { split: true, parts: relParts };
+  }
   const savedPath = await save_memory(user_id, repo, token, finalPath, content);
+  if (savedPath && savedPath.split) {
+    const relParts = savedPath.parts;
+    for (const p of relParts) {
+      await index_manager.addOrUpdateEntry({
+        path: p,
+        title: index_manager.generateTitleFromPath(p),
+        type: index_manager.inferTypeFromPath(p),
+        lastModified: new Date().toISOString(),
+      });
+    }
+    return { split: true, parts: relParts };
+  }
+  const savedPathStr = savedPath;
   const num = finalPath.match(/(\d+)/);
-  if (num) await index_manager.markDuplicateLessons(num[1], savedPath);
+  if (num) await index_manager.markDuplicateLessons(num[1], savedPathStr);
   await index_manager.addOrUpdateEntry({
-    path: savedPath,
-    title: index_manager.generateTitleFromPath(savedPath),
-    type: index_manager.inferTypeFromPath(savedPath),
+    path: savedPathStr,
+    title: index_manager.generateTitleFromPath(savedPathStr),
+    type: index_manager.inferTypeFromPath(savedPathStr),
     lastModified: new Date().toISOString(),
   });
-  const result = await index_manager.saveIndex(token, repo, user_id);
-  if (result && result.warning) {
-    console.warn(`[index] ${result.warning}`);
+  const result2 = await index_manager.saveIndex(token, repo, user_id);
+  if (result2 && result2.warning) {
+    console.warn(`[index] ${result2.warning}`);
   }
-  
-  return savedPath;
+
+  return savedPathStr;
 }
 
 async function get_file(user_id, repo, token, filename) {
