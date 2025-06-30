@@ -97,10 +97,24 @@ function findMatchingFile(indexObject, keyword) {
   return sort_by_priority(matches);
 }
 
+function filterMemoryFiles(memoryFiles = [], context = {}) {
+  const { category, topic } = context;
+  return memoryFiles.filter(file => {
+    const tags = Array.isArray(file.tags) ? file.tags : [];
+    const catMatch = category && file.category === category;
+    const tagMatch = topic && tags.includes(topic);
+    if (category && topic) return catMatch || tagMatch;
+    if (category) return catMatch;
+    if (topic) return tagMatch;
+    return true;
+  });
+}
+
 module.exports = {
   index_to_array,
   array_to_index,
   sort_by_priority,
   hasMatchingTag,
-  findMatchingFile
+  findMatchingFile,
+  filterMemoryFiles
 };
