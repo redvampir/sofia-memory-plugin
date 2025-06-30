@@ -7,6 +7,8 @@ const {
   saveRepositoryData,
   createOrUpdateRepoIndex,
   markFileChecked,
+  filterRepoFiles,
+  mergeRepoFilesIntoIndex,
 } = require('../logic/github_repo');
 const { lintText } = require('../utils/code_analyzer');
 
@@ -22,12 +24,13 @@ router.post('/github/repos', async (req, res) => {
 });
 
 router.post('/github/repository', async (req, res) => {
-  const { token, owner, repo, path = '', page = 1 } = req.body;
+  const { token, owner, repo, path = '', page = 1, per_page = 100, fileType } = req.body;
   if (!token || !owner || !repo) return res.status(400).json({ status: 'error', message: 'Missing parameters' });
   try {
-    const data = await getRepoContents(token, owner, repo, path, page);
+    let data = await getRepoContents(token, owner, repo, path, page, per_page);
+    if (fileType) data = filterRepoFiles(data, fileType);
     await saveRepositoryData(owner, repo, data);
-    await createOrUpdateRepoIndex(token, owner, repo);
+    await mergeRepoFilesIntoIndex(owner, repo, data);
     res.json({ status: 'success', contents: data });
   } catch (e) {
     res.status(500).json({ status: 'error', message: e.message });

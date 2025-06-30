@@ -499,6 +499,10 @@ components:
           type: string
         page:
           type: integer
+        per_page:
+          type: integer
+        fileType:
+          type: string
     FileRequest:
       type: object
       properties:
