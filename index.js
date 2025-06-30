@@ -17,6 +17,7 @@ function allow_cors(req, res, next) {
   next();
 }
 const memory_routes = require("./api/memory_routes");
+const github_routes = require("./api/github_routes");
 const { listMemoryFiles } = require("./logic/memory_operations");
 const versioning = require('./versioning');
 
@@ -44,6 +45,7 @@ app.get('/ai-plugin.json', (_req, res) => {
 });
 app.use(bodyParser.json());
 app.use(memory_routes);
+app.use(github_routes);
 
 app.post('/list', async (req, res) => {
   try {
@@ -118,6 +120,9 @@ app.get('/docs', (req, res) => {
       "POST /version/list",
       "POST /list",
       "POST /updateIndex",
+      "POST /github/repos",
+      "POST /github/repository",
+      "POST /github/file",
         "POST /chat/setup",
         "GET /profile",
         "GET /debug/index",
