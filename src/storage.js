@@ -74,6 +74,12 @@ async function read_memory(user_id, repo, token, filename, opts = {}) {
 
 async function save_memory(user_id, repo, token, filename, content) {
   const normalized = normalize_memory_path(filename);
+  const parsed = path.posix.parse(normalized);
+  if (!parsed.ext) {
+    throw new Error(
+      `save_memory expects a file path, got directory: ${filename}`
+    );
+  }
   const finalRepo = repo || (await memory_config.getRepoUrl(user_id));
   const finalToken = token || (await token_store.getToken(user_id));
   const masked = finalToken ? `${finalToken.slice(0, 4)}...` : 'null';
