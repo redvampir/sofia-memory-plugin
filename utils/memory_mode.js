@@ -2,6 +2,10 @@ const fs = require('fs');
 const fsp = fs.promises;
 const path = require('path');
 
+// additional config to store the name of the active memory folder
+const sofiaDir = path.join(__dirname, '..', '.sofia');
+const sofiaCfgPath = path.join(sofiaDir, 'config.json');
+
 const usersDir = path.join(__dirname, '..', 'config', 'users');
 const cache = {};
 const pathCache = {};
@@ -33,6 +37,20 @@ function loadConfigSync(userId) {
   } catch {
     return {};
   }
+}
+
+function loadSofiaConfig() {
+  try {
+    const raw = fs.readFileSync(sofiaCfgPath, 'utf-8');
+    return JSON.parse(raw);
+  } catch {
+    return {};
+  }
+}
+
+async function saveSofiaConfig(cfg) {
+  await fsp.mkdir(sofiaDir, { recursive: true });
+  await fsp.writeFile(sofiaCfgPath, JSON.stringify(cfg, null, 2));
 }
 
 async function saveConfig(userId, cfg) {
@@ -147,6 +165,45 @@ async function switchLocalRepo(userId = 'default', dir) {
   baseCache[userId] = cfg.base_path;
 }
 
+async function listMemoryFolders(userId = 'default') {
+  const baseDirPath = baseCache[userId] || (await getLocalPath(userId));
+  if (!baseDirPath) return [];
+  try {
+    const items = await fsp.readdir(baseDirPath, { withFileTypes: true });
+    return items.filter(i => i.isDirectory()).map(i => i.name);
+  } catch {
+    return [];
+  }
+}
+
+async function setActiveMemoryFolder(name) {
+  const cfg = loadSofiaConfig();
+  cfg.active_folder = name || null;
+  await saveSofiaConfig(cfg);
+}
+
+function getActiveMemoryFolder() {
+  const cfg = loadSofiaConfig();
+  return cfg.active_folder || null;
+}
+
+async function switchMemoryFolder(userId = 'default', name) {
+  await setMemoryFolder(userId, name);
+  await setActiveMemoryFolder(name);
+  const indexPath = path.join(baseDir(userId), 'memory', 'index.json');
+  const planPath = path.join(baseDir(userId), 'memory', 'plan.md');
+  let index = null;
+  let plan = null;
+  try {
+    const raw = await fsp.readFile(indexPath, 'utf-8');
+    index = JSON.parse(raw);
+  } catch {}
+  try {
+    plan = await fsp.readFile(planPath, 'utf-8');
+  } catch {}
+  return { index, plan };
+}
+
 module.exports = {
   getMemoryMode,
   getMemoryModeSync,
@@ -159,4 +216,7 @@ module.exports = {
   setLocalPath,
   setMemoryFolder,
   switchLocalRepo,
-};
+  listMemoryFolders,
+  switchMemoryFolder,
+  getActiveMemoryFolder,
+}; 
