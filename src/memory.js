@@ -9,7 +9,14 @@ const memory_config = require('../tools/memory_config');
 const token_store = require('../tools/token_store');
 const { normalize_memory_path } = require('../tools/file_utils');
 const path = require('path');
-const { isLocalMode, baseDir } = require('../utils/memory_mode');
+const {
+  isLocalMode,
+  baseDir,
+  setMemoryMode,
+  setLocalPath,
+  setMemoryFolder,
+  switchLocalRepo,
+} = require('../utils/memory_mode');
 function getRootDir(userId = 'default') {
   return isLocalMode(userId) ? baseDir(userId) : path.join(__dirname, '..');
 }
@@ -191,6 +198,24 @@ async function setMemoryRepo(token, repo) {
     logger.error('[setMemoryRepo] error', e.message);
     throw e;
   }
+}
+
+async function setLocalMemoryPath(dir, userId = 'default') {
+  await setLocalPath(userId, dir);
+  await setMemoryMode(userId, 'local');
+}
+
+async function createMemoryFolder(name, userId = 'default') {
+  await setMemoryFolder(userId, name);
+}
+
+async function switchMemoryRepo(type, dir, userId = 'default') {
+  const mode = (type || '').toLowerCase();
+  if (mode === 'local') {
+    await switchLocalRepo(userId, dir);
+    return { mode: 'local' };
+  }
+  throw new Error('Unsupported repo type');
 }
 
 async function refreshContextFromMemoryFiles(repo, token, keywords = []) {
@@ -490,4 +515,7 @@ module.exports = {
   checkAndRestoreContext,
   getTokenCounter,
   formatTokenCounter,
+  setLocalMemoryPath,
+  createMemoryFolder,
+  switchMemoryRepo,
 };
