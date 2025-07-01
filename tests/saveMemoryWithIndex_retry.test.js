@@ -11,7 +11,7 @@ const github = require('../tools/github_client');
   const origValidate = github.validateToken;
   const origExists = github.repoExists;
   github.validateToken = async () => ({ valid: true });
-  github.repoExists = async () => true;
+  github.repoExists = async () => ({ exists: true });
 
   // mock axios to simulate 5xx errors
   const origGet = axios.get;
