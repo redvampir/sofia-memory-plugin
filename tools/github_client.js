@@ -31,15 +31,34 @@ exports.validateToken = async function (token) {
 
 exports.repoExists = async function (token, repo) {
   const normalized = normalizeRepo(repo);
+  const url = `https://api.github.com/repos/${normalized}`;
+  const masked = token ? `${token.slice(0, 4)}...` : 'null';
+  console.log('[repoExists] Repo:', normalized);
+  console.log('[repoExists] Token:', masked);
+  console.log('[repoExists] URL:', url);
   try {
-    const res = await axios.get(`https://api.github.com/repos/${normalized}`, {
+    const res = await axios.get(url, {
       headers: { Authorization: `token ${token}`, ...DEFAULT_HEADERS }
     });
-    return { exists: res.status === 200 };
+    console.log('[repoExists] status:', res.status);
+    return { exists: res.status === 200, status: res.status };
   } catch (e) {
     const status = e.response ? e.response.status : undefined;
+    const message =
+      e.response && e.response.data && e.response.data.message
+        ? e.response.data.message
+        : undefined;
+    if (e.response) {
+      e.status = e.response.status;
+      if (message) {
+        e.githubMessage = message;
+        e.message = message;
+      }
+    }
+    console.log('[repoExists] status:', status);
+    if (message) console.log('[repoExists] message:', message);
     logError('repoExists', e);
-    return { exists: false, status };
+    return { exists: false, status, message };
   }
 };
 
