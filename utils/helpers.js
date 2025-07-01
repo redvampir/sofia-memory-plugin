@@ -76,6 +76,18 @@ function parse_set_memory_folder(message = '') {
   return { name: m[1] };
 }
 
+function parse_switch_memory_folder(message = '') {
+  if (typeof message !== 'string') return null;
+  const m = message.match(/\/switch_memory_folder\s+name="([^"]+)"/i);
+  if (!m) return null;
+  return { name: m[1] };
+}
+
+function parse_list_memory_folders(message = '') {
+  if (typeof message !== 'string') return null;
+  return /\/list_memory_folders/i.test(message) ? {} : null;
+}
+
 function parse_switch_memory_repo(message = '') {
   if (typeof message !== 'string') return null;
   const m = message.match(/\/switch_memory_repo\s+type=(\w+)\s+path="([^"]+)"/i);
@@ -89,6 +101,8 @@ module.exports = {
   parse_manual_load_command,
   parse_set_local_path,
   parse_set_memory_folder,
+  parse_switch_memory_folder,
+  parse_list_memory_folders,
   parse_switch_memory_repo,
 };
 
