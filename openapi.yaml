@@ -49,6 +49,27 @@ paths:
       responses:
         '200':
           description: Repo stored
+  /memory/set-mode:
+    post:
+      summary: Set memory mode for a user
+      operationId: setMemoryMode
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                userId:
+                  type: string
+                mode:
+                  type: string
+                  enum: [local, github]
+      responses:
+        '200':
+          description: Mode stored
+        '400':
+          description: Invalid mode
   /saveLessonPlan:
     post:
       summary: Update learning plan

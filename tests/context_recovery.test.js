@@ -14,14 +14,14 @@ async function run() {
 
   const res = await auto_recover_context();
   assert.ok(res && res.files.includes(rel));
-  assert.ok(fs.readFileSync(contextFilename, 'utf-8').includes('Temp'));
+  assert.ok(fs.readFileSync(contextFilename(), 'utf-8').includes('Temp'));
 
   const manual = await load_memory_to_context(rel);
   assert.ok(manual.tokens >= 1);
 
   // cleanup
   // note: file kept to avoid race with async index rebuild
-  fs.writeFileSync(contextFilename, '');
+  fs.writeFileSync(contextFilename(), '');
   console.log('context recovery tests passed');
 }
 
