@@ -32,9 +32,10 @@ npm test
 - `POST /save` \u2014 сохранить файл в репозитории;
 - `POST /read` \u2014 прочитать содержимое файла;
 - `POST /saveMemory` и `POST /readMemory` \u2014 работа с основной памятью;
-- При сохранении через `POST /saveMemory` перед записью проверяется GitHub токен
-  и существование репозитория. Неверный токен приводит к ответу `401`,
-  отсутствующий репозиторий — к `404`. В этих случаях запись в GitHub не
+- При сохранении через `POST /saveMemory` и `POST /saveMemoryWithIndex` перед
+  записью проверяется GitHub токен и существование репозитория. Ответ `401`
+  приводит к сообщению «Invalid GitHub token.», `403` \u2014 к «Access denied to
+  repository.», остальные коды \u2014 к «Repository not found.» Запись в GitHub не
   выполняется;
 - `POST /saveMemoryWithIndex` \u2014 сохранить файл и обновить `index.json`;
 - `POST /saveAnswer` \u2014 сохранить эталонный ответ;

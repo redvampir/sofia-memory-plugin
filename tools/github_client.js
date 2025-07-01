@@ -35,10 +35,11 @@ exports.repoExists = async function (token, repo) {
     const res = await axios.get(`https://api.github.com/repos/${normalized}`, {
       headers: { Authorization: `token ${token}`, ...DEFAULT_HEADERS }
     });
-    return res.status === 200;
+    return { exists: res.status === 200 };
   } catch (e) {
+    const status = e.response ? e.response.status : undefined;
     logError('repoExists', e);
-    return false;
+    return { exists: false, status };
   }
 };
 

@@ -122,13 +122,19 @@ async function saveMemory(req, res) {
       return res.status(401).json({ status: 'error', message: 'Invalid GitHub token' });
     }
     try {
-      const exists = await github.repoExists(effectiveToken, effectiveRepo);
+      const { exists, status } = await github.repoExists(effectiveToken, effectiveRepo);
       if (!exists) {
-        return res.status(404).json({ status: 'error', message: 'Repository not found' });
+        if (status === 401) {
+          return res.status(401).json({ status: 'error', message: 'Invalid GitHub token.' });
+        }
+        if (status === 403) {
+          return res.status(403).json({ status: 'error', message: 'Access denied to repository.' });
+        }
+        return res.status(404).json({ status: 'error', message: 'Repository not found.' });
       }
     } catch (e) {
       logError('repoExists', e);
-      return res.status(404).json({ status: 'error', message: 'Repository not found' });
+      return res.status(404).json({ status: 'error', message: 'Repository not found.' });
     }
   }
 
@@ -575,13 +581,19 @@ router.post('/saveMemoryWithIndex', async (req, res) => {
       return res.status(401).json({ status: 'error', message: 'Invalid GitHub token' });
     }
     try {
-      const exists = await github.repoExists(effectiveToken, effectiveRepo);
+      const { exists, status } = await github.repoExists(effectiveToken, effectiveRepo);
       if (!exists) {
-        return res.status(404).json({ status: 'error', message: 'Repository not found' });
+        if (status === 401) {
+          return res.status(401).json({ status: 'error', message: 'Invalid GitHub token.' });
+        }
+        if (status === 403) {
+          return res.status(403).json({ status: 'error', message: 'Access denied to repository.' });
+        }
+        return res.status(404).json({ status: 'error', message: 'Repository not found.' });
       }
     } catch (e) {
       logError('repoExists', e);
-      return res.status(404).json({ status: 'error', message: 'Repository not found' });
+      return res.status(404).json({ status: 'error', message: 'Repository not found.' });
     }
   }
   try {
