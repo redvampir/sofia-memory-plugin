@@ -211,6 +211,22 @@ paths:
       responses:
         '200':
           description: Setup parsed
+  /chat/create_memory_folder:
+    post:
+      summary: Create memory folder
+      operationId: chatCreateMemoryFolder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                text:
+                  type: string
+      responses:
+        '200':
+          description: Folder created
   /updateIndex:
     post:
       summary: Manually update index entries
