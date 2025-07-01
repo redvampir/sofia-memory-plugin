@@ -10,7 +10,9 @@ const token_store = require('../tools/token_store');
 const { normalize_memory_path } = require('../tools/file_utils');
 const path = require('path');
 const { isLocalMode, baseDir } = require('../utils/memory_mode');
-const ROOT_DIR = isLocalMode() ? baseDir('default') : path.join(__dirname, '..');
+function getRootDir(userId = 'default') {
+  return isLocalMode(userId) ? baseDir(userId) : path.join(__dirname, '..');
+}
 const logger = require('../utils/logger');
 const { parseFrontMatter, parseAutoIndex } = require('../utils/markdown_utils');
 const { encodePath } = require('../tools/github_client');
@@ -341,13 +343,13 @@ async function load_memory_to_context(filename, repo, token) {
     source: 'manual-load',
   });
   await ensureContext();
-  await fsp.appendFile(contextFilename, `${content}\n`);
+  await fsp.appendFile(contextFilename(), `${content}\n`);
   return { file: normalized, tokens: estimate_cost(content, 'tokens') };
 }
 
 async function load_context_from_index(index_path, repo, token) {
   const normalized = normalize_memory_path(index_path);
-  const abs = path.join(ROOT_DIR, normalized);
+  const abs = path.join(getRootDir(), normalized);
   try {
     await fsp.access(abs);
   } catch {
@@ -378,7 +380,7 @@ async function load_context_from_index(index_path, repo, token) {
   }
   if (!loaded.length) return null;
   await ensureContext();
-  await fsp.writeFile(contextFilename, full.trim() + '\n');
+  await fsp.writeFile(contextFilename(), full.trim() + '\n');
   return { files: loaded, content: full.trim() };
 }
 
@@ -401,16 +403,16 @@ async function auto_recover_context() {
       const raw = await fsp.readFile(abs, 'utf-8');
       const { meta } = parseFrontMatter(raw);
       if ((meta.context_priority || '').toLowerCase() === 'high') {
-        targets.add(path.relative(ROOT_DIR, abs).replace(/\\/g, '/'));
+        targets.add(path.relative(getRootDir(), abs).replace(/\\/g, '/'));
       }
     }
   };
-  await scan(path.join(ROOT_DIR, 'memory', 'lessons'));
-  await scan(path.join(ROOT_DIR, 'memory', 'context'));
+  await scan(path.join(getRootDir(), 'memory', 'lessons'));
+  await scan(path.join(getRootDir(), 'memory', 'context'));
 
   const indexVariants = [
-    path.join(ROOT_DIR, 'memory', 'context', 'autocontext-index.md'),
-    path.join(ROOT_DIR, 'memory', 'autocontext-index.md'),
+    path.join(getRootDir(), 'memory', 'context', 'autocontext-index.md'),
+    path.join(getRootDir(), 'memory', 'autocontext-index.md'),
   ];
   for (const idx of indexVariants) {
     try {
@@ -455,7 +457,7 @@ async function auto_recover_context() {
   }
   if (!loaded.length) return null;
   await ensureContext();
-  await fsp.writeFile(contextFilename, full.trim() + '\n');
+  await fsp.writeFile(contextFilename(), full.trim() + '\n');
   logger.info(`Context restored from: ${loaded.join(', ')}`);
   return { files: loaded, content: full.trim() };
 }

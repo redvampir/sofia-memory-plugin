@@ -40,9 +40,9 @@ async function run() {
 
   const manual = await load_context_from_index(idx_rel);
   assert.ok(manual && manual.files.includes(file2_rel));
-  assert.ok(fs.readFileSync(contextFilename, 'utf-8').includes('Vector'));
+  assert.ok(fs.readFileSync(contextFilename(), 'utf-8').includes('Vector'));
 
-  fs.writeFileSync(contextFilename, '');
+  fs.writeFileSync(contextFilename(), '');
   fs.unlinkSync(file1_abs);
   fs.unlinkSync(file2_abs);
   fs.unlinkSync(file3_abs);

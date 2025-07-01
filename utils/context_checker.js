@@ -14,7 +14,7 @@ const PORT = process.env.PORT || 10000;
 
 function context_exists() {
   try {
-    const data = fs.readFileSync(contextFilename, 'utf-8');
+    const data = fs.readFileSync(contextFilename(), 'utf-8');
     return data.trim().length > 0;
   } catch {
     return false;

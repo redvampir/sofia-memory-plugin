@@ -20,6 +20,7 @@ const {
 const index_manager = require('../logic/index_manager');
 const memory_config = require('../tools/memory_config');
 const token_store = require('../tools/token_store');
+const { setMemoryMode } = require('../utils/memory_mode');
 const { generateTitleFromPath, inferTypeFromPath, normalize_memory_path, ensure_dir } = require('../tools/file_utils');
 const { parseMarkdownStructure, mergeMarkdownTrees, serializeMarkdownTree } = require('../logic/markdown_merge_engine.ts');
 const { getRepoInfo, extractToken, categorizeMemoryFile, logDebug } = require('../tools/memory_helpers');
@@ -40,7 +41,7 @@ function log_restore_action(user_id, success) {
 
 function get_context_for_user(_id) {
   try {
-    const data = fs.readFileSync(contextFilename, 'utf-8');
+    const data = fs.readFileSync(contextFilename(), 'utf-8');
     return data.trim();
   } catch {
     return '';
@@ -86,6 +87,16 @@ async function setMemoryRepo(req, res) {
   const { repoUrl, userId } = req.body;
   await memory_config.setRepoUrl(userId, repoUrl);
   res.json({ status: 'success', repo: repoUrl });
+}
+
+async function setMemoryModeRoute(req, res) {
+  const { userId, mode } = req.body || {};
+  const val = (mode || '').toLowerCase();
+  if (!['local', 'github'].includes(val)) {
+    return res.status(400).json({ status: 'error', message: 'Invalid mode' });
+  }
+  await setMemoryMode(userId || 'default', val);
+  res.json({ status: 'success', mode: val });
 }
 
 async function saveMemory(req, res) {
@@ -376,9 +387,9 @@ async function saveContext(req, res) {
   const token = await extractToken(req);
   const { repo: effectiveRepo, token: effectiveToken } = await getRepoInfo('memory/context.md', userId, repo, token);
 
-  ensure_dir(contextFilename);
+  ensure_dir(contextFilename());
   try {
-    await writeFileSafe(contextFilename, content || '');
+    await writeFileSafe(contextFilename(), content || '');
   } catch (e) {
     const code = e.status || 500;
     return res
@@ -427,7 +438,7 @@ async function readContext(req, res) {
   const token = await extractToken(req);
   const { repo: effectiveRepo, token: effectiveToken } = await getRepoInfo('memory/context.md', userId, repo, token);
 
-  ensure_dir(contextFilename);
+  ensure_dir(contextFilename());
 
   if (effectiveRepo && effectiveToken) {
     try {
@@ -438,7 +449,7 @@ async function readContext(req, res) {
     }
   }
 
-  const content = fs.existsSync(contextFilename) ? fs.readFileSync(contextFilename, 'utf-8') : '';
+  const content = fs.existsSync(contextFilename()) ? fs.readFileSync(contextFilename(), 'utf-8') : '';
   res.json({ status: 'success', content });
 }
 
@@ -476,8 +487,8 @@ async function tokenStatus(req, res) {
 
 function readPlan(req, res) {
   try {
-    ensure_dir(planFilename);
-    const content = fs.existsSync(planFilename) ? fs.readFileSync(planFilename, 'utf-8') : '{}';
+    ensure_dir(planFilename());
+    const content = fs.existsSync(planFilename()) ? fs.readFileSync(planFilename(), 'utf-8') : '{}';
     const plan = JSON.parse(content || '{}');
     res.json({ status: 'success', plan });
   } catch (e) {
@@ -545,6 +556,7 @@ router.post('/read', read);
 router.post('/readFile', readFileRoute);
 router.get('/memory', readMemoryGET);
 router.post('/setMemoryRepo', setMemoryRepo);
+router.post('/memory/set-mode', setMemoryModeRoute);
 router.post('/saveLessonPlan', saveLessonPlan);
 router.post('/saveMemoryWithIndex', async (req, res) => {
   const { userId, repo, token, filename, content } = req.body;

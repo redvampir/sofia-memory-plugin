@@ -23,15 +23,23 @@ const { parseFrontMatter } = require('../utils/markdown_utils');
 const { appendSummaryLog } = require('../versioning');
 const { isLocalMode, resolvePath, baseDir } = require('../utils/memory_mode');
 
-const contextFilename = isLocalMode()
-  ? path.join(baseDir('default'), 'memory', 'context.md')
-  : path.join(__dirname, '..', 'memory', 'context.md');
-const planFilename = isLocalMode()
-  ? path.join(baseDir('default'), 'memory', 'plan.md')
-  : path.join(__dirname, '..', 'memory', 'plan.md');
-const indexFilename = isLocalMode()
-  ? path.join(baseDir('default'), 'memory', 'index.json')
-  : path.join(__dirname, '..', 'memory', 'index.json');
+function contextFilename(userId = 'default') {
+  return isLocalMode(userId)
+    ? path.join(baseDir(userId), 'memory', 'context.md')
+    : path.join(__dirname, '..', 'memory', 'context.md');
+}
+
+function planFilename(userId = 'default') {
+  return isLocalMode(userId)
+    ? path.join(baseDir(userId), 'memory', 'plan.md')
+    : path.join(__dirname, '..', 'memory', 'plan.md');
+}
+
+function indexFilename(userId = 'default') {
+  return isLocalMode(userId)
+    ? path.join(baseDir(userId), 'memory', 'index.json')
+    : path.join(__dirname, '..', 'memory', 'index.json');
+}
 
 const opCounts = { added: 0, updated: 0, skipped: 0, preserved: 0 };
 
@@ -40,7 +48,7 @@ let planCache = null;
 async function safeUpdateIndexEntry(newEntry) {
   let index = [];
   try {
-    const raw = fs.readFileSync(indexFilename, 'utf-8');
+    const raw = fs.readFileSync(indexFilename(), 'utf-8');
     const parsed = JSON.parse(raw);
     if (Array.isArray(parsed)) index = parsed;
     else return; // unsupported format
@@ -57,7 +65,7 @@ async function safeUpdateIndexEntry(newEntry) {
     console.log(`[INDEX] Added new entry: ${newEntry.path}`);
   }
 
-  fs.writeFileSync(indexFilename, JSON.stringify(index, null, 2), 'utf-8');
+  fs.writeFileSync(indexFilename(), JSON.stringify(index, null, 2), 'utf-8');
 }
 
 function parsePlanMarkdown(md) {
@@ -123,10 +131,10 @@ async function updatePlanFromIndex(plan) {
 
 async function ensureContext() {
   try {
-    await fsp.access(contextFilename);
+    await fsp.access(contextFilename());
   } catch {
-    ensure_dir(contextFilename);
-    await writeFileSafe(contextFilename, '# Context\n');
+    ensure_dir(contextFilename());
+    await writeFileSafe(contextFilename(), '# Context\n');
     rebuildIndex().catch(e =>
       console.error('[ensureContext] rebuild error', e.message)
     );
@@ -239,17 +247,17 @@ async function updatePlan({ token, repo, updateFn, userId } = {}) {
 }
 
 async function loadPlan() {
-  ensure_dir(planFilename);
+  ensure_dir(planFilename());
   let existed = true;
   try {
-    await fsp.access(planFilename);
+    await fsp.access(planFilename());
   } catch {
     existed = false;
   }
   let plan;
   if (existed) {
     try {
-      const content = await fsp.readFile(planFilename, 'utf-8');
+      const content = await fsp.readFile(planFilename(), 'utf-8');
       plan = parsePlanMarkdown(content);
     } catch {
       plan = { completedLessons: [], requestedClarifications: [], nextLesson: '' };
@@ -259,7 +267,7 @@ async function loadPlan() {
   }
 
   plan = await updatePlanFromIndex(plan);
-  await writeFileSafe(planFilename, planToMarkdown(plan));
+  await writeFileSafe(planFilename(), planToMarkdown(plan));
   planCache = plan;
   if (!existed) {
     rebuildIndex().catch(e =>
@@ -271,13 +279,13 @@ async function loadPlan() {
 async function savePlan(repo, token) {
   if (!planCache) await loadPlan();
   const md = planToMarkdown(planCache);
-  await writeFileSafe(planFilename, md);
+  await writeFileSafe(planFilename(), md);
   if (repo && token) {
     try {
       await github.writeFileSafe(
         token,
         repo,
-        path.relative(path.join(__dirname, '..'), planFilename),
+        path.relative(path.join(__dirname, '..'), planFilename()),
         md,
         'update plan'
       );
@@ -516,26 +524,26 @@ async function extractMeta(fullPath) {
 
 async function loadIndex() {
   try {
-    await fsp.access(indexFilename);
+    await fsp.access(indexFilename());
   } catch {
     console.warn('[loadIndex] index.json not found - creating new');
-    ensure_dir(indexFilename);
-    await fsp.writeFile(indexFilename, '[]');
+    ensure_dir(indexFilename());
+    await fsp.writeFile(indexFilename(), '[]');
     return [];
   }
 
   try {
-    const parsed = JSON.parse(await fsp.readFile(indexFilename, 'utf-8'));
+    const parsed = JSON.parse(await fsp.readFile(indexFilename(), 'utf-8'));
     return Array.isArray(parsed) ? parsed : [];
   } catch (e) {
     console.warn('[loadIndex] failed to parse index.json, resetting', e.message);
-    await fsp.writeFile(indexFilename, '[]');
+    await fsp.writeFile(indexFilename(), '[]');
     return [];
   }
 }
 
 async function saveIndex(data) {
-  ensure_dir(indexFilename);
+  ensure_dir(indexFilename());
   if (Array.isArray(data)) {
     for (const entry of data) {
       await safeUpdateIndexEntry(entry);
@@ -627,13 +635,13 @@ async function scanMemoryFolderRecursively(repo, token, basePath = 'memory') {
 }
 
 async function fetchIndex(repo, token) {
-  const indexRel = path.relative(baseDir('default'), indexFilename);
+  const indexRel = path.relative(baseDir('default'), indexFilename());
   let localData = [];
   let remoteData = [];
 
   try {
-    await fsp.access(indexFilename);
-    const parsed = JSON.parse(await fsp.readFile(indexFilename, 'utf-8'));
+    await fsp.access(indexFilename());
+    const parsed = JSON.parse(await fsp.readFile(indexFilename(), 'utf-8'));
     if (Array.isArray(parsed)) localData = parsed;
   } catch (e) {
     if (e.code !== 'ENOENT') console.warn('[fetchIndex] local read error', e.message);
@@ -662,7 +670,7 @@ async function fetchIndex(repo, token) {
 }
 
 async function persistIndex(data, repo, token, userId) {
-  ensure_dir(indexFilename);
+  ensure_dir(indexFilename());
 
   const finalRepo =
     repo || (userId ? await memory_config.getRepoUrl(userId) : await memory_config.getRepoUrl());
@@ -679,7 +687,7 @@ async function persistIndex(data, repo, token, userId) {
         await safeUpdateIndexEntry(entry);
       }
     } else {
-      await fsp.writeFile(indexFilename, JSON.stringify(payload, null, 2));
+      await fsp.writeFile(indexFilename(), JSON.stringify(payload, null, 2));
     }
     console.log('[persistIndex] local index saved');
   } catch (e) {
@@ -688,7 +696,7 @@ async function persistIndex(data, repo, token, userId) {
   }
 
   if (finalRepo && finalToken) {
-    const relRoot = path.relative(baseDir('default'), indexFilename);
+    const relRoot = path.relative(baseDir('default'), indexFilename());
     try {
       await github.writeFileSafe(finalToken, finalRepo, relRoot, JSON.stringify(payload, null, 2), 'update index.json');
 
