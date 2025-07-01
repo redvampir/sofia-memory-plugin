@@ -43,6 +43,38 @@ exports.repoExists = async function (token, repo) {
   }
 };
 
+exports.repoExistsSafe = async function (token, repo, attempts = 4) {
+  const normalized = normalizeRepo(repo);
+  const networkCodes = new Set([
+    'ECONNRESET',
+    'ETIMEDOUT',
+    'ENOTFOUND',
+    'EAI_AGAIN',
+    'ECONNREFUSED',
+    'ECONNABORTED',
+    'ENETUNREACH',
+    'EHOSTUNREACH'
+  ]);
+  for (let i = 1; i <= attempts; i++) {
+    try {
+      const res = await axios.get(`https://api.github.com/repos/${normalized}`, {
+        headers: { Authorization: `token ${token}`, ...DEFAULT_HEADERS }
+      });
+      return { exists: res.status === 200 };
+    } catch (e) {
+      const status = e.response ? e.response.status : undefined;
+      logError(`repoExists attempt ${i}`, e);
+      if (i === attempts) return { exists: false, status };
+      if (e && (status >= 500 || (e.code && networkCodes.has(e.code)))) {
+        const delay = Math.pow(2, i - 1) * 1000;
+        await new Promise(resolve => setTimeout(resolve, delay));
+      } else {
+        return { exists: false, status };
+      }
+    }
+  }
+};
+
 exports.readFile = async function (token, repo, filePath) {
   const normalized = normalizeRepo(repo);
   const url = `https://api.github.com/repos/${normalized}/contents/${encodePath(filePath)}`;

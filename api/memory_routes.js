@@ -122,7 +122,10 @@ async function saveMemory(req, res) {
       return res.status(401).json({ status: 'error', message: 'Invalid GitHub token' });
     }
     try {
-      const { exists, status } = await github.repoExists(effectiveToken, effectiveRepo);
+      const { exists, status } = await github.repoExistsSafe(
+        effectiveToken,
+        effectiveRepo
+      );
       if (!exists) {
         if (status === 401) {
           return res.status(401).json({ status: 'error', message: 'Invalid GitHub token.' });
@@ -581,7 +584,10 @@ router.post('/saveMemoryWithIndex', async (req, res) => {
       return res.status(401).json({ status: 'error', message: 'Invalid GitHub token' });
     }
     try {
-      const { exists, status } = await github.repoExists(effectiveToken, effectiveRepo);
+      const { exists, status } = await github.repoExistsSafe(
+        effectiveToken,
+        effectiveRepo
+      );
       if (!exists) {
         if (status === 401) {
           return res.status(401).json({ status: 'error', message: 'Invalid GitHub token.' });
