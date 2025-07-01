@@ -699,6 +699,22 @@ router.post('/chat/create_memory_folder', async (req, res) => {
     res.status(500).json({ status: 'error', message: e.message });
   }
 });
+
+router.post('/chat/load_memory', async (req, res) => {
+  const text = req.body && req.body.text ? req.body.text : '';
+  const { parse_load_memory } = require('../utils/helpers');
+  const { switchMemoryFolder } = require('../utils/memory_mode');
+  const parsed = parse_load_memory(text);
+  if (!parsed)
+    return res.status(400).json({ status: 'error', message: 'Invalid command' });
+  const { name } = parsed;
+  try {
+    const { index, plan } = await switchMemoryFolder('default', name);
+    res.json({ status: 'success', folder: name, index, plan });
+  } catch (e) {
+    res.status(500).json({ status: 'error', message: e.message });
+  }
+});
 router.post('/updateIndex', updateIndexManual);
 router.get('/plan', readPlan);
 router.get('/profile', readProfile);

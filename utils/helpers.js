@@ -102,6 +102,13 @@ function parse_create_memory_folder(message = '') {
   return { name: m[1], init_index: m[2] ? m[2].toLowerCase() === 'true' : false };
 }
 
+function parse_load_memory(message = '') {
+  if (typeof message !== 'string') return null;
+  const m = message.match(/\/load_memory\s+name="([^"]+)"/i);
+  if (!m) return null;
+  return { name: m[1] };
+}
+
 module.exports = {
   parse_user_memory_setup,
   parse_save_reference_answer,
@@ -112,5 +119,6 @@ module.exports = {
   parse_list_memory_folders,
   parse_switch_memory_repo,
   parse_create_memory_folder,
+  parse_load_memory,
 };
 
