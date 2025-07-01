@@ -21,10 +21,17 @@ const {
 const memory_settings = require('../tools/memory_settings');
 const { parseFrontMatter } = require('../utils/markdown_utils');
 const { appendSummaryLog } = require('../versioning');
+const { isLocalMode, resolvePath, baseDir } = require('../utils/memory_mode');
 
-const contextFilename = path.join(__dirname, '..', 'memory', 'context.md');
-const planFilename = path.join(__dirname, '..', 'memory', 'plan.md');
-const indexFilename = path.join(__dirname, '..', 'memory', 'index.json');
+const contextFilename = isLocalMode()
+  ? path.join(baseDir('default'), 'memory', 'context.md')
+  : path.join(__dirname, '..', 'memory', 'context.md');
+const planFilename = isLocalMode()
+  ? path.join(baseDir('default'), 'memory', 'plan.md')
+  : path.join(__dirname, '..', 'memory', 'plan.md');
+const indexFilename = isLocalMode()
+  ? path.join(baseDir('default'), 'memory', 'index.json')
+  : path.join(__dirname, '..', 'memory', 'index.json');
 
 const opCounts = { added: 0, updated: 0, skipped: 0, preserved: 0 };
 
@@ -192,7 +199,7 @@ function buildPlanFile(parsed, done, upcoming) {
 
 async function updatePlan({ token, repo, updateFn, userId } = {}) {
   const relPath = 'memory/plan.md';
-  const absPath = path.join(path.join(__dirname, '..'), relPath);
+  const absPath = resolvePath(relPath, 'default');
 
   const { repo: finalRepo, token: finalToken } = await getRepoInfo(relPath, userId, repo, token);
 
@@ -328,7 +335,7 @@ async function writeFileSafe(filePath, data, force = false) {
 
 async function updateOrInsertJsonEntry(filePath, newData, matchKey, repo, token) {
   ensure_dir(filePath);
-  const relPath = path.relative(path.join(__dirname, '..'), filePath);
+  const relPath = path.relative(baseDir('default'), filePath);
   let existing = Array.isArray(newData) ? [] : {};
 
   if (repo && token) {
@@ -556,7 +563,7 @@ async function updateIndexFile(entry, repo, token, userId) {
 }
 
 async function updateIndexFromPath(relPath, repo, token, userId) {
-  const fullPath = path.join(path.join(__dirname, '..'), relPath);
+  const fullPath = resolvePath(relPath, 'default');
   try {
     await fsp.access(fullPath);
   } catch {
@@ -583,7 +590,7 @@ async function scanMemoryFolderRecursively(repo, token, basePath = 'memory') {
         await walk(abs);
       } else if (item.isFile()) {
         const rel = path
-          .relative(path.join(__dirname, '..'), abs)
+          .relative(baseDir('default'), abs)
           .replace(/\\/g, '/');
         if (rel.endsWith('index.json')) {
           logDebug('[scan] skipped', rel, 'index file');
@@ -599,7 +606,7 @@ async function scanMemoryFolderRecursively(repo, token, basePath = 'memory') {
     }
   }
 
-  const rootPath = path.join(path.join(__dirname, '..'), basePath);
+  const rootPath = resolvePath(basePath, 'default');
   try {
     await fsp.access(rootPath);
     await walk(rootPath);
@@ -620,7 +627,7 @@ async function scanMemoryFolderRecursively(repo, token, basePath = 'memory') {
 }
 
 async function fetchIndex(repo, token) {
-  const indexRel = path.relative(path.join(__dirname, '..'), indexFilename);
+  const indexRel = path.relative(baseDir('default'), indexFilename);
   let localData = [];
   let remoteData = [];
 
@@ -681,16 +688,16 @@ async function persistIndex(data, repo, token, userId) {
   }
 
   if (finalRepo && finalToken) {
-    const relRoot = path.relative(path.join(__dirname, '..'), indexFilename);
+    const relRoot = path.relative(baseDir('default'), indexFilename);
     try {
       await github.writeFileSafe(finalToken, finalRepo, relRoot, JSON.stringify(payload, null, 2), 'update index.json');
 
       if (payload && payload.type === 'index-root' && Array.isArray(payload.branches)) {
         for (const b of payload.branches) {
-          const branchAbs = path.join(path.join(__dirname, '..', 'memory'), b.path);
+          const branchAbs = resolvePath(path.join('memory', b.path), 'default');
           try {
             const content = await fsp.readFile(branchAbs, 'utf-8');
-            const rel = path.relative(path.join(__dirname, '..'), branchAbs);
+            const rel = path.relative(baseDir('default'), branchAbs);
             await github.writeFileSafe(finalToken, finalRepo, rel, content, `update ${b.path}`);
             const dir = path.dirname(branchAbs);
             const base = path.basename(branchAbs, '.json');
@@ -699,7 +706,7 @@ async function persistIndex(data, repo, token, userId) {
               if (part.startsWith(base + '.part') && part.endsWith('.json')) {
                 const partAbs = path.join(dir, part);
                 const partContent = await fsp.readFile(partAbs, 'utf-8');
-                const partRel = path.relative(path.join(__dirname, '..'), partAbs);
+                const partRel = path.relative(baseDir('default'), partAbs);
                 await github.writeFileSafe(finalToken, finalRepo, partRel, partContent, `update ${partRel}`);
               }
             }
@@ -795,7 +802,7 @@ async function scanMemoryDir(dirPath) {
         await walk(abs);
       } else {
         if (abs === indexFilename) continue;
-        const rel = path.relative(path.join(__dirname, '..'), abs);
+        const rel = path.relative(baseDir('default'), abs);
         const meta = await extractMeta(abs);
         const idx = index_tree.findEntryByPath(rel) || {};
         results.push({
@@ -884,7 +891,7 @@ async function updateIndexFileManually(newEntries, repo, token, userId) {
 
 async function listMemoryFiles(repo, token, dirPath) {
   const directory = dirPath.startsWith('memory') ? dirPath : path.join('memory', dirPath);
-  const fullPath = path.join(path.join(__dirname, '..'), directory);
+  const fullPath = resolvePath(directory, 'default');
   try {
     await fsp.access(fullPath);
   } catch {
@@ -900,7 +907,7 @@ async function listMemoryFiles(repo, token, dirPath) {
         await walk(abs);
       } else if (entry.isFile()) {
         const rel = path
-          .relative(path.join(__dirname, '..'), abs)
+          .relative(baseDir('default'), abs)
           .replace(/\\/g, '/');
         if (rel.endsWith('index.json')) continue;
         if (/\.(md|txt|json|js|ts|jsx|tsx|html|css)$/i.test(entry.name)) {
