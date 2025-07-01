@@ -62,9 +62,33 @@ function parse_manual_load_command(message = '') {
   return { path: m[1] };
 }
 
+function parse_set_local_path(message = '') {
+  if (typeof message !== 'string') return null;
+  const m = message.match(/\/set_local_path\s+path="([^"]+)"/i);
+  if (!m) return null;
+  return { path: m[1] };
+}
+
+function parse_set_memory_folder(message = '') {
+  if (typeof message !== 'string') return null;
+  const m = message.match(/\/set_memory_folder\s+name="([^"]+)"/i);
+  if (!m) return null;
+  return { name: m[1] };
+}
+
+function parse_switch_memory_repo(message = '') {
+  if (typeof message !== 'string') return null;
+  const m = message.match(/\/switch_memory_repo\s+type=(\w+)\s+path="([^"]+)"/i);
+  if (!m) return null;
+  return { type: m[1], path: m[2] };
+}
+
 module.exports = {
   parse_user_memory_setup,
   parse_save_reference_answer,
-  parse_manual_load_command
+  parse_manual_load_command,
+  parse_set_local_path,
+  parse_set_memory_folder,
+  parse_switch_memory_repo,
 };
 

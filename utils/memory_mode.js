@@ -4,6 +4,8 @@ const path = require('path');
 
 const usersDir = path.join(__dirname, '..', 'config', 'users');
 const cache = {};
+const pathCache = {};
+const baseCache = {};
 
 function configPath(userId) {
   return path.join(usersDir, `${userId}.json`);
@@ -13,40 +15,60 @@ async function ensureDir() {
   await fsp.mkdir(usersDir, { recursive: true });
 }
 
-async function getMemoryMode(userId = 'default') {
+async function loadConfig(userId) {
   await ensureDir();
+  try {
+    const raw = await fsp.readFile(configPath(userId), 'utf-8');
+    return JSON.parse(raw);
+  } catch {
+    return {};
+  }
+}
+
+function loadConfigSync(userId) {
+  if (!fs.existsSync(usersDir)) fs.mkdirSync(usersDir, { recursive: true });
+  try {
+    const raw = fs.readFileSync(configPath(userId), 'utf-8');
+    return JSON.parse(raw);
+  } catch {
+    return {};
+  }
+}
+
+async function saveConfig(userId, cfg) {
+  await ensureDir();
+  await fsp.writeFile(configPath(userId), JSON.stringify(cfg, null, 2));
+}
+
+async function getMemoryMode(userId = 'default') {
   if (Object.prototype.hasOwnProperty.call(cache, userId)) {
     return cache[userId];
   }
-  try {
-    const raw = await fsp.readFile(configPath(userId), 'utf-8');
-    const parsed = JSON.parse(raw);
-    cache[userId] = (parsed.memory_mode || 'github').toLowerCase();
-  } catch {
-    cache[userId] = 'github';
-  }
-  return cache[userId];
+  const cfg = await loadConfig(userId);
+  const mode = (cfg.memory_mode || 'github').toLowerCase();
+  cache[userId] = mode;
+  pathCache[userId] = cfg.local_path || process.env.LOCAL_MEMORY_PATH || null;
+  baseCache[userId] = cfg.base_path || process.env.LOCAL_MEMORY_PATH || null;
+  return mode;
 }
 
 function getMemoryModeSync(userId = 'default') {
-  if (!fs.existsSync(usersDir)) fs.mkdirSync(usersDir, { recursive: true });
   if (Object.prototype.hasOwnProperty.call(cache, userId)) {
     return cache[userId];
   }
-  try {
-    const raw = fs.readFileSync(configPath(userId), 'utf-8');
-    const parsed = JSON.parse(raw);
-    cache[userId] = (parsed.memory_mode || 'github').toLowerCase();
-  } catch {
-    cache[userId] = 'github';
-  }
-  return cache[userId];
+  const cfg = loadConfigSync(userId);
+  const mode = (cfg.memory_mode || 'github').toLowerCase();
+  cache[userId] = mode;
+  pathCache[userId] = cfg.local_path || process.env.LOCAL_MEMORY_PATH || null;
+  baseCache[userId] = cfg.base_path || process.env.LOCAL_MEMORY_PATH || null;
+  return mode;
 }
 
 async function setMemoryMode(userId = 'default', mode = 'github') {
   mode = (mode || 'github').toLowerCase();
-  await ensureDir();
-  await fsp.writeFile(configPath(userId), JSON.stringify({ memory_mode: mode }, null, 2));
+  const cfg = await loadConfig(userId);
+  cfg.memory_mode = mode;
+  await saveConfig(userId, cfg);
   cache[userId] = mode;
 }
 
@@ -56,13 +78,73 @@ function isLocalMode(userId = 'default') {
 
 function baseDir(userId = 'default') {
   if (isLocalMode(userId)) {
-    return path.join(__dirname, '..', 'local_memory', userId);
+    const custom = getLocalPathSync(userId);
+    if (custom) return custom;
+    return path.join(process.env.LOCAL_MEMORY_PATH || path.join(__dirname, '..', 'local_memory'), userId);
   }
   return path.join(__dirname, '..');
 }
 
 function resolvePath(relPath, userId = 'default') {
   return path.join(baseDir(userId), relPath);
+}
+
+function getLocalPathSync(userId = 'default') {
+  if (Object.prototype.hasOwnProperty.call(pathCache, userId)) {
+    return pathCache[userId];
+  }
+  const cfg = loadConfigSync(userId);
+  const val = cfg.local_path || process.env.LOCAL_MEMORY_PATH || null;
+  pathCache[userId] = val;
+  baseCache[userId] = cfg.base_path || process.env.LOCAL_MEMORY_PATH || null;
+  return val;
+}
+
+async function getLocalPath(userId = 'default') {
+  if (Object.prototype.hasOwnProperty.call(pathCache, userId)) {
+    return pathCache[userId];
+  }
+  const cfg = await loadConfig(userId);
+  const val = cfg.local_path || process.env.LOCAL_MEMORY_PATH || null;
+  pathCache[userId] = val;
+  baseCache[userId] = cfg.base_path || process.env.LOCAL_MEMORY_PATH || null;
+  return val;
+}
+
+async function setLocalPath(userId = 'default', dir) {
+  const cfg = await loadConfig(userId);
+  cfg.base_path = dir;
+  cfg.local_path = dir;
+  await saveConfig(userId, cfg);
+  pathCache[userId] = dir;
+  baseCache[userId] = dir;
+}
+
+async function setMemoryFolder(userId = 'default', name) {
+  const baseDirPath = baseCache[userId] || (await getLocalPath(userId));
+  if (!baseDirPath) throw new Error('Local base path not set');
+  const target = path.join(baseDirPath, name);
+  await fsp.mkdir(target, { recursive: true });
+  await fsp.access(target, fs.constants.W_OK);
+  const cfg = await loadConfig(userId);
+  cfg.local_path = target;
+  cfg.base_path = baseDirPath;
+  await saveConfig(userId, cfg);
+  pathCache[userId] = target;
+  baseCache[userId] = baseDirPath;
+}
+
+async function switchLocalRepo(userId = 'default', dir) {
+  await fsp.mkdir(dir, { recursive: true });
+  await fsp.access(dir, fs.constants.W_OK);
+  const cfg = await loadConfig(userId);
+  cfg.local_path = dir;
+  cfg.base_path = path.dirname(dir);
+  cfg.memory_mode = 'local';
+  await saveConfig(userId, cfg);
+  cache[userId] = 'local';
+  pathCache[userId] = dir;
+  baseCache[userId] = cfg.base_path;
 }
 
 module.exports = {
@@ -72,4 +154,9 @@ module.exports = {
   isLocalMode,
   baseDir,
   resolvePath,
+  getLocalPath,
+  getLocalPathSync,
+  setLocalPath,
+  setMemoryFolder,
+  switchLocalRepo,
 };
