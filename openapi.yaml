@@ -227,6 +227,22 @@ paths:
       responses:
         '200':
           description: Folder created
+  /chat/load_memory:
+    post:
+      summary: Load memory folder
+      operationId: chatLoadMemory
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                text:
+                  type: string
+      responses:
+        '200':
+          description: Memory loaded
   /updateIndex:
     post:
       summary: Manually update index entries
