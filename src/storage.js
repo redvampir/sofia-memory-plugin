@@ -175,7 +175,12 @@ async function save_memory_with_index(user_id, repo, token, filename, content) {
     return { split: true, parts: relParts };
   }
   const savedPath = await save_memory(user_id, repo, token, finalPath, content);
-  if (savedPath && savedPath.split) {
+  if (
+    savedPath &&
+    typeof savedPath === 'object' &&
+    savedPath.split &&
+    Array.isArray(savedPath.parts)
+  ) {
     const relParts = savedPath.parts;
     for (const p of relParts) {
       await index_manager.addOrUpdateEntry({
