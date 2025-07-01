@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { isLocalMode, resolvePath, baseDir } = require('../utils/memory_mode');
 const github_client = require('../tools/github_client');
 const token_store = require('../tools/token_store');
 const memory_config = require('../tools/memory_config');
@@ -43,7 +44,7 @@ async function read_memory(user_id, repo, token, filename, opts = {}) {
   }
 
   if (!content) {
-    const localPath = path.join(__dirname, '..', normalized);
+    const localPath = resolvePath(normalized, user_id || 'default');
     if (fs.existsSync(localPath)) {
       content = fs.readFileSync(localPath, 'utf-8');
     } else {
@@ -98,7 +99,7 @@ async function save_memory(user_id, repo, token, filename, content) {
       return { split: true, parts };
     }
   }
-  const localPath = path.join(__dirname, '..', normalized);
+  const localPath = resolvePath(normalized, user_id || 'default');
   ensure_dir(localPath);
   if (fs.existsSync(localPath)) {
     const backup = `${localPath}.bak`;
@@ -111,7 +112,7 @@ async function save_memory(user_id, repo, token, filename, content) {
     const parts = splitMarkdownFile(localPath, MAX_MD_FILE_SIZE);
     fs.unlinkSync(localPath);
     const relParts = parts.map(p =>
-      path.relative(path.join(__dirname, '..'), p).replace(/\\/g, '/')
+      path.relative(baseDir(user_id || 'default'), p).replace(/\\/g, '/')
     );
     return { split: true, parts: relParts };
   }
@@ -162,13 +163,13 @@ async function save_memory_with_index(user_id, repo, token, filename, content) {
   }
   const byteSize = Buffer.byteLength(content, 'utf-8');
   if (byteSize > MAX_MD_FILE_SIZE) {
-    const abs = path.join(__dirname, '..', normalize_memory_path(finalPath));
+    const abs = resolvePath(normalize_memory_path(finalPath), user_id || 'default');
     ensure_dir(abs);
     fs.writeFileSync(abs, content, 'utf-8');
     const parts = splitMarkdownFile(abs, MAX_MD_FILE_SIZE);
     fs.unlinkSync(abs);
     const relParts = parts.map(p =>
-      path.relative(path.join(__dirname, '..'), p).replace(/\\/g, '/')
+      path.relative(baseDir(user_id || 'default'), p).replace(/\\/g, '/')
     );
     for (const p of relParts) {
       await index_manager.addOrUpdateEntry({
