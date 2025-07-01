@@ -683,6 +683,22 @@ router.post('/chat/setup', async (req, res) => {
   const { userId, repo } = parsed;
   res.json({ status: 'success', message: `Memory configured for user: ${userId}`, repo });
 });
+
+router.post('/chat/create_memory_folder', async (req, res) => {
+  const text = req.body && req.body.text ? req.body.text : '';
+  const { parse_create_memory_folder } = require('../utils/helpers');
+  const { createMemoryFolder } = require('../src/memory');
+  const parsed = parse_create_memory_folder(text);
+  if (!parsed)
+    return res.status(400).json({ status: 'error', message: 'Invalid command' });
+  const { name, init_index } = parsed;
+  try {
+    await createMemoryFolder(name, init_index);
+    res.json({ status: 'success', folder: name });
+  } catch (e) {
+    res.status(500).json({ status: 'error', message: e.message });
+  }
+});
 router.post('/updateIndex', updateIndexManual);
 router.get('/plan', readPlan);
 router.get('/profile', readProfile);

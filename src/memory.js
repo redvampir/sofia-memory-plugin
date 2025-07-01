@@ -205,8 +205,18 @@ async function setLocalMemoryPath(dir, userId = 'default') {
   await setMemoryMode(userId, 'local');
 }
 
-async function createMemoryFolder(name, userId = 'default') {
+async function createMemoryFolder(name, initIndex = false, userId = 'default') {
   await setMemoryFolder(userId, name);
+  if (initIndex) {
+    const dir = path.join(baseDir(userId), 'memory');
+    await fsp.mkdir(dir, { recursive: true });
+    const indexPath = path.join(dir, 'index.json');
+    const planPath = path.join(dir, 'plan.md');
+    const configPath = path.join(dir, 'config.json');
+    if (!fs.existsSync(indexPath)) await fsp.writeFile(indexPath, '');
+    if (!fs.existsSync(planPath)) await fsp.writeFile(planPath, '');
+    if (!fs.existsSync(configPath)) await fsp.writeFile(configPath, '{}');
+  }
 }
 
 async function switchMemoryRepo(type, dir, userId = 'default') {

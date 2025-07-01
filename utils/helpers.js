@@ -95,6 +95,13 @@ function parse_switch_memory_repo(message = '') {
   return { type: m[1], path: m[2] };
 }
 
+function parse_create_memory_folder(message = '') {
+  if (typeof message !== 'string') return null;
+  const m = message.match(/\/create_memory_folder\s+name="([^"]+)"(?:\s+init_index=(true|false))?/i);
+  if (!m) return null;
+  return { name: m[1], init_index: m[2] ? m[2].toLowerCase() === 'true' : false };
+}
+
 module.exports = {
   parse_user_memory_setup,
   parse_save_reference_answer,
@@ -104,5 +111,6 @@ module.exports = {
   parse_switch_memory_folder,
   parse_list_memory_folders,
   parse_switch_memory_repo,
+  parse_create_memory_folder,
 };
 
