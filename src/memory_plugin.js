@@ -1,8 +1,7 @@
 const axios = require('axios');
-const { getAgentBaseUrl } = require('../utils/memory_mode');
 
 async function requestToAgent(endpoint, method = 'GET', data = {}) {
-  const baseUrl = getAgentBaseUrl();
+  const baseUrl = 'http://localhost:4465';
   try {
     const response = await axios({
       method,

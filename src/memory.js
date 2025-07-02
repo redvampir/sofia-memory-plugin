@@ -16,7 +16,6 @@ const {
   setLocalPath,
   setMemoryFolder,
   switchLocalRepo,
-  getAgentBaseUrl,
 } = require('../utils/memory_mode');
 const { requestToAgent } = require('./memory_plugin');
 function getRootDir(userId = 'default') {
