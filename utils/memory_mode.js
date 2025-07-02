@@ -209,6 +209,19 @@ async function switchMemoryFolder(userId = 'default', name) {
   return { index, plan };
 }
 
+function setMode(type, config = {}) {
+  if (type === 'local') {
+    process.env.MEMORY_MODE = 'local';
+    process.env.LOCAL_PATH = config.path || '';
+  } else if (type === 'github') {
+    process.env.MEMORY_MODE = 'github';
+    process.env.REPO = config.repo;
+    process.env.TOKEN = config.token;
+  } else {
+    throw new Error('Unknown memory mode: ' + type);
+  }
+}
+
 module.exports = {
   getMemoryMode,
   getMemoryModeSync,
@@ -225,4 +238,5 @@ module.exports = {
   switchMemoryFolder,
   getActiveMemoryFolder,
   getAgentBaseUrl,
+  setMode,
 };

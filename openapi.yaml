@@ -70,6 +70,31 @@ paths:
           description: Mode stored
         '400':
           description: Invalid mode
+  /switch_memory_repo:
+    post:
+      summary: Switch memory storage mode
+      operationId: switch_memory_repo
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                type:
+                  type: string
+                  enum: [local, github]
+                path:
+                  type: string
+                repo:
+                  type: string
+                token:
+                  type: string
+                userId:
+                  type: string
+      responses:
+        "200":
+          description: Memory mode switched
   /saveLessonPlan:
     post:
       summary: Update learning plan
