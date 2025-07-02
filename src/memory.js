@@ -16,7 +16,9 @@ const {
   setLocalPath,
   setMemoryFolder,
   switchLocalRepo,
+  getAgentBaseUrl,
 } = require('../utils/memory_mode');
+const { requestToAgent } = require('./memory_plugin');
 function getRootDir(userId = 'default') {
   return isLocalMode(userId) ? baseDir(userId) : path.join(__dirname, '..');
 }
@@ -67,6 +69,15 @@ async function readMemory(repo, token, filename, userId = 'default') {
   const final_repo = repo || await memory_config.getRepoUrl(userId);
   const final_token = token || await token_store.getToken(userId);
   const masked_token = final_token ? `${final_token.slice(0, 4)}...` : 'null';
+
+  if (isLocalMode(userId)) {
+    return requestToAgent('/read', 'GET', {
+      repo: final_repo,
+      token: final_token,
+      filename,
+      userId,
+    });
+  }
 
   await autoRefreshContext(final_repo, final_token, userId);
 
@@ -371,6 +382,13 @@ async function readMarkdownFile(filepath, opts = {}) {
 
 
 async function load_memory_to_context(filename, repo, token) {
+  if (isLocalMode('default')) {
+    return requestToAgent('/loadMemoryToContext', 'POST', {
+      filename,
+      repo,
+      token,
+    });
+  }
   const normalized = normalize_memory_path(filename);
   const content = await read_memory_file(normalized, {
     repo,

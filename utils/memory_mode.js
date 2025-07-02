@@ -10,6 +10,7 @@ const usersDir = path.join(__dirname, '..', 'config', 'users');
 const cache = {};
 const pathCache = {};
 const baseCache = {};
+const AGENT_BASE_URL = process.env.LOCAL_AGENT_URL || 'http://localhost:4465';
 
 function configPath(userId) {
   return path.join(usersDir, `${userId}.json`);
@@ -187,6 +188,10 @@ function getActiveMemoryFolder() {
   return cfg.active_folder || null;
 }
 
+function getAgentBaseUrl() {
+  return AGENT_BASE_URL;
+}
+
 async function switchMemoryFolder(userId = 'default', name) {
   await setMemoryFolder(userId, name);
   await setActiveMemoryFolder(name);
@@ -219,4 +224,5 @@ module.exports = {
   listMemoryFolders,
   switchMemoryFolder,
   getActiveMemoryFolder,
-}; 
+  getAgentBaseUrl,
+};

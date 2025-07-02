@@ -22,6 +22,7 @@ const memory_settings = require('../tools/memory_settings');
 const { parseFrontMatter } = require('../utils/markdown_utils');
 const { appendSummaryLog } = require('../versioning');
 const { isLocalMode, resolvePath, baseDir } = require('../utils/memory_mode');
+const { requestToAgent } = require('../src/memory_plugin');
 
 function contextFilename(userId = 'default') {
   return isLocalMode(userId)
@@ -898,6 +899,10 @@ async function updateIndexFileManually(newEntries, repo, token, userId) {
 }
 
 async function listMemoryFiles(repo, token, dirPath) {
+  if (isLocalMode('default')) {
+    const res = await requestToAgent('/listFiles', 'GET', { path: dirPath });
+    return Array.isArray(res) ? res : [];
+  }
   const directory = dirPath.startsWith('memory') ? dirPath : path.join('memory', dirPath);
   const fullPath = resolvePath(directory, 'default');
   try {

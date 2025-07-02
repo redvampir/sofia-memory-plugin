@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { isLocalMode, resolvePath, baseDir } = require('../utils/memory_mode');
+const { requestToAgent } = require('./memory_plugin');
 const github_client = require('../tools/github_client');
 const token_store = require('../tools/token_store');
 const memory_config = require('../tools/memory_config');
@@ -27,6 +28,23 @@ async function read_memory(user_id, repo, token, filename, opts = {}) {
   const parse_json = opts.parseJson || false;
   const finalRepo = repo || (await memory_config.getRepoUrl(user_id));
   const finalToken = token || (await token_store.getToken(user_id));
+
+  if (isLocalMode(user_id || 'default')) {
+    const data = await requestToAgent('/read', 'GET', {
+      repo: finalRepo,
+      token: finalToken,
+      filename,
+      userId: user_id,
+    });
+    if (parse_json && filename.trim().toLowerCase().endsWith('.json')) {
+      try {
+        return JSON.parse(data);
+      } catch {
+        return data;
+      }
+    }
+    return data;
+  }
 
   const masked = finalToken ? `${finalToken.slice(0, 4)}...` : 'null';
   console.log('[read_memory] repo:', finalRepo);
@@ -74,6 +92,15 @@ async function read_memory(user_id, repo, token, filename, opts = {}) {
 }
 
 async function save_memory(user_id, repo, token, filename, content) {
+  if (isLocalMode(user_id || 'default')) {
+    return requestToAgent('/save', 'POST', {
+      repo,
+      token,
+      filename,
+      content,
+      userId: user_id,
+    });
+  }
   const normalized = normalize_memory_path(filename);
   const parsed = path.posix.parse(normalized);
   if (!parsed.ext) {
@@ -142,6 +169,15 @@ async function save_memory(user_id, repo, token, filename, content) {
 }
 
 async function save_memory_with_index(user_id, repo, token, filename, content) {
+  if (isLocalMode(user_id || 'default')) {
+    return requestToAgent('/saveMemoryWithIndex', 'POST', {
+      repo,
+      token,
+      filename,
+      content,
+      userId: user_id,
+    });
+  }
   const check = await index_manager.validateFilePathAgainstIndex(filename);
   if (check.warning) console.warn(`[index] ${check.warning}`);
   const finalPath = check.expectedPath || filename;
