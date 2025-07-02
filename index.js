@@ -20,6 +20,7 @@ const memory_routes = require("./api/memory_routes");
 const github_routes = require("./api/github_routes");
 const { listMemoryFiles } = require("./logic/memory_operations");
 const versioning = require('./versioning');
+const memory_mode = require('./utils/memory_mode');
 
 const app = express();
 try {
@@ -46,6 +47,18 @@ app.get('/ai-plugin.json', (_req, res) => {
 app.use(bodyParser.json());
 app.use(memory_routes);
 app.use(github_routes);
+
+app.post('/switch_memory_repo', (req, res) => {
+  const { type, path, repo, token, userId } = req.body;
+  try {
+    const config = { type, path, repo, token, userId };
+    memory_mode.setMode(type, config);
+    res.status(200).json({ status: 'OK', mode: type });
+  } catch (err) {
+    console.error('Ошибка при переключении режима:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
 
 app.post('/list', async (req, res) => {
   try {
@@ -105,6 +118,7 @@ app.get('/docs', (req, res) => {
         "POST /readMemory",
         "POST /read",
         "POST /setMemoryRepo",
+        "POST /switch_memory_repo",
         "POST /saveLessonPlan",
         "POST /saveMemoryWithIndex",
         "POST /saveNote",
