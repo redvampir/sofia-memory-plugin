@@ -3,7 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const bodyParser = require('body-parser');
 const config = require('./config');
-const { setMemoryRepo, auto_recover_context } = require('./src/memory');
+const { setMemoryRepo, auto_recover_context, switchMemoryRepo } = require('./src/memory');
 const { start_context_checker } = require('./utils/context_checker');
 
 // Мидлвар для разрешения CORS без внешних зависимостей
@@ -20,7 +20,6 @@ const memory_routes = require("./api/memory_routes");
 const github_routes = require("./api/github_routes");
 const { listMemoryFiles } = require("./logic/memory_operations");
 const versioning = require('./versioning');
-const memory_mode = require('./utils/memory_mode');
 
 const app = express();
 try {
@@ -48,12 +47,11 @@ app.use(bodyParser.json());
 app.use(memory_routes);
 app.use(github_routes);
 
-app.post('/switch_memory_repo', (req, res) => {
-  const { type, path, repo, token, userId } = req.body;
+app.post('/switch_memory_repo', async (req, res) => {
+  const { type, path, userId } = req.body;
   try {
-    const config = { type, path, repo, token, userId };
-    memory_mode.setMode(type, config);
-    res.status(200).json({ status: 'OK', mode: type });
+    const result = await switchMemoryRepo(type, path, userId);
+    res.status(200).json({ status: 'OK', mode: result.mode });
   } catch (err) {
     console.error('Ошибка при переключении режима:', err);
     res.status(500).json({ error: err.message });
