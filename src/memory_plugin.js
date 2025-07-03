@@ -43,4 +43,31 @@ async function setLocalPathCommand(text) {
   }
 }
 
-module.exports = { requestToAgent, setLocalPathCommand };
+async function saveMemoryWithIndex(params = {}) {
+  if (!isLocalMode(params.userId || 'default')) return null;
+  return requestToAgent('/saveMemoryWithIndex', 'POST', params);
+}
+
+async function loadMemoryToContext(params = {}) {
+  if (!isLocalMode(params.userId || 'default')) return null;
+  return requestToAgent('/loadMemoryToContext', 'POST', params);
+}
+
+async function listFiles(params = {}) {
+  if (!isLocalMode(params.userId || 'default')) return null;
+  return requestToAgent('/listFiles', 'GET', params);
+}
+
+async function read(params = {}) {
+  if (!isLocalMode(params.userId || 'default')) return null;
+  return requestToAgent('/read', 'GET', params);
+}
+
+module.exports = {
+  requestToAgent,
+  setLocalPathCommand,
+  saveMemoryWithIndex,
+  loadMemoryToContext,
+  listFiles,
+  read,
+};
