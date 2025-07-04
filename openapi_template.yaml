@@ -112,6 +112,18 @@ paths:
       responses:
         "200":
           description: Memory mode switched
+  /api/status:
+    get:
+      summary: Get current memory mode
+      operationId: status
+      parameters:
+        - in: query
+          name: userId
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Current mode
   /saveLessonPlan:
     post:
       summary: Update learning plan
