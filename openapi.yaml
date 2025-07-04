@@ -95,6 +95,26 @@ paths:
           description: Mode stored
         '400':
           description: Invalid mode
+  /local-path:
+    post:
+      summary: Set local storage path
+      operationId: setLocalPath
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                path:
+                  type: string
+                userId:
+                  type: string
+      responses:
+        '200':
+          description: Path stored
+        '400':
+          description: Missing path
   /saveLessonPlan:
     post:
       summary: Update learning plan
