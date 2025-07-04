@@ -20,6 +20,7 @@ const memory_routes = require("./api/memory_routes");
 const github_routes = require("./api/github_routes");
 const { listMemoryFiles } = require("./logic/memory_operations");
 const versioning = require('./versioning');
+const { getMemoryModeSync } = require('./utils/memory_mode');
 
 const app = express();
 try {
@@ -68,6 +69,12 @@ app.get('/api/switch_memory_repo', async (req, res) => {
     console.error('Ошибка при переключении режима:', err);
     res.status(500).json({ error: err.message });
   }
+});
+
+app.get('/api/status', (req, res) => {
+  const userId = req.query.userId || 'default';
+  const mode = getMemoryModeSync(userId);
+  res.json({ mode });
 });
 
 app.post('/list', async (req, res) => {
@@ -130,6 +137,7 @@ app.get('/docs', (req, res) => {
         "POST /setMemoryRepo",
         "POST /switch_memory_repo",
         "GET /api/switch_memory_repo",
+        "GET /api/status",
         "POST /saveLessonPlan",
         "POST /saveMemoryWithIndex",
         "POST /saveNote",
