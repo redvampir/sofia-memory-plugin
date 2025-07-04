@@ -95,6 +95,23 @@ paths:
       responses:
         "200":
           description: Memory mode switched
+  /api/switch_memory_repo:
+    get:
+      summary: Switch memory storage mode
+      operationId: switch_memory_repo_get
+      parameters:
+        - in: query
+          name: type
+          schema:
+            type: string
+            enum: [local, github]
+        - in: query
+          name: userId
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Memory mode switched
   /saveLessonPlan:
     post:
       summary: Update learning plan
