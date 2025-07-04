@@ -352,6 +352,19 @@ components:
           type: string
         path:
           type: string
+    IndexEntry:
+      type: object
+      properties:
+        path:
+          type: string
+        title:
+          type: string
+        type:
+          type: string
+        description:
+          type: string
+        lastModified:
+          type: string
     UpdateIndexRequest:
       type: object
       properties:
