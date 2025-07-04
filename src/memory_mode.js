@@ -1,6 +1,7 @@
 const fs = require('fs');
 const fsp = fs.promises;
 const path = require('path');
+const userMode = require('../utils/memory_mode');
 
 const cfgDir = path.join(__dirname, '..', 'config', '.sofia');
 const cfgPath = path.join(cfgDir, 'config.json');
@@ -47,12 +48,18 @@ function setMemoryModeSync(mode = 'github') {
   const cfg = loadConfigSync();
   cfg.memory_mode = (mode || 'github').toLowerCase();
   saveConfigSync(cfg);
+  try {
+    userMode.setMemoryModeSync('default', cfg.memory_mode);
+  } catch {}
 }
 
 async function setMemoryMode(mode = 'github') {
   const cfg = await loadConfig();
   cfg.memory_mode = (mode || 'github').toLowerCase();
   await saveConfig(cfg);
+  try {
+    await userMode.setMemoryMode('default', cfg.memory_mode);
+  } catch {}
 }
 
 module.exports = {
