@@ -1,7 +1,28 @@
 const axios = require('axios');
+const fs = require('fs');
+const path = require('path');
 const { isLocalMode } = require('../utils/memory_mode');
 
+const localCfgPath = path.join(__dirname, '..', 'config', 'local_config.json');
+
 let localMemoryPath = null;
+
+function loadLocalPath() {
+  try {
+    const raw = fs.readFileSync(localCfgPath, 'utf-8');
+    const cfg = JSON.parse(raw);
+    localMemoryPath = cfg.path || null;
+  } catch {}
+}
+
+function saveLocalPath(dir) {
+  try {
+    fs.mkdirSync(path.dirname(localCfgPath), { recursive: true });
+    fs.writeFileSync(localCfgPath, JSON.stringify({ path: dir }, null, 2));
+  } catch {}
+}
+
+loadLocalPath();
 
 async function requestToAgent(endpoint, method = 'GET', data = {}) {
   const baseUrl = 'http://localhost:4465';
@@ -36,6 +57,7 @@ async function setLocalPathCommand(text) {
     const result = await requestToAgent('/set_local_path', 'POST', { path: newPath });
     console.log('[memory_plugin] set_local_path status:', result.status || 'OK');
     localMemoryPath = newPath;
+    saveLocalPath(newPath);
     return result;
   } catch (e) {
     console.error('[memory_plugin] set_local_path failed', e.message);

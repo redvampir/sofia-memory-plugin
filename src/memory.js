@@ -17,6 +17,7 @@ const {
   setMemoryFolder,
   switchLocalRepo,
 } = require('../utils/memory_mode');
+const globalMemoryMode = require('./memory_mode');
 const { requestToAgent } = require('./memory_plugin');
 function getRootDir(userId = 'default') {
   return isLocalMode(userId) ? baseDir(userId) : path.join(__dirname, '..');
@@ -213,6 +214,7 @@ async function setMemoryRepo(token, repo) {
 async function setLocalMemoryPath(dir, userId = 'default') {
   await setLocalPath(userId, dir);
   await setMemoryMode(userId, 'local');
+  await globalMemoryMode.setMemoryMode('local');
 }
 
 async function createMemoryFolder(name, initIndex = false, userId = 'default') {
@@ -237,6 +239,7 @@ async function switchMemoryRepo(type, dir, userId = 'default') {
       userId
     );
     await switchLocalRepo(userId, target);
+    await globalMemoryMode.setMemoryMode('local');
     return { mode: 'local' };
   }
   throw new Error('Unsupported repo type');
