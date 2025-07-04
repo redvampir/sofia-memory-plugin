@@ -58,6 +58,18 @@ app.post('/switch_memory_repo', async (req, res) => {
   }
 });
 
+// Route to switch memory repository via query parameter
+app.get('/api/switch_memory_repo', async (req, res) => {
+  const { type, userId } = req.query;
+  try {
+    const result = await switchMemoryRepo(type, undefined, userId);
+    res.status(200).json({ status: 'ok', mode: result.mode });
+  } catch (err) {
+    console.error('Ошибка при переключении режима:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.post('/list', async (req, res) => {
   try {
     const { repo, token, path: dirPath } = req.body;
@@ -117,6 +129,7 @@ app.get('/docs', (req, res) => {
         "POST /read",
         "POST /setMemoryRepo",
         "POST /switch_memory_repo",
+        "GET /api/switch_memory_repo",
         "POST /saveLessonPlan",
         "POST /saveMemoryWithIndex",
         "POST /saveNote",
