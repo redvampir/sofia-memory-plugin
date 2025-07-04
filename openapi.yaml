@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Sofia Memory Plugin
-  version: "1.0.0"
+  version: 1.0.0
 servers:
   - url: https://sofia-memory.onrender.com
 paths:
@@ -70,60 +70,6 @@ paths:
           description: Mode stored
         '400':
           description: Invalid mode
-  /switch_memory_repo:
-    post:
-      summary: Switch memory storage mode
-      operationId: switch_memory_repo
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                type:
-                  type: string
-                  enum: [local, github]
-                path:
-                  type: string
-                repo:
-                  type: string
-                token:
-                  type: string
-                userId:
-                  type: string
-      responses:
-        "200":
-          description: Memory mode switched
-  /api/switch_memory_repo:
-    get:
-      summary: Switch memory storage mode
-      operationId: switch_memory_repo_get
-      parameters:
-        - in: query
-          name: type
-          schema:
-            type: string
-            enum: [local, github]
-        - in: query
-          name: userId
-          schema:
-            type: string
-      responses:
-        "200":
-          description: Memory mode switched
-  /api/status:
-    get:
-      summary: Get current memory mode
-      operationId: status
-      parameters:
-        - in: query
-          name: userId
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Current mode
   /memory-mode:
     get:
       summary: Get global memory mode
@@ -290,38 +236,6 @@ paths:
       responses:
         '200':
           description: Setup parsed
-  /chat/create_memory_folder:
-    post:
-      summary: Create memory folder
-      operationId: chatCreateMemoryFolder
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                text:
-                  type: string
-      responses:
-        '200':
-          description: Folder created
-  /chat/load_memory:
-    post:
-      summary: Load memory folder
-      operationId: chatLoadMemory
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                text:
-                  type: string
-      responses:
-        '200':
-          description: Memory loaded
   /updateIndex:
     post:
       summary: Manually update index entries
@@ -348,48 +262,6 @@ paths:
       responses:
         '200':
           description: File list
-  /github/repos:
-    post:
-      summary: List user repositories
-      operationId: listRepos
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                token:
-                  type: string
-      responses:
-        '200':
-          description: Repository list
-  /github/repository:
-    post:
-      summary: Get repository contents
-      operationId: repoContents
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/RepoRequest'
-      responses:
-        '200':
-          description: Repository data
-  /github/file:
-    post:
-      summary: Fetch file with lint info
-      operationId: fileData
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/FileRequest'
-      responses:
-        '200':
-          description: File data
   /version/commit:
     post:
       summary: Commit instructions version
@@ -452,101 +324,41 @@ paths:
           description: Endpoint list
 components:
   schemas:
-    SaveMemoryRequest:
+    VersionListRequest:
       type: object
       properties:
-        repo:
+        version:
           type: string
-        token:
+    RollbackInstructionsRequest:
+      type: object
+      properties:
+        version:
           type: string
-        filename:
+        historyFile:
+          type: string
+    CommitInstructionsRequest:
+      type: object
+      properties:
+        version:
           type: string
         content:
           type: string
-        userId:
-          type: string
-        type:
-          type: string
-          enum: [memory, context]
-    ReadMemoryRequest:
+    ListFilesRequest:
       type: object
       properties:
         repo:
           type: string
         token:
           type: string
-        filename:
+        path:
           type: string
-        userId:
-          type: string
-        type:
-          type: string
-          enum: [memory, context]
-    SaveLessonPlanRequest:
+    UpdateIndexRequest:
       type: object
       properties:
-        title:
-          type: string
-        summary:
-          type: string
-        projectFiles:
+        entries:
           type: array
           items:
-            type: string
-        plannedLessons:
-          type: array
-          items:
-            type: string
-    SaveAnswerRequest:
-      type: object
-      properties:
-        key:
-          type: string
-        content:
-          type: string
-        repo:
-          type: string
-        token:
-          type: string
-        userId:
-          type: string
-    SaveNoteRequest:
-      type: object
-      properties:
-        userId:
-          type: string
-        note:
-          type: string
-    CreateUserProfileRequest:
-      type: object
-      properties:
-        userId:
-          type: string
-        profile:
-          type: string
-    SetTokenRequest:
-      type: object
-      properties:
-        userId:
-          type: string
-        token:
-          type: string
-    SaveContextRequest:
-      type: object
-      properties:
-        repo:
-          type: string
-        token:
-          type: string
-        userId:
-          type: string
-        content:
-          type: string
-    LoadMemoryToContextRequest:
-      type: object
-      properties:
-        filename:
-          type: string
+            $ref: '#/components/schemas/IndexEntry'
         repo:
           type: string
         token:
@@ -564,85 +376,83 @@ components:
           type: string
         userId:
           type: string
-    IndexEntry:
+    LoadMemoryToContextRequest:
       type: object
       properties:
-        path:
+        filename:
           type: string
-        title:
-          type: string
-        type:
-          type: string
-        description:
-          type: string
-        lastModified:
-          type: string
-    UpdateIndexRequest:
-      type: object
-      properties:
-        entries:
-          type: array
-          items:
-            $ref: '#/components/schemas/IndexEntry'
         repo:
           type: string
         token:
           type: string
         userId:
           type: string
-    ListFilesRequest:
+    SetTokenRequest:
       type: object
       properties:
-        repo:
+        userId:
           type: string
         token:
           type: string
-        path:
-          type: string
-    CommitInstructionsRequest:
+    SaveAnswerRequest:
       type: object
       properties:
-        version:
+        key:
           type: string
         content:
           type: string
-    RollbackInstructionsRequest:
-      type: object
-      properties:
-        version:
-          type: string
-        historyFile:
-          type: string
-    VersionListRequest:
-      type: object
-      properties:
-        version:
-          type: string
-    RepoRequest:
-      type: object
-      properties:
-        token:
-          type: string
-        owner:
-          type: string
         repo:
           type: string
-        path:
-          type: string
-        page:
-          type: integer
-        per_page:
-          type: integer
-        fileType:
-          type: string
-    FileRequest:
-      type: object
-      properties:
         token:
           type: string
-        owner:
+        userId:
           type: string
+    SaveLessonPlanRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        summary:
+          type: string
+        projectFiles:
+          type: array
+          items:
+            type: string
+        plannedLessons:
+          type: array
+          items:
+            type: string
+    ReadMemoryRequest:
+      type: object
+      properties:
         repo:
           type: string
-        filePath:
+        token:
           type: string
+        filename:
+          type: string
+        userId:
+          type: string
+        type:
+          type: string
+          enum:
+            - memory
+            - context
+    SaveMemoryRequest:
+      type: object
+      properties:
+        repo:
+          type: string
+        token:
+          type: string
+        filename:
+          type: string
+        content:
+          type: string
+        userId:
+          type: string
+        type:
+          type: string
+          enum:
+            - memory
+            - context
