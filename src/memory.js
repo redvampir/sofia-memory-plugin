@@ -232,7 +232,11 @@ async function createMemoryFolder(name, initIndex = false, userId = 'default') {
 async function switchMemoryRepo(type, dir, userId = 'default') {
   const mode = (type || '').toLowerCase();
   if (mode === 'local') {
-    await switchLocalRepo(userId, dir);
+    const target = dir || path.join(
+      process.env.LOCAL_MEMORY_PATH || path.join(__dirname, '..', 'local_memory'),
+      userId
+    );
+    await switchLocalRepo(userId, target);
     return { mode: 'local' };
   }
   throw new Error('Unsupported repo type');
