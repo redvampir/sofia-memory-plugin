@@ -124,6 +124,31 @@ paths:
       responses:
         '200':
           description: Current mode
+  /memory-mode:
+    get:
+      summary: Get global memory mode
+      operationId: getGlobalMemoryMode
+      responses:
+        '200':
+          description: Current global mode
+    post:
+      summary: Set global memory mode
+      operationId: setGlobalMemoryMode
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                mode:
+                  type: string
+                  enum: [local, github]
+      responses:
+        '200':
+          description: Mode stored
+        '400':
+          description: Invalid mode
   /saveLessonPlan:
     post:
       summary: Update learning plan
