@@ -164,3 +164,21 @@ Markdown-документы объёмом более **5 МБ** и файлы 
 
 В дочерних индексах элементы имеют блок `metadata` с полями `sort_order`, `search_priority`, `category` и `sub_category`. Поиск через `searchInIndex(query, indexFile)` отдаёт максимум десять совпадений из каждого файла индекса.
 
+
+### Переключение и проверка режима памяти
+
+Эндпойнты `/api/switch_memory_repo` и `/api/status` используются Desktop Agent для выбора источника памяти и проверки текущего режима.
+
+- `GET /api/switch_memory_repo` — переключает режим хранения. Принимает параметры `type` (`local` или `github`) и `userId`.
+- `GET /api/status` — возвращает актуальный режим для данного `userId`.
+
+Desktop Agent отправляет `/api/switch_memory_repo` при выборе локальной папки или репозитория на GitHub. Затем он опрашивает `/api/status`, чтобы убедиться, что режим успешно переключён.
+
+```bash
+# переключиться на локальную папку
+curl "http://localhost:10000/api/switch_memory_repo?type=local&userId=123"
+
+# узнать текущий режим
+curl "http://localhost:10000/api/status?userId=123"
+```
+
