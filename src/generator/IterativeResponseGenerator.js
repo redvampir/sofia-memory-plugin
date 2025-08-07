@@ -1,5 +1,5 @@
 const DraftGenerator = require('./draft/DraftGenerator');
-const GapAnalyzer = require('./GapAnalyzer');
+const GapAnalyzer = require('./analysis/GapAnalyzer');
 const DeepSearcher = require('./DeepSearcher');
 const ResponseEnhancer = require('./ResponseEnhancer');
 const IterationController = require('./IterationController');
