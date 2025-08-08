@@ -147,6 +147,40 @@ async function loadIndexFile(debug, opts = {}) {
         currentLessonPath ? readFile(currentLessonPath, opts).catch(() => null) : Promise.resolve(null)
       ]);
 
+      let summaries = [];
+      try {
+        const idxRaw = await readFile('memory/summaries/index.json', {
+          ...opts,
+          source: 'summaries-index'
+        });
+        const idx = JSON.parse(idxRaw);
+        const files = Array.isArray(idx.files) ? idx.files : [];
+        for (const f of files) {
+          const filePath = f.file.startsWith('memory/') ? f.file : `memory/${f.file}`;
+          try {
+            const raw = await readFile(filePath, { ...opts, source: 'summary' });
+            const data = JSON.parse(raw);
+            const rel = p => p && p.replace(/^.*memory[\/]/, 'memory/').replace(/\\/g, '/');
+            summaries.push({
+              summary: data.summary,
+              questionPath: rel(data.questionPath),
+              answerPath: rel(data.answerPath)
+            });
+          } catch {}
+        }
+      } catch (e) {
+        if (debug) console.warn('[restoreContext] summaries load fail', e.message);
+      }
+
+      const summaryText = summaries.length
+        ? '\n\n## Summaries\n' +
+          summaries
+            .map(s => `- ${s.summary} (Q: ${s.questionPath}, A: ${s.answerPath})`)
+            .join('\n')
+        : '';
+
+      const add = text => (text ? text + summaryText : summaryText || null);
+
       if (debug) {
         console.log('[restoreContext] loaded plan', !!plan);
         console.log('[restoreContext] loaded profile', !!profile);
@@ -155,7 +189,7 @@ async function loadIndexFile(debug, opts = {}) {
         if (skipped.length) console.log('[restoreContext] skipped', skipped.join(', '));
       }
       logger.info('[restore_context] success', { user: userId });
-      return { plan, profile, currentLesson: lesson };
+      return { plan: add(plan), profile: add(profile), currentLesson: add(lesson) };
     } catch (e) {
       logger.error('[restore_context]', e.message);
       return { plan: null, profile: null, currentLesson: null };

@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const SessionSummarizer = require('../src/generator/summarization/SessionSummarizer');
 
 const cache_dir = path.join(__dirname, '.cache');
 const state_file = path.join(cache_dir, 'context_state.json');
@@ -7,6 +8,7 @@ const state_file = path.join(cache_dir, 'context_state.json');
 const TOKEN_LIMIT = 3000;
 
 let state = { _loaded: false, users: {} };
+const summarizer = new SessionSummarizer();
 
 function load() {
   if (state._loaded) return;
@@ -30,7 +32,7 @@ function save() {
 
 function ensure(userId) {
   if (!state.users[userId]) {
-    state.users[userId] = { needs_refresh: false, tokens: 0 };
+    state.users[userId] = { needs_refresh: false, tokens: 0, summarized: false };
   }
 }
 function get_needs_refresh(userId = 'default') {
@@ -52,11 +54,22 @@ function get_tokens(userId = 'default') {
   return state.users[userId].tokens || 0;
 }
 
-function increment_tokens(n = 0, userId = 'default') {
+function increment_tokens(n = 0, userId = 'default', lastQuestion = '', lastAnswer = '') {
   load();
   ensure(userId);
   state.users[userId].tokens += n;
   if (state.users[userId].tokens > 2000) state.users[userId].needs_refresh = true;
+  if (
+    state.users[userId].tokens > TOKEN_LIMIT &&
+    !state.users[userId].summarized
+  ) {
+    try {
+      const summary = summarizer.summarizePair(lastQuestion, lastAnswer);
+      const sessionId = Date.now().toString();
+      summarizer.storeSummary(sessionId, summary, lastQuestion, lastAnswer);
+    } catch {}
+    state.users[userId].summarized = true;
+  }
   save();
 }
 
@@ -64,6 +77,7 @@ function reset_tokens(userId = 'default') {
   load();
   ensure(userId);
   state.users[userId].tokens = 0;
+  state.users[userId].summarized = false;
   save();
 }
 

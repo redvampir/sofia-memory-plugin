@@ -245,7 +245,8 @@ async function switchMemoryRepo(type, dir, userId = 'default') {
   throw new Error('Unsupported repo type');
 }
 
-async function refreshContextFromMemoryFiles(repo, token, keywords = []) {
+async function refreshContextFromMemoryFiles(repo, token, keywords = [], opts = {}) {
+  const { includeFull = false } = opts;
   const final_repo = repo || await memory_config.getRepoUrl(null);
   const final_token = token || await token_store.getToken(null);
   const masked_token = final_token ? `${final_token.slice(0, 4)}...` : 'null';
@@ -267,7 +268,11 @@ async function refreshContextFromMemoryFiles(repo, token, keywords = []) {
 
   for (const p of context_files) {
     try {
-      const content = await read_memory_file(p, { repo: final_repo, token: final_token, source: 'context-refresh' });
+      const content = await read_memory_file(p, {
+        repo: final_repo,
+        token: final_token,
+        source: 'context-refresh'
+      });
       loaded[p] = content;
       logger.debug('[refreshContextFromMemoryFiles] loaded', p);
     } catch (e) {
@@ -283,11 +288,66 @@ async function refreshContextFromMemoryFiles(repo, token, keywords = []) {
     return key ? loaded[key] || null : null;
   };
 
+  let summaries = [];
+  try {
+    const idxRaw = await read_memory_file('memory/summaries/index.json', {
+      repo: final_repo,
+      token: final_token,
+      source: 'context-refresh'
+    });
+    const idx = JSON.parse(idxRaw);
+    const files = Array.isArray(idx.files) ? idx.files : [];
+    for (const f of files) {
+      const filePath = f.file.startsWith('memory/') ? f.file : `memory/${f.file}`;
+      try {
+        const raw = await read_memory_file(filePath, {
+          repo: final_repo,
+          token: final_token,
+          source: 'context-refresh'
+        });
+        const data = JSON.parse(raw);
+        const rel = p => p && p.replace(/^.*memory[\/]/, 'memory/').replace(/\\/g, '/');
+        const item = {
+          summary: data.summary,
+          questionPath: rel(data.questionPath),
+          answerPath: rel(data.answerPath)
+        };
+        if (includeFull) {
+          const qRel = rel(data.questionPath);
+          const aRel = rel(data.answerPath);
+          item.question = await read_memory_file(qRel, {
+            repo: final_repo,
+            token: final_token,
+            source: 'context-refresh'
+          }).catch(() => null);
+          item.answer = await read_memory_file(aRel, {
+            repo: final_repo,
+            token: final_token,
+            source: 'context-refresh'
+          }).catch(() => null);
+        }
+        summaries.push(item);
+      } catch {}
+    }
+  } catch (e) {
+    logger.debug('[refreshContextFromMemoryFiles] no summaries', e.message);
+  }
+
+  const summaryText = summaries.length
+    ? '\n\n## Summaries\n' +
+      summaries
+        .map(s => `- ${s.summary} (Q: ${s.questionPath}, A: ${s.answerPath})`)
+        .join('\n')
+    : '';
+
+  const add = text => (text ? text + summaryText : summaryText || null);
+
   logger.info('[refreshContextFromMemoryFiles] success', { loaded: Object.keys(loaded) });
   return {
-    plan: pick(/plan/i),
-    profile: pick(/profile/i),
-    currentLesson: pick(/lesson/i),
+    plan: add(pick(/plan/i)),
+    profile: add(pick(/profile/i)),
+    currentLesson: add(pick(/lesson/i)),
+    summaries,
   };
 }
 
@@ -521,8 +581,14 @@ async function auto_recover_context() {
   return { files: loaded, content: full.trim() };
 }
 
-async function checkAndRestoreContext(currentStage = '', tokens = 0, userId = 'default') {
-  context_state.increment_tokens(tokens, userId);
+async function checkAndRestoreContext(
+  currentStage = '',
+  tokens = 0,
+  userId = 'default',
+  lastQuestion = '',
+  lastAnswer = ''
+) {
+  context_state.increment_tokens(tokens, userId, lastQuestion, lastAnswer);
   if (currentStage === 'theory' || currentStage === 'practice') {
     logger.info(`[checkAndRestoreContext] stage finished: ${currentStage}`);
   }
