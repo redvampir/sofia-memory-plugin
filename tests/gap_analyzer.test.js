@@ -11,5 +11,7 @@ const GapAnalyzer = require('../src/generator/analysis/GapAnalyzer');
   assert(res.undefinedTerms[0].term.includes('<FooBar>'), 'undefined term captured');
   assert(Array.isArray(res.missingReferences) && res.missingReferences.length === 1, 'detects missing references');
   assert(res.missingReferences[0].priority > 0, 'missing reference has priority');
+  assert(Array.isArray(res.gaps) && res.gaps.length === 3, 'aggregates gaps');
+  assert(res.confidence >= 0 && res.confidence <= 1, 'returns confidence');
   console.log('gap analyzer test passed');
 })();

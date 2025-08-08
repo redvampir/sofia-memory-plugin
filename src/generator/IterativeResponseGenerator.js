@@ -51,20 +51,23 @@ class IterativeResponseGenerator {
       if (summary) context.hotCache.push(summary);
     }
 
-    let response = await this.draftGenerator.generate(query, context);
+    let resp = await this.draftGenerator.generate(query, context);
+    let response = resp.text || resp;
+    let gaps = resp.gaps || [];
     let iteration = 0;
 
-    while (this.iterationController.shouldContinue(iteration, response, context)) {
+    while (
+      this.iterationController.shouldContinue({
+        iteration,
+        quality: resp.confidence,
+        remainingGaps: gaps,
+      })
+    ) {
       const analysis = await this.gapAnalyzer.analyze(response, query, context);
       const refIds = analysis && analysis.referenceIds ? analysis.referenceIds : [];
-      if (
-        !analysis ||
-        (!analysis.uncertainties.length &&
-          !analysis.undefinedTerms.length &&
-          !analysis.missingReferences.length &&
-          refIds.length === 0)
-      )
-        break;
+      gaps = analysis && Array.isArray(analysis.gaps) ? analysis.gaps : [];
+      resp = analysis || resp;
+      if (!analysis || (gaps.length === 0 && refIds.length === 0)) break;
 
       const findings = await this.deepSearcher.search(query, refIds, context);
       const enhanced = await this.responseEnhancer.enhance(
