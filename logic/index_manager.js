@@ -24,7 +24,12 @@ let validationReport = null;
 
 function loadFullIndex() {
   try {
-    return sort_by_priority(index_tree.listAllEntries());
+    return sort_by_priority(
+      index_tree.listAllEntries().map(e => ({
+        ...e,
+        importance_score: e.importance_score || 0,
+      }))
+    );
   } catch {
     return [];
   }
@@ -89,6 +94,7 @@ async function getLessonPath(number) {
     type: 'lesson',
     title: `Lesson ${n}`,
     lastModified: new Date().toISOString(),
+    importance_score: 0,
   });
   await saveIndex();
   return newPath;
@@ -116,7 +122,11 @@ function readLocalIndex() {
   try {
     const raw = fs.readFileSync(indexPath, 'utf-8');
     const parsed = JSON.parse(raw);
-    return sort_by_priority(index_to_array(parsed))
+    const arr = index_to_array(parsed).map(e => ({
+      ...e,
+      importance_score: e.importance_score || 0,
+    }));
+    return sort_by_priority(arr)
       .filter(e => ['high', 'medium'].includes(e.context_priority || 'medium'))
       .slice(0, maxFiles);
   } catch (e) {
@@ -238,6 +248,8 @@ async function mergeIndex(remoteData, localData) {
     map.set(entry.path, {
       ...existing,
       ...entry,
+      importance_score:
+        entry.importance_score ?? existing.importance_score ?? 0,
       lastModified: new Date().toISOString()
     });
   });
@@ -252,7 +264,9 @@ async function loadIndex() {
       list = res.entries;
       validationReport = res.report;
     }
-    indexData = sort_by_priority(list.map(e => ({ ...e, path: e.path })))
+    indexData = sort_by_priority(
+      list.map(e => ({ ...e, importance_score: e.importance_score || 0, path: e.path }))
+    )
       .filter(e => ['high', 'medium'].includes(e.context_priority || 'medium'))
       .slice(0, maxFiles);
     indexData.forEach(entry =>
@@ -288,6 +302,8 @@ async function addOrUpdateEntry(entry) {
   const base = { lastModified: new Date().toISOString() };
   if (idx >= 0) {
     indexData[idx] = { ...indexData[idx], ...entry, ...base };
+    if (indexData[idx].importance_score === undefined)
+      indexData[idx].importance_score = 0;
     if (process.env.DEBUG) console.log(`[indexManager] Updated entry ${entry.path}`);
   } else {
     indexData.push({
@@ -296,6 +312,7 @@ async function addOrUpdateEntry(entry) {
       access_count: 0,
       edit_count: 0,
       pinned: false,
+      importance_score: entry.importance_score || 0,
       ...entry,
       ...base,
     });
@@ -414,6 +431,7 @@ async function addToIndex(file, meta = {}) {
     tags: meta.tags || [],
     summary: meta.summary,
     version: meta.version,
+    importance_score: meta.importance_score || 0,
   };
   await addOrUpdateEntry(entry);
   await saveIndex();

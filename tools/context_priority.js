@@ -54,11 +54,6 @@ async function updateContextPriority() {
 
   for (const entry of index) {
     if (!entry || !entry.path) continue;
-    if (entry.pinned) {
-      keep.push(entry);
-      continue;
-    }
-
     const last = entry.last_accessed ? Date.parse(entry.last_accessed) : NaN;
     const days = Number.isNaN(last)
       ? Infinity
@@ -66,6 +61,22 @@ async function updateContextPriority() {
 
     entry.access_count = entry.access_count || 0;
     entry.edit_count = entry.edit_count || 0;
+    entry.importance_score = entry.importance_score || 0;
+
+    if (days !== Infinity) {
+      const halfLife = 30; // days for importance to halve
+      const decayFactor = Math.pow(0.5, days / halfLife);
+      const newImp = entry.importance_score * decayFactor;
+      if (Math.abs(newImp - entry.importance_score) > 1e-6) {
+        entry.importance_score = newImp;
+        changed = true;
+      }
+    }
+
+    if (entry.pinned) {
+      keep.push(entry);
+      continue;
+    }
 
     if (entry.access_count === 0 && days > 60) {
       changed = true;
@@ -78,19 +89,21 @@ async function updateContextPriority() {
       continue;
     }
 
-    if (entry.access_count >= 5 || entry.edit_count >= 3) {
-      keep.push(entry);
-      continue;
-    }
+    const freqScore = Math.min(1, (entry.access_count + entry.edit_count) / 5);
+    const recencyScore = Number.isFinite(days)
+      ? Math.max(0, 1 - days / 30)
+      : 0;
+    const importanceScore = Math.min(1, entry.importance_score);
+    const priorityScore =
+      freqScore * 0.4 + recencyScore * 0.3 + importanceScore * 0.3;
 
-    if (days > 30 && entry.access_count < 3) {
-      if (entry.context_priority === 'high') {
-        entry.context_priority = 'medium';
-        changed = true;
-      } else if (entry.context_priority === 'medium') {
-        entry.context_priority = 'low';
-        changed = true;
-      }
+    let newPriority = 'low';
+    if (priorityScore >= 0.66) newPriority = 'high';
+    else if (priorityScore >= 0.33) newPriority = 'medium';
+
+    if (entry.context_priority !== newPriority) {
+      entry.context_priority = newPriority;
+      changed = true;
     }
     keep.push(entry);
   }

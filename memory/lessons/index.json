@@ -7,7 +7,8 @@
       "file": "lessons/04_example.md",
       "tags": [],
       "aliases": [],
-      "context_priority": "high"
+      "context_priority": "high",
+      "importance_score": 0
     },
     {
       "title": "Intro Lesson",
@@ -16,7 +17,8 @@
         "intro"
       ],
       "aliases": [],
-      "context_priority": "medium"
+      "context_priority": "medium",
+      "importance_score": 0
     }
   ]
 }

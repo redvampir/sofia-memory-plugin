@@ -1,3 +1,1 @@
-# Intro Lesson
-
-Basics.
+Intro Lesson

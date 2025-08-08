@@ -85,6 +85,24 @@ async function read(params = {}) {
   return requestToAgent('/read', 'GET', params);
 }
 
+async function markImportantCommand(text) {
+  const m = text.match(/\/mark\s+important\s+([^\s]+)\s*/i);
+  if (!m) return null;
+  const file = m[1];
+  if (!isLocalMode('default')) {
+    console.log('\u274c \u041a\u043e\u043c\u0430\u043d\u0434\u0430 \u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0430 \u0442\u043e\u043b\u044c\u043a\u043e \u0432 \u043b\u043e\u043a\u0430\u043b\u044c\u043d\u043e\u043c \u0440\u0435\u0436\u0438\u043c\u0435.');
+    return { status: 'error', message: 'Команда доступна только в локальном режиме.' };
+  }
+  try {
+    const result = await requestToAgent('/mark_important', 'POST', { file });
+    console.log(`[memory_plugin] mark_important ${file}:`, result.status || 'OK');
+    return result;
+  } catch (e) {
+    console.error('[memory_plugin] mark_important failed', e.message);
+    throw e;
+  }
+}
+
 module.exports = {
   requestToAgent,
   setLocalPathCommand,
@@ -92,4 +110,5 @@ module.exports = {
   loadMemoryToContext,
   listFiles,
   read,
+  markImportantCommand,
 };

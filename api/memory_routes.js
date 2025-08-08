@@ -715,6 +715,25 @@ router.post('/chat/load_memory', async (req, res) => {
     res.status(500).json({ status: 'error', message: e.message });
   }
 });
+router.post('/mark_important', async (req, res) => {
+  const { file, userId } = req.body || {};
+  if (!file) {
+    return res.status(400).json({ status: 'error', message: 'Missing file' });
+  }
+  try {
+    const normalized = normalize_memory_path(file);
+    const existing = index_manager.getByPath(normalized);
+    const current = existing ? existing.importance_score || 0 : 0;
+    const updated = await index_manager.updateMetadata(
+      normalized,
+      'importance_score',
+      Math.min(current + 0.2, 1)
+    );
+    res.json({ status: 'success', importance_score: updated.importance_score });
+  } catch (e) {
+    res.status(500).json({ status: 'error', message: e.message });
+  }
+});
 router.post('/updateIndex', updateIndexManual);
 router.get('/plan', readPlan);
 router.get('/profile', readProfile);
