@@ -324,7 +324,7 @@ async function moveFileAndUpdateIndex(oldPath, newPath) {
 
 async function saveIndex(token, repo, userId) {
   if (!indexData) await loadIndex();
-  const old_list = index_tree.listAllEntries();
+  const old_list = loadIndexSync();
   const old_paths = old_list.map(e => e.path);
   const manual_set = new Set(
     old_list.filter(e => e.source === 'manual').map(e => e.path)

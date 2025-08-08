@@ -18,6 +18,17 @@ function loadRoot() {
   }
   const raw = fs.readFileSync(rootIndexPath, 'utf-8');
   const data = JSON.parse(raw);
+  // ensure summaries branch exists if summaries index is present
+  if (Array.isArray(data.branches)) {
+    const hasSummaries = data.branches.some(b => b.category === 'summaries');
+    if (!hasSummaries) {
+      const summariesRel = path.join('summaries', 'index.json');
+      const summariesPath = path.join(__dirname, '..', 'memory', summariesRel);
+      if (fs.existsSync(summariesPath)) {
+        data.branches.push({ category: 'summaries', path: summariesRel });
+      }
+    }
+  }
   if (!validateRootIndex(data)) {
     console.error('[index_tree] root index schema invalid');
     throw new Error('invalid root index');
