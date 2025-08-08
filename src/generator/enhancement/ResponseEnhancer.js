@@ -2,6 +2,7 @@ class ResponseEnhancer {
   constructor() {
     // keep a running log of every change applied
     this.log = [];
+    this.fullReferenceLog = [];
   }
 
   /**
@@ -14,7 +15,7 @@ class ResponseEnhancer {
    * @param {Array<{directive: string, content: string}>} searchResults
    * @returns {{text: string, changes: Array<{directive: string, content: string}>}}
    */
-  enhance(draft = '', searchResults = []) {
+  enhance(draft = '', searchResults = [], context = {}) {
     const priorities = {
       CRITICAL_CORRECTION: 3,
       IMPORTANT_ADDITION: 2,
@@ -31,6 +32,18 @@ class ResponseEnhancer {
           (a, b) => (priorities[b.directive] || 0) - (priorities[a.directive] || 0)
         )
       : [];
+
+    if (
+      context &&
+      Array.isArray(context.usedFullTexts) &&
+      context.usedFullTexts.length
+    ) {
+      this.fullReferenceLog.push(...context.usedFullTexts);
+      console.log(
+        '[ResponseEnhancer] full references used:',
+        context.usedFullTexts.join(', ')
+      );
+    }
 
     let text = draft;
     const changes = [];

@@ -1,3 +1,5 @@
+const SessionSummarizer = require('../summarization/SessionSummarizer');
+
 class DeepSearcher {
   constructor(opts = {}) {
     this.hotCache = opts.hotCache || null;
@@ -5,9 +7,10 @@ class DeepSearcher {
     this.coldStorage = opts.coldStorage || null;
     this.externalSources = opts.externalSources || [];
     this.timeout = opts.timeout || 1000; // default timeout in ms
+    this.sessionSummarizer = opts.sessionSummarizer || new SessionSummarizer();
   }
 
-  async search(query) {
+  async search(query, referenceIds = [], context = {}) {
     const results = new Map();
 
     const addResults = items => {
@@ -17,6 +20,29 @@ class DeepSearcher {
         if (!results.has(key)) results.set(key, item);
       }
     };
+
+    const refs = new Set(Array.isArray(referenceIds) ? referenceIds : []);
+    const markerPattern = /\[\[REF:([^\]]+)\]\]/g;
+    let match;
+    while ((match = markerPattern.exec(query)) !== null) {
+      refs.add(match[1]);
+    }
+    markerPattern.lastIndex = 0;
+
+    if (refs.size) {
+      for (const id of refs) {
+        const full = this.sessionSummarizer.getFullText(id);
+        if (full) {
+          addResults([{ id, content: full }]);
+          if (context) {
+            if (!Array.isArray(context.usedFullTexts)) context.usedFullTexts = [];
+            context.usedFullTexts.push(id);
+            if (!Array.isArray(context.hotCache)) context.hotCache = [];
+            context.hotCache.push(full);
+          }
+        }
+      }
+    }
 
     // Hot cache first
     if (this.hotCache && typeof this.hotCache.search === 'function') {
