@@ -3,6 +3,7 @@ const path = require('path');
 
 const index_file = path.join(__dirname, '..', 'memory', 'index.json');
 const { index_to_array, array_to_index } = require('./index_utils');
+const { archiveFile } = require('../logic/archive_manager');
 
 async function load_index() {
   try {
@@ -51,27 +52,35 @@ async function updateContextPriority() {
   let changed = false;
   const keep = [];
 
-  index.forEach(entry => {
-    if (!entry || !entry.path) return;
+  for (const entry of index) {
+    if (!entry || !entry.path) continue;
     if (entry.pinned) {
       keep.push(entry);
-      return;
+      continue;
     }
 
     const last = entry.last_accessed ? Date.parse(entry.last_accessed) : NaN;
-    const days = Number.isNaN(last) ? Infinity : (now - last) / (1000 * 60 * 60 * 24);
+    const days = Number.isNaN(last)
+      ? Infinity
+      : (now - last) / (1000 * 60 * 60 * 24);
 
     entry.access_count = entry.access_count || 0;
     entry.edit_count = entry.edit_count || 0;
 
     if (entry.access_count === 0 && days > 60) {
       changed = true;
-      return; // drop from context
+      entry.archived = true;
+      entry.context_priority = 'low';
+      try {
+        entry.archivePath = await archiveFile(entry.path);
+      } catch {}
+      keep.push(entry);
+      continue;
     }
 
     if (entry.access_count >= 5 || entry.edit_count >= 3) {
       keep.push(entry);
-      return;
+      continue;
     }
 
     if (days > 30 && entry.access_count < 3) {
@@ -84,7 +93,7 @@ async function updateContextPriority() {
       }
     }
     keep.push(entry);
-  });
+  }
 
   if (changed) await save_index(keep);
 }
