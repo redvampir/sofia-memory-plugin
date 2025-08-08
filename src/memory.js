@@ -1,6 +1,10 @@
 const { read_memory, save_memory, get_file } = require('./storage');
 const { restore_context, maybeRestoreContext } = require('./context');
-const { getContextFiles, getContextFilesForKeywords } = require('../logic/index_manager');
+const {
+  getContextFiles,
+  getContextFilesForKeywords,
+  getByPath,
+} = require('../logic/index_manager');
 const {
   updateContextPriority,
   touchIndexEntry,
@@ -399,6 +403,24 @@ async function read_memory_file(filename, opts = {}) {
       source,
       error: e.message,
     });
+    if (/not found/i.test(e.message)) {
+      const entry = getByPath(normalized);
+      if (entry && entry.archived && entry.archivePath) {
+        try {
+          const arch = normalize_memory_path(entry.archivePath);
+          const res = await get_file(null, repo, token, arch);
+          logger.info('[read_memory_file] success', { path: arch, source });
+          await touchIndexEntry(normalized);
+          return res.content;
+        } catch (e2) {
+          logger.error('[read_memory_file] archive error', {
+            path: entry.archivePath,
+            source,
+            error: e2.message,
+          });
+        }
+      }
+    }
     throw e;
   }
 }

@@ -22,14 +22,18 @@ const maxFiles = 15; // limit number of loaded files
 let indexData = null;
 let validationReport = null;
 
-function loadIndexSync() {
+function loadFullIndex() {
   try {
-    return sort_by_priority(index_tree.listAllEntries())
-      .filter(e => ['high', 'medium'].includes(e.context_priority || 'medium'))
-      .slice(0, maxFiles);
+    return sort_by_priority(index_tree.listAllEntries());
   } catch {
     return [];
   }
+}
+
+function loadIndexSync() {
+  return loadFullIndex()
+    .filter(e => ['high', 'medium'].includes(e.context_priority || 'medium'))
+    .slice(0, maxFiles);
 }
 
 function extractNumber(name) {
@@ -135,37 +139,37 @@ function getLessonByNumber(num) {
 }
 
 function getByPath(p) {
-  return loadIndexSync().find(e => e.path === p) || null;
+  return loadFullIndex().find(e => e.path === p || e.archivePath === p) || null;
 }
 
 function getByTag(tag) {
-  return loadIndexSync().filter(e => hasMatchingTag(e, tag));
+  return loadFullIndex().filter(e => hasMatchingTag(e, tag));
 }
 
 function filterByStatus(status) {
-  return loadIndexSync().filter(e => e.status === status);
+  return loadFullIndex().filter(e => e.status === status);
 }
 
 function filterByTags(tags) {
   const arr = Array.isArray(tags) ? tags : [tags];
-  return loadIndexSync().filter(e => arr.every(t => hasMatchingTag(e, t)));
+  return loadFullIndex().filter(e => arr.every(t => hasMatchingTag(e, t)));
 }
 
 function filterByDate(field, days) {
   const since = Date.now() - days * 24 * 60 * 60 * 1000;
-  return loadIndexSync().filter(e => {
+  return loadFullIndex().filter(e => {
     const ts = Date.parse(e[field]);
     return !isNaN(ts) && ts >= since;
   });
 }
 
 function filterByCategory(category) {
-  return loadIndexSync().filter(e => e.category === category);
+  return loadFullIndex().filter(e => e.category === category);
 }
 
 function searchByKeyword(query) {
   const re = new RegExp(query, 'i');
-  return loadIndexSync().filter(e => {
+  return loadFullIndex().filter(e => {
     const fields = [e.title, e.summary];
     if (Array.isArray(e.tags)) fields.push(...e.tags);
     return fields.some(v => v && re.test(String(v)));
@@ -219,7 +223,7 @@ async function updateMetadata(p, field, value) {
 }
 
 function validatePath(p) {
-  return !!loadIndexSync().find(e => e.path === p);
+  return !!loadFullIndex().find(e => e.path === p || e.archivePath === p);
 }
 
 
