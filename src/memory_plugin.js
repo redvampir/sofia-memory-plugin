@@ -2,6 +2,7 @@ const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
 const { isLocalMode } = require('../utils/memory_mode');
+const { RegenerateSession } = require('./regenerate_session');
 
 const localCfgPath = path.join(__dirname, '..', 'config', 'local_config.json');
 
@@ -85,6 +86,47 @@ async function read(params = {}) {
   return requestToAgent('/read', 'GET', params);
 }
 
+let regenSession = null;
+
+async function regenerateCommand(text, generate, opts = {}) {
+  const trimmed = text.trim();
+  if (!regenSession) {
+    if (!/^\/regenerate/i.test(trimmed)) return null;
+    regenSession = new RegenerateSession(opts.originalAnswer, opts);
+    return { status: 'started', attemptsLeft: regenSession.remaining() };
+  }
+  if (/^\/accept/i.test(trimmed)) {
+    const final = regenSession.accept();
+    regenSession = null;
+    return { status: 'accepted', answer: final };
+  }
+  if (/^\/cancel/i.test(trimmed)) {
+    regenSession.cancel();
+    regenSession = null;
+    return { status: 'canceled' };
+  }
+  if (regenSession.isLimitReached()) {
+    const answer = regenSession.currentAnswer || regenSession.originalAnswer;
+    regenSession = null;
+    return { status: 'limit_reached', answer };
+  }
+  if (/^\/reject/i.test(trimmed)) {
+    return { status: 'rejected', attemptsLeft: regenSession.remaining() };
+  }
+  if (typeof generate !== 'function') {
+    return { status: 'error', message: 'No generator provided' };
+  }
+  const result = await generate(trimmed, regenSession);
+  const answer = typeof result === 'string' ? result : result.answer;
+  const fragments = result && result.fragments ? result.fragments : [];
+  regenSession.recordAttempt(trimmed, answer, fragments);
+  return {
+    status: regenSession.isLimitReached() ? 'limit_reached' : 'regenerated',
+    answer,
+    attemptsLeft: regenSession.remaining(),
+  };
+}
+
 async function markImportantCommand(text) {
   const m = text.match(/\/mark\s+important\s+([^\s]+)\s*/i);
   if (!m) return null;
@@ -111,4 +153,5 @@ module.exports = {
   listFiles,
   read,
   markImportantCommand,
+  regenerateCommand,
 };
