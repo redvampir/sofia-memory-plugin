@@ -17,12 +17,14 @@ class GapAnalyzer {
       { keyword: 'ref?', priority: 2 },
       { keyword: 'according to', priority: 2 }
     ];
+    this.refMarkerPattern = opts.refMarkerPattern || /\[\[REF:([^\]]+)\]\]/g;
   }
 
   analyze(draft = '') {
     const uncertainties = [];
     const undefinedTerms = [];
     const missingReferences = [];
+    const referenceIds = [];
 
     const sentences = draft.split(/(?<=[.!?])\s+/);
     for (const sentence of sentences) {
@@ -57,7 +59,13 @@ class GapAnalyzer {
       }
     }
 
-    return { uncertainties, undefinedTerms, missingReferences };
+    let refMatch;
+    while ((refMatch = this.refMarkerPattern.exec(draft)) !== null) {
+      referenceIds.push(refMatch[1]);
+    }
+    this.refMarkerPattern.lastIndex = 0;
+
+    return { uncertainties, undefinedTerms, missingReferences, referenceIds };
   }
 }
 
