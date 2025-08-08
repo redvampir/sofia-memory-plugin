@@ -18,6 +18,45 @@ Sofia Memory Plugin \u2014 это небольшой сервис на Node.js, 
 
 Для конфигурации можно использовать файл `.env` (см. `.env.example`) или `config/config.json`, где задаются URL репозиториев и токены доступа. Переменная `TOKEN_SECRET` позволяет задать ключ для шифрования сохранённых токенов.
 
+## Установка языковых моделей
+
+Существует два способа загрузить и подготовить файлы языковых моделей для локального использования.
+
+### Использование вспомогательных скриптов
+
+- **Windows**:
+  ```powershell
+  chcp 65001
+  PowerShell -ExecutionPolicy Bypass -File scripts\install_model.ps1
+  ```
+- **Linux/macOS**:
+  ```bash
+  ./scripts/install_model.sh
+  ```
+
+### Ручная загрузка
+
+Если скрипты недоступны, загрузите модели напрямую из [репозитория bartowski](https://huggingface.co/bartowski) с помощью `wget` или PowerShell:
+
+```bash
+wget https://huggingface.co/bartowski/<MODEL>/resolve/main/<FILE> -O models/<FILE>
+```
+
+```powershell
+chcp 65001
+Invoke-WebRequest -Uri "https://huggingface.co/bartowski/<MODEL>/resolve/main/<FILE>" -OutFile "models/<FILE>"
+```
+
+### Советы по кодировке
+
+- Выполните `chcp 65001` в PowerShell, чтобы переключиться на UTF-8.
+- Сохраняйте скрипты командой `Set-Content -Encoding UTF8`, чтобы избежать искажений символов.
+
+### Устранение неполадок
+
+- **Проблемы с кодировкой**: убедитесь, что консоль работает в UTF-8 и файлы сохранены в этой кодировке.
+- **Отсутствующие утилиты**: установите `wget` или используйте `Invoke-WebRequest`/`curl`, если команды не распознаются.
+
 ## Запуск тестов
 
 Все unit-тесты запускаются командой:
