@@ -12,6 +12,10 @@
     {
       "category": "drafts",
       "path": "drafts/index.json"
+    },
+    {
+      "category": "summaries",
+      "path": "summaries/index.json"
     }
   ]
 }
