@@ -1,3 +1,1 @@
-# Example Lesson
-
-Content for lesson 4.
+Example Lesson
