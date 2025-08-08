@@ -65,7 +65,22 @@ class GapAnalyzer {
     }
     this.refMarkerPattern.lastIndex = 0;
 
-    return { uncertainties, undefinedTerms, missingReferences, referenceIds };
+    const gaps = [...uncertainties, ...undefinedTerms, ...missingReferences];
+    const uncertaintyConfs = uncertainties.map(u => u.confidence);
+    let confidence = uncertaintyConfs.length
+      ? Math.min(...uncertaintyConfs)
+      : 1;
+    confidence -= 0.1 * (undefinedTerms.length + missingReferences.length);
+    confidence = Math.max(0, Math.min(1, confidence));
+
+    return {
+      uncertainties,
+      undefinedTerms,
+      missingReferences,
+      referenceIds,
+      gaps,
+      confidence,
+    };
   }
 }
 

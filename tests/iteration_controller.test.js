@@ -15,6 +15,12 @@ class MockOptimizer {
 
   const start = Date.now();
 
+  // Backwards compatibility with old signature
+  assert(
+    controller.shouldContinue(0, 'resp', {}),
+    'supports old signature'
+  );
+
   // Should continue when gaps remain and under limits
   assert(
     controller.shouldContinue({

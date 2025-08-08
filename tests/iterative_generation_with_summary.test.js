@@ -9,7 +9,11 @@ const DeepSearcher = require('../src/generator/search/DeepSearcher');
 
 class StubDraftGenerator {
   async generate(query, context) {
-    return `Stub draft [[REF:${context.ref}]]`;
+    return {
+      text: `Stub draft [[REF:${context.ref}]]`,
+      gaps: ['init'],
+      confidence: 0.5,
+    };
   }
 }
 
@@ -23,8 +27,9 @@ class StubEnhancer {
 }
 
 class StubController {
-  shouldContinue(iteration) {
-    return iteration < 1;
+  shouldContinue(state) {
+    const iter = typeof state === 'object' ? state.iteration : state;
+    return iter < 1;
   }
 }
 
