@@ -22,6 +22,6 @@ const index_manager = require('../logic/index_manager');
   found = index_manager.getByPath(fileRel);
   assert.ok(found && found.path===fileRel);
 
-  fs.rmSync(path.dirname(abs),{recursive:true,force:true});
+  fs.rmSync(abs, { force: true });
   console.log('memory dynamic index update tests passed');
 })();
