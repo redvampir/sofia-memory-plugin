@@ -22,10 +22,26 @@ const {
 const { logError } = require('../tools/error_handler');
 const memory_settings = require('../tools/memory_settings');
 const { estimate_cost } = require('../tools/text_utils');
+const { TieredMemory } = require('./memory/tiered_memory');
+
+const tieredCache = new TieredMemory({ hotSize: 50, coldSize: 100 });
 
 async function read_memory(user_id, repo, token, filename, opts = {}) {
   const normalized = normalize_memory_path(filename);
   const parse_json = opts.parseJson || false;
+
+  const cached = await tieredCache.load(normalized);
+  if (cached !== undefined) {
+    if (parse_json && normalized.endsWith('.json')) {
+      try {
+        return JSON.parse(cached);
+      } catch {
+        return cached;
+      }
+    }
+    return cached;
+  }
+
   const finalRepo = repo || (await memory_config.getRepoUrl(user_id));
   const finalToken = token || (await token_store.getToken(user_id));
 
@@ -69,6 +85,8 @@ async function read_memory(user_id, repo, token, filename, opts = {}) {
       throw new Error(`File not found: ${normalized}`);
     }
   }
+
+  await tieredCache.store(normalized, content);
 
   if (!index_manager.validatePath(normalized)) {
     await index_manager.addOrUpdateEntry({
@@ -165,6 +183,7 @@ async function save_memory(user_id, repo, token, filename, content) {
   }
   await touchIndexEntry(normalized);
   await incrementEditCount(normalized);
+  await tieredCache.store(normalized, content);
   return normalized;
 }
 
