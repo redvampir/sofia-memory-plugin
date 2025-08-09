@@ -6,5 +6,6 @@
   "pluginRepo": {
     "repo": "https://github.com/redvampir/sofia-memory-plugin.git",
     "token": null
-  }
+  },
+  "mirrorNeurons": []
 }
