@@ -495,10 +495,12 @@ components:
         mirrorNeurons:
           type: array
           description: >-
-            Список нейронов, которые должны быть активированы при генерации
-            черновиков. Каждый элемент соответствует имени модуля нейрона.
+            Список модулей Mirror Neurons, которые следует активировать
+            при генерации черновиков. Оставьте массив пустым или опустите
+            параметр, чтобы отключить нейроны.
           items:
             type: string
+          default: []
           example:
             - StyleMirrorNeuron
             - EmotionMirrorNeuron
