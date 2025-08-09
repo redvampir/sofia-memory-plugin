@@ -4,13 +4,22 @@ const { execFileSync } = require('child_process');
 
 const testDir = __dirname;
 
-const files = fs
-  .readdirSync(testDir)
-  .filter(f => f.endsWith('.test.js'))
-  .sort();
+const files = [];
+function collect(dir) {
+  fs.readdirSync(dir).forEach(f => {
+    const p = path.join(dir, f);
+    if (fs.statSync(p).isDirectory()) {
+      collect(p);
+    } else if (f.endsWith('.test.js')) {
+      files.push(p);
+    }
+  });
+}
+
+collect(testDir);
+files.sort();
 
 files.forEach(file => {
-  const p = path.join(testDir, file);
-  console.log(`Running ${file}`);
-  execFileSync('node', [p], { stdio: 'inherit' });
+  console.log(`Running ${path.relative(testDir, file)}`);
+  execFileSync('node', [file], { stdio: 'inherit' });
 });
