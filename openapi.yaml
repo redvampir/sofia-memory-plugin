@@ -489,3 +489,18 @@ components:
           enum:
             - memory
             - context
+    PluginConfig:
+      type: object
+      properties:
+        mirrorNeurons:
+          type: array
+          description: >-
+            Список модулей Mirror Neurons, которые следует активировать
+            при генерации черновиков. Оставьте массив пустым или опустите
+            параметр, чтобы отключить нейроны.
+          items:
+            type: string
+          default: []
+          example:
+            - StyleMirrorNeuron
+            - EmotionMirrorNeuron
