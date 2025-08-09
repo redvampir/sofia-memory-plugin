@@ -237,3 +237,22 @@ curl "http://localhost:10000/api/status?userId=123"
 /accept
 ```
 
+## Mirror Neurons
+
+Mirror Neurons позволяют генератору черновиков копировать стиль, структуру и
+эмоциональный тон входного текста. Каждый нейрон анализирует пример и
+добавляет свой результат в черновой ответ.
+
+### Пример включения
+
+Активируйте нужные модули в `config/config.json`:
+
+```json
+{
+  "mirrorNeurons": ["StyleMirrorNeuron", "EmotionMirrorNeuron"]
+}
+```
+
+Подробнее об архитектуре и доступных нейронах см. в
+[`docs/mirror-neurons.md`](docs/mirror-neurons.md).
+
