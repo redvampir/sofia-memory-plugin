@@ -489,3 +489,16 @@ components:
           enum:
             - memory
             - context
+    PluginConfig:
+      type: object
+      properties:
+        mirrorNeurons:
+          type: array
+          description: >-
+            Список нейронов, которые должны быть активированы при генерации
+            черновиков. Каждый элемент соответствует имени модуля нейрона.
+          items:
+            type: string
+          example:
+            - StyleMirrorNeuron
+            - EmotionMirrorNeuron
