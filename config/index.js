@@ -35,8 +35,17 @@ function getStudentRepo() {
   };
 }
 
-function loadConfig() {
-  return { pluginRepo: getPluginRepo(), studentRepo: getStudentRepo() };
+function getMirrorNeurons() {
+  const list = loadFromFile().mirrorNeurons;
+  return Array.isArray(list) ? list : [];
 }
 
-module.exports = { loadConfig, getPluginRepo, getStudentRepo };
+function loadConfig() {
+  return {
+    pluginRepo: getPluginRepo(),
+    studentRepo: getStudentRepo(),
+    mirrorNeurons: getMirrorNeurons(),
+  };
+}
+
+module.exports = { loadConfig, getPluginRepo, getStudentRepo, getMirrorNeurons };

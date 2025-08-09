@@ -1,4 +1,16 @@
+const { loadConfig } = require('../../../config');
+const availableNeurons = require('../neurons');
+
 class DraftGenerator {
+  constructor() {
+    const cfg = loadConfig();
+    const names = Array.isArray(cfg.mirrorNeurons) ? cfg.mirrorNeurons : [];
+    this.neurons = names
+      .map(n => availableNeurons[n])
+      .filter(Boolean)
+      .map(N => new N());
+  }
+
   /**
    * Quickly generate a rough draft response.
    * Only uses data from the provided hot cache to keep runtime low.
@@ -21,6 +33,19 @@ class DraftGenerator {
       const marker = '[[GAP]]';
       text += marker;
       gaps.push(marker);
+    }
+
+    const sample = hotCache[0] || query;
+    const neuronOutputs = [];
+    for (const neuron of this.neurons) {
+      try {
+        neuron.analyze(sample);
+        neuronOutputs.push(neuron.generate({ text }));
+      } catch {}
+    }
+
+    if (neuronOutputs.length) {
+      text += `\n${neuronOutputs.join('\n')}`;
     }
 
     const confidence = 0.3; // initial drafts are low confidence
