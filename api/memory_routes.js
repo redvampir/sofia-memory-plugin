@@ -20,7 +20,7 @@ const {
 const index_manager = require('../logic/index_manager');
 const memory_config = require('../tools/memory_config');
 const token_store = require('../tools/token_store');
-const { setMemoryMode } = require('../utils/memory_mode');
+const { setMemoryMode, getMemoryMode } = require('../utils/memory_mode');
 const { generateTitleFromPath, inferTypeFromPath, normalize_memory_path, ensure_dir } = require('../tools/file_utils');
 const { parseMarkdownStructure, mergeMarkdownTrees, serializeMarkdownTree } = require('../logic/markdown_merge_engine.ts');
 const { getRepoInfo, extractToken, categorizeMemoryFile, logDebug } = require('../tools/memory_helpers');
@@ -97,6 +97,13 @@ async function setMemoryModeRoute(req, res) {
   }
   await setMemoryMode(userId || 'default', val);
   res.json({ status: 'success', mode: val });
+}
+
+async function systemStatus(req, res) {
+  const userId = (req.query.userId || (req.body || {}).userId || 'default').toString();
+  const mode = await getMemoryMode(userId);
+  const repo = await memory_config.getRepoUrl(userId);
+  res.json({ status: 'success', mode, repo });
 }
 
 async function saveMemory(req, res) {
@@ -566,8 +573,27 @@ router.post('/readFile', readFileRoute);
 router.get('/memory', readMemoryGET);
 router.post('/setMemoryRepo', setMemoryRepo);
 router.post('/memory/set-mode', setMemoryModeRoute);
+router.get('/status', systemStatus);
+router.post('/status', systemStatus);
+router.post('/saveMemoryWithIndex', saveMemoryWithIndexRoute);
+router.post('/loadMemoryToContext', loadMemoryToContextRoute);
+router.post('/loadContextFromIndex', loadContextFromIndexRoute);
+// Новые неймспейсы /api/* с сохранением обратной совместимости
+router.post('/api/files/save', save);
+router.post('/api/files/read', read);
+router.post('/api/memory/save', saveMemory);
+router.post('/api/memory/read', readMemory);
+router.post('/api/memory/save-with-index', saveMemoryWithIndexRoute);
+router.post('/api/memory/context', loadMemoryToContextRoute);
+router.post('/api/memory/load-to-context', loadMemoryToContextRoute);
+router.post('/api/memory/load-from-index', loadContextFromIndexRoute);
+router.post('/api/lessons/save-plan', saveLessonPlan);
+router.post('/api/lessons/save-answer', saveAnswer);
+router.post('/api/system/switch_repo', setMemoryRepo);
+router.get('/api/system/status', systemStatus);
+router.post('/api/system/status', systemStatus);
 router.post('/saveLessonPlan', saveLessonPlan);
-router.post('/saveMemoryWithIndex', async (req, res) => {
+async function saveMemoryWithIndexRoute(req, res) {
   const { userId, repo, token, filename, content } = req.body;
   const { repo: effectiveRepo, token: effectiveToken } = await getRepoInfo(filename, userId, repo, token || await extractToken(req));
   if (effectiveRepo) {
@@ -615,7 +641,7 @@ router.post('/saveMemoryWithIndex', async (req, res) => {
     const code = e.status || 500;
     res.status(code).json({ status: code, message: e.message, detail: e.githubMessage });
   }
-});
+}
 router.post('/saveAnswer', saveAnswer);
 router.post('/getToken', getToken);
 router.post('/saveNote', (req, res) => res.json({ status: 'success', action: 'saveNote' }));
@@ -626,7 +652,7 @@ router.get('/token/status', tokenStatus);
 router.get('/tokenStatus', tokenStatus);
 router.get('/readContext', readContext);
 router.post('/saveContext', saveContext);
-router.post('/loadMemoryToContext', async (req, res) => {
+async function loadMemoryToContextRoute(req, res) {
   const { filename, repo, userId } = req.body || {};
   const token = await extractToken(req);
   if (!filename) {
@@ -649,8 +675,9 @@ router.post('/loadMemoryToContext', async (req, res) => {
     const code = e.status || 500;
     res.status(code).json({ status: code, message: e.message, detail: e.githubMessage });
   }
-});
-router.post('/loadContextFromIndex', async (req, res) => {
+}
+
+async function loadContextFromIndexRoute(req, res) {
   const { index, repo, userId } = req.body || {};
   const token = await extractToken(req);
   if (!index) {
@@ -673,7 +700,7 @@ router.post('/loadContextFromIndex', async (req, res) => {
     const code = e.status || 500;
     res.status(code).json({ status: code, message: e.message, detail: e.githubMessage });
   }
-});
+}
 router.post('/chat/setup', async (req, res) => {
   const text = req.body && req.body.text ? req.body.text : '';
   // Используем функцию разбора команды из утилит
