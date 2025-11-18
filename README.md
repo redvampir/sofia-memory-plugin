@@ -38,8 +38,69 @@ Sofia Memory Plugin \u2014 это небольшой сервис на Node.js, 
    По умолчанию приложение слушает порт `10000`.
    Логи сервера сохраняют ответы GitHub (код и сообщение), что облегчает
    поиск причин ошибок при работе с репозиторием.
+3. Проверьте, что API отвечает, и получите минимальный ответ:
+   ```bash
+   curl -i http://localhost:10000/ping
+   ```
+   Пример ответа:
+   ```
+   HTTP/1.1 200 OK
+   Content-Type: text/html; charset=utf-8
+
+   pong
+   ```
 
 Для конфигурации можно использовать файл `.env` (см. `.env.example`) или `config/config.json`, где задаются URL репозиториев и токены доступа. Переменная `TOKEN_SECRET` позволяет задать ключ для шифрования сохранённых токенов.
+
+### Фронтматтер и формат файлов
+
+- **Файл памяти с метаданными (`memory/notes/2024-05-15-meeting.md`)**
+  ```markdown
+  ---
+  title: "Встреча по оплатам"
+  type: "note"
+  tags: ["payments", "meeting"]
+  priority: "medium"
+  context_priority: "high"
+  status: "active"
+  version: "1.0"
+  ---
+  # Встреча по оплатам
+  - Срок интеграции: конец недели
+  - Риски: задержка API банка
+  ```
+
+- **Файл урока (`memory/lessons/05_box_model.md`)**
+  ```markdown
+  ---
+  title: "Урок 05. Box Model"
+  type: "lesson"
+  tags: ["lesson", "css"]
+  priority: "high"
+  context_priority: "medium"
+  status: "published"
+  version: "1.1"
+  ---
+  # Box Model
+  - Повторить схему расчёта размеров
+  - Практика: собрать layout на flex
+  ```
+
+- **Файл профиля пользователя (`memory/profile/user.md`)**
+  ```markdown
+  ---
+  title: "Профиль пользователя"
+  type: "profile"
+  tags: ["profile", "preferences"]
+  priority: "medium"
+  context_priority: "medium"
+  status: "active"
+  version: "1.0"
+  ---
+  # Профиль пользователя
+  - Роль: аналитик
+  - Предпочтения: лаконичные ответы, избегать жаргона
+  ```
 
 ## Как использовать с LLM-агентом
 
