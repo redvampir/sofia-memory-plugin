@@ -1,15 +1,19 @@
 const assert = require('assert');
-const {
-  MEMORY_STATUSES,
-  PriorityValidationError,
-  TrustValidationError,
-  StatusValidationError,
-  assertPriority,
-  assertTrust,
-  assertStatus,
-} = require('../src/memory/memory_entry.ts');
+require('ts-node').register({
+  transpileOnly: true,
+  compilerOptions: { module: 'CommonJS' },
+});
+function run() {
+  const {
+    MEMORY_STATUSES,
+    PriorityValidationError,
+    TrustValidationError,
+    StatusValidationError,
+    assertPriority,
+    assertTrust,
+    assertStatus,
+  } = require('../src/memory/memory_entry.ts');
 
-(function run() {
   // Проверка приоритетов
   assert.strictEqual(assertPriority(0), 0, 'минимальный приоритет допускается');
   assert.strictEqual(assertPriority(3), 3, 'максимальный приоритет допускается');
@@ -34,4 +38,5 @@ const {
   assert.throws(() => assertStatus(123), StatusValidationError, 'некорректный тип статуса отклоняется');
 
   console.log('memory entry validation tests passed');
-})();
+}
+run();

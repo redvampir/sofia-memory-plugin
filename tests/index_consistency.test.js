@@ -9,7 +9,11 @@ const index_manager = require('../logic/index_manager');
   const original = fs.readFileSync(idxPath, 'utf-8');
   const data = JSON.parse(original);
   data.files.push({ title: 'Bad', file: '../index.js' });
-  data.files.push({ title: 'Missing', file: 'lessons/not_exists.md' });
+  data.files.push({
+    title: 'Missing',
+    file: 'lessons/not_exists.md',
+    context_priority: 'high',
+  });
   fs.writeFileSync(idxPath, JSON.stringify(data, null, 2), 'utf-8');
 
   await index_manager.loadIndex();

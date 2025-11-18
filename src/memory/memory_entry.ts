@@ -2,35 +2,49 @@
  * Интерфейс записи памяти с обязательными служебными полями.
  */
 
-/**
- * @typedef {Object} MemoryEntry
- * @property {string} id          // Уникальный идентификатор записи
- * @property {string} type        // Тип содержимого (например, note, task)
- * @property {string} source      // Источник появления записи (файл, чат и т.п.)
- * @property {string} [user_id]   // Идентификатор пользователя-инициатора
- * @property {string} [agent_id]  // Идентификатор агента-инициатора
- * @property {string} project     // Проект или пространство, к которому относится запись
- * @property {string[]} tags      // Теги для быстрого поиска
- * @property {number} priority    // Приоритет важности 0–3 (0 — низкий, 3 — критичный)
- * @property {number} trust       // Доверие к данным 0–1 (0 — недостоверно, 1 — подтверждено)
- * @property {string} lang        // Язык содержимого (ISO-код)
- * @property {string} status      // Состояние записи (draft/active/archived)
- * @property {string} created_at  // Временная метка создания (ISO строка)
- * @property {string} updated_at  // Временная метка последнего изменения (ISO строка)
- * @property {any} content        // Основное содержимое записи
- */
+export interface MemoryEntry {
+  /** Уникальный идентификатор записи */
+  id: string;
+  /** Тип содержимого (например, note, task) */
+  type: string;
+  /** Источник появления записи (файл, чат и т.п.) */
+  source: string;
+  /** Идентификатор пользователя-инициатора */
+  user_id?: string;
+  /** Идентификатор агента-инициатора */
+  agent_id?: string;
+  /** Проект или пространство, к которому относится запись */
+  project: string;
+  /** Теги для быстрого поиска */
+  tags: string[];
+  /** Приоритет важности 0–3 (0 — низкий, 3 — критичный) */
+  priority: number;
+  /** Доверие к данным 0–1 (0 — недостоверно, 1 — подтверждено) */
+  trust: number;
+  /** Язык содержимого (ISO-код) */
+  lang: string;
+  /** Состояние записи (draft/active/archived) */
+  status: MemoryStatus;
+  /** Временная метка создания (ISO строка) */
+  created_at: string;
+  /** Временная метка последнего изменения (ISO строка) */
+  updated_at: string;
+  /** Основное содержимое записи */
+  content: any;
+}
 
 /**
  * Допустимые статусы записи.
- * @type {readonly ["draft", "active", "archived"]}
  */
-const MEMORY_STATUSES = ["draft", "active", "archived"];
+export const MEMORY_STATUSES = ["draft", "active", "archived"] as const;
+
+export type MemoryStatus = (typeof MEMORY_STATUSES)[number];
 
 /**
  * Ошибка валидации приоритета.
  */
-class PriorityValidationError extends Error {
-  constructor(message) {
+export class PriorityValidationError extends Error {
+  constructor(message: string) {
     super(message);
     this.name = "PriorityValidationError";
   }
@@ -39,8 +53,8 @@ class PriorityValidationError extends Error {
 /**
  * Ошибка валидации доверия.
  */
-class TrustValidationError extends Error {
-  constructor(message) {
+export class TrustValidationError extends Error {
+  constructor(message: string) {
     super(message);
     this.name = "TrustValidationError";
   }
@@ -49,8 +63,8 @@ class TrustValidationError extends Error {
 /**
  * Ошибка валидации статуса.
  */
-class StatusValidationError extends Error {
-  constructor(message) {
+export class StatusValidationError extends Error {
+  constructor(message: string) {
     super(message);
     this.name = "StatusValidationError";
   }
@@ -62,7 +76,7 @@ class StatusValidationError extends Error {
  * @returns {number}
  * @throws {PriorityValidationError}
  */
-function assertPriority(priority) {
+export function assertPriority(priority: unknown): number {
   if (typeof priority !== "number" || Number.isNaN(priority)) {
     throw new PriorityValidationError("Приоритет должен быть числом.");
   }
@@ -81,7 +95,7 @@ function assertPriority(priority) {
  * @returns {number}
  * @throws {TrustValidationError}
  */
-function assertTrust(trust) {
+export function assertTrust(trust: unknown): number {
   if (typeof trust !== "number" || Number.isNaN(trust)) {
     throw new TrustValidationError("Доверие должно быть числом.");
   }
@@ -97,7 +111,7 @@ function assertTrust(trust) {
  * @returns {string}
  * @throws {StatusValidationError}
  */
-function assertStatus(status) {
+export function assertStatus(status: unknown): MemoryStatus {
   if (typeof status !== "string") {
     throw new StatusValidationError("Статус должен быть строкой.");
   }
@@ -106,15 +120,5 @@ function assertStatus(status) {
       `Статус должен быть одним из: ${MEMORY_STATUSES.join(", ")}.`
     );
   }
-  return status;
+  return status as MemoryStatus;
 }
-
-module.exports = {
-  MEMORY_STATUSES,
-  PriorityValidationError,
-  TrustValidationError,
-  StatusValidationError,
-  assertPriority,
-  assertTrust,
-  assertStatus,
-};
