@@ -318,6 +318,82 @@ npm run build:openapi
 }
 ```
 
+### Полный пример `index.json`
+
+Ниже — минимальный, но самодостаточный список записей: урок, профиль пользователя и заметка. Поля `tags`, `priority` и `status` помогают фильтровать и сортировать записи при поиске и восстановлении контекста.
+
+```json
+[
+  {
+    "path": "memory/lessons/01_intro.md",
+    "type": "lesson",
+    "title": "Урок 01. Введение",
+    "summary": "Краткое знакомство с плагином памяти",
+    "tags": ["lesson", "onboarding"],
+    "priority": "high",
+    "status": "published",
+    "context_priority": "high"
+  },
+  {
+    "path": "memory/profile/user.md",
+    "type": "profile",
+    "title": "Профиль пользователя",
+    "summary": "Роль: аналитик, предпочтения: краткие ответы",
+    "tags": ["profile", "preferences"],
+    "priority": "medium",
+    "status": "active",
+    "context_priority": "medium"
+  },
+  {
+    "path": "memory/notes/2024-05-15-meeting.md",
+    "type": "note",
+    "title": "Встреча по оплатам",
+    "summary": "Согласовали сроки интеграции банка",
+    "tags": ["payments", "meeting"],
+    "priority": "low",
+    "status": "draft",
+    "context_priority": "medium"
+  }
+]
+```
+
+### Сохранение файла с обновлением индекса
+
+Эндпоинт `POST /api/memory/save-with-index` (синоним `POST /saveMemoryWithIndex`) записывает файл и тут же добавляет или обновляет соответствующую запись в `index.json`.
+
+```bash
+curl -X POST http://localhost:10000/api/memory/save-with-index \
+  -H "Content-Type: application/json" \
+  -d '{
+    "filename": "memory/notes/2024-05-15-meeting.md",
+    "content": "# Встреча по оплатам\n- Срок: конец недели\n- Риски: задержка API банка",
+    "userId": "default"
+  }'
+```
+
+### Быстрый поиск подходящих файлов
+
+Функция `getContextFilesForKeywords(["оплата", "встреча"])` ищет записи по ключевым словам в `title`/`summary`/`tags`, сортирует их по `priority`/`context_priority` и возвращает список путей.
+
+```js
+const { getContextFilesForKeywords } = require('./logic/index_manager');
+
+const files = getContextFilesForKeywords(["оплата", "встреча"]);
+// Пример результата: [
+//   "memory/lessons/01_intro.md",
+//   "memory/notes/2024-05-15-meeting.md"
+// ]
+```
+
+### Когда нужен простой список, а когда `multi_index`
+
+- **Простой список (`index.json` как массив):** достаточно для небольших наборов памяти (десятки–сотни файлов), когда важна максимальная простота записи и чтения. Поля `priority`/`status`/`tags` уже позволяют фильтровать и сортировать без дополнительной вложенности.
+- **`multi_index`:** включает корневой `index.json` со ссылками на ветки (`memory/multi_index/...`). Нужен при тысячах файлов, когда хочется изолировать категории (уроки, профили, планы) и держать каждый индекс компактным для быстрой загрузки.
+
+### Что делает индексатор
+
+Модуль индексации проверяет корректность путей (не директория ли, находится ли внутри `memory/`), убирает дубликаты, нормализует приоритет (`priority`/`context_priority`), автоматически назначает `type` по пути файла, сортирует записи (сначала `high`, затем `medium`, затем `low`) и при необходимости делит слишком большие файлы на части, добавляя их в индекс.
+
 Эти функции упрощают добавление новых материалов и предотвращают появление дубликатов.
 
 ### Новые возможности
