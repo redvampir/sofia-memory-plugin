@@ -20,6 +20,8 @@ function run() {
   assert.throws(() => assertPriority(1.5), PriorityValidationError, 'дробные значения отклоняются');
   assert.throws(() => assertPriority(-1), PriorityValidationError, 'меньше 0 отклоняется');
   assert.throws(() => assertPriority(4), PriorityValidationError, 'больше 3 отклоняется');
+  assert.throws(() => assertPriority('1'), PriorityValidationError, 'строковый приоритет отклоняется');
+  assert.throws(() => assertPriority(NaN), PriorityValidationError, 'NaN приоритет отклоняется');
 
   // Проверка доверия
   assert.strictEqual(assertTrust(0), 0, 'доверие 0 допускается');
@@ -28,6 +30,9 @@ function run() {
   assert.throws(() => assertTrust(-0.01), TrustValidationError, 'доверие меньше 0 отклоняется');
   assert.throws(() => assertTrust(1.01), TrustValidationError, 'доверие больше 1 отклоняется');
   assert.throws(() => assertTrust('высокое'), TrustValidationError, 'нечисловое доверие отклоняется');
+  assert.throws(() => assertTrust(NaN), TrustValidationError, 'NaN доверие отклоняется');
+  assert.throws(() => assertTrust(Infinity), TrustValidationError, 'бесконечное доверие отклоняется');
+  assert.throws(() => assertTrust(-Infinity), TrustValidationError, 'отрицательная бесконечность доверия отклоняется');
 
   // Проверка статусов
   for (const status of MEMORY_STATUSES) {
