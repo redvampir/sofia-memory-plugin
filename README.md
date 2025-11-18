@@ -518,19 +518,21 @@ Markdown-документы объёмом более **5 МБ** и файлы 
 
 ### Переключение и проверка режима памяти
 
-Эндпойнты `/api/switch_memory_repo` и `/api/status` используются Desktop Agent для выбора источника памяти и проверки текущего режима.
+Эндпойнты `/api/system/switch_repo` и `/api/system/status` используются Desktop Agent для выбора источника памяти и проверки текущего режима.
 
-- `GET /api/switch_memory_repo` — переключает режим хранения. Принимает параметры `type` (`local` или `github`) и `userId`.
-- `GET /api/status` — возвращает актуальный режим для данного `userId`.
+- `POST /api/system/switch_repo` — переключает режим хранения. Принимает `repoUrl` и `userId` в теле запроса, сохраняет выбор в конфигурации.
+- `GET /api/system/status` — возвращает актуальный режим (`local|github`) и репозиторий для данного `userId`.
 
-Desktop Agent отправляет `/api/switch_memory_repo` при выборе локальной папки или репозитория на GitHub. Затем он опрашивает `/api/status`, чтобы убедиться, что режим успешно переключён.
+Desktop Agent отправляет `/api/system/switch_repo` при выборе локальной папки или репозитория на GitHub. Затем он опрашивает `/api/system/status`, чтобы убедиться, что режим успешно переключён. Для обратной совместимости остаются старые маршруты `/setMemoryRepo` и `/status` без префикса `/api`.
 
 ```bash
 # переключиться на локальную папку
-curl "http://localhost:10000/api/switch_memory_repo?type=local&userId=123"
+curl -X POST "http://localhost:10000/api/system/switch_repo" \
+  -H "Content-Type: application/json" \
+  -d '{"userId": "123", "repoUrl": null}'
 
 # узнать текущий режим
-curl "http://localhost:10000/api/status?userId=123"
+curl "http://localhost:10000/api/system/status?userId=123"
 ```
 
 ### Миничат пересборки ответа
