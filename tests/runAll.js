@@ -2,6 +2,8 @@ const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
 
+require('ts-node/register/transpile-only');
+
 const testDir = __dirname;
 
 const files = [];
@@ -10,7 +12,7 @@ function collect(dir) {
     const p = path.join(dir, f);
     if (fs.statSync(p).isDirectory()) {
       collect(p);
-    } else if (f.endsWith('.test.js')) {
+    } else if (f.endsWith('.test.js') || f.endsWith('.test.ts')) {
       files.push(p);
     }
   });
@@ -21,5 +23,11 @@ files.sort();
 
 files.forEach(file => {
   console.log(`Running ${path.relative(testDir, file)}`);
-  execFileSync('node', [file], { stdio: 'inherit' });
+  const args = file.endsWith('.test.ts')
+    ? ['-r', 'ts-node/register/transpile-only', file]
+    : [file];
+  const env = file.endsWith('.test.ts')
+    ? { ...process.env, TS_NODE_COMPILER_OPTIONS: JSON.stringify({ module: 'commonjs' }) }
+    : process.env;
+  execFileSync('node', args, { stdio: 'inherit', env });
 });
