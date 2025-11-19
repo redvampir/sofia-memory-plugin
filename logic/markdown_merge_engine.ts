@@ -1,17 +1,24 @@
-// @ts-nocheck
 /**
  * Utilities for merging Markdown content.
  */
 
-/**
- * @typedef {Object} MarkdownNode
- * @property {"heading"|"list"|"item"} type
- * @property {number} [level]  // heading level or list nesting level
- * @property {string} text
- * @property {boolean} [checked]
- * @property {number} [pos]     // position index within parent
- * @property {MarkdownNode[]} [children]
- */
+type MarkdownNodeType = 'heading' | 'list' | 'item' | 'paragraph';
+
+interface MarkdownNode {
+  type: MarkdownNodeType;
+  level?: number;
+  text: string;
+  checked?: boolean;
+  pos?: number;
+  children?: MarkdownNode[];
+}
+
+interface RootNode extends Omit<MarkdownNode, 'type' | 'text'> {
+  type: 'root';
+  text: '';
+  level: 0;
+  children: MarkdownNode[];
+}
 
 /**
  * Parse raw Markdown into a tree of semantic nodes.
@@ -19,9 +26,9 @@
  * @param {string} content
  * @returns {MarkdownNode[]}
  */
-function parseMarkdownStructure(content) {
-  const root = { type: 'root', level: 0, text: '', children: [] };
-  const stack = [root];
+function parseMarkdownStructure(content: string): MarkdownNode[] {
+  const root: RootNode = { type: 'root', level: 0, text: '', children: [] };
+  const stack: Array<MarkdownNode | RootNode> = [root];
   const lines = content.split(/\r?\n/);
 
   for (const line of lines) {
@@ -29,7 +36,7 @@ function parseMarkdownStructure(content) {
     if (heading) {
       const level = heading[1].length;
       const text = heading[2].trim();
-      const node = { type: 'heading', level, text, children: [] };
+      const node: MarkdownNode = { type: 'heading', level, text, children: [] };
       while (
         stack.length > 1 &&
         (stack[stack.length - 1].type !== 'heading' ||
@@ -62,27 +69,27 @@ function parseMarkdownStructure(content) {
       }
       let parent = stack[stack.length - 1];
       if (parent.type !== 'list' || parent.level !== indent) {
-        const listNode = { type: 'list', level: indent, text: '', children: [] };
-        parent.children.push(listNode);
+        const listNode: MarkdownNode = { type: 'list', level: indent, text: '', children: [] };
+        parent.children!.push(listNode);
         stack.push(listNode);
         parent = listNode;
       }
-      const itemNode = {
+      const itemNode: MarkdownNode = {
         type: 'item',
         level: indent,
         text: text.trim(),
         checked,
         children: []
       };
-      parent.children.push(itemNode);
+      parent.children!.push(itemNode);
       stack.push(itemNode);
       continue;
     }
 
     if (line.trim() !== '') {
-      const para = { type: 'paragraph', level: 0, text: line.trim(), children: [] };
+      const para: MarkdownNode = { type: 'paragraph', level: 0, text: line.trim(), children: [] };
       const parent = stack[stack.length - 1];
-      parent.children.push(para);
+      parent.children!.push(para);
     }
   }
 
@@ -90,7 +97,7 @@ function parseMarkdownStructure(content) {
   return root.children;
 }
 
-function assignPositions(nodes) {
+function assignPositions(nodes: MarkdownNode[]): void {
   for (let i = 0; i < nodes.length; i++) {
     const node = nodes[i];
     node.pos = i;
@@ -98,7 +105,7 @@ function assignPositions(nodes) {
   }
 }
 
-function findMatch(list, node) {
+function findMatch(list: MarkdownNode[], node: MarkdownNode): MarkdownNode | undefined {
   if (node.type === 'heading') {
     return list.find(
       (n) => n.type === 'heading' && n.level === node.level && n.text === node.text
@@ -121,13 +128,22 @@ function findMatch(list, node) {
  * @param {MarkdownNode[]} update
  * @returns {MarkdownNode[]}
  */
-function mergeMarkdownTrees(base, update, opts = {}) {
+function mergeMarkdownTrees(
+  base: MarkdownNode[],
+  update: MarkdownNode[],
+  opts: { replace?: boolean; dedupe?: boolean } = {}
+): MarkdownNode[] {
   const { replace = false, dedupe = false } = opts;
   const result = base.map(cloneNode);
 
   for (const node of update) {
     let match = findMatch(result, node);
-    if (!match && typeof node.pos === 'number' && result[node.pos] && result[node.pos].type === node.type) {
+    if (
+      !match &&
+      typeof node.pos === 'number' &&
+      result[node.pos] &&
+      result[node.pos].type === node.type
+    ) {
       match = result[node.pos];
     }
 
@@ -157,19 +173,19 @@ function mergeMarkdownTrees(base, update, opts = {}) {
   return dedupe ? dedupeTree(result) : result;
 }
 
-function cloneNode(node) {
-  const copy = { ...node };
+function cloneNode(node: MarkdownNode): MarkdownNode {
+  const copy: MarkdownNode = { ...node };
   if (node.children) copy.children = node.children.map(cloneNode);
   return copy;
 }
 
-function dedupeTree(nodes) {
-  const seenHeadings = new Map();
-  const seenItems = new Map();
-  const result = [];
+function dedupeTree(nodes: MarkdownNode[]): MarkdownNode[] {
+  const seenHeadings = new Map<string, MarkdownNode>();
+  const seenItems = new Map<string, MarkdownNode>();
+  const result: MarkdownNode[] = [];
   for (const node of nodes) {
     if (node.type === 'heading') {
-      const key = `${node.level}:${node.text}`;
+      const key = `${node.level ?? 0}:${node.text}`;
       if (seenHeadings.has(key)) {
         const existing = seenHeadings.get(key);
         existing.children = mergeMarkdownTrees(existing.children || [], node.children || [], { replace: true });
@@ -198,12 +214,13 @@ function dedupeTree(nodes) {
  * @param {MarkdownNode[]} tree
  * @returns {string}
  */
-function serializeMarkdownTree(tree) {
-  const lines = [];
-  const walk = (nodes) => {
+function serializeMarkdownTree(tree: MarkdownNode[]): string {
+  const lines: string[] = [];
+  const walk = (nodes: MarkdownNode[]): void => {
     for (const node of nodes) {
       if (node.type === 'heading') {
-        lines.push(`${'#'.repeat(node.level)} ${node.text}`);
+        const level = node.level ?? 0;
+        lines.push(`${'#'.repeat(level)} ${node.text}`);
         if (node.children) walk(node.children);
       } else if (node.type === 'item') {
         const indent = '  '.repeat(node.level || 0);
