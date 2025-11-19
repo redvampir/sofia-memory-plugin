@@ -4,6 +4,13 @@ const { execFileSync } = require('child_process');
 
 require('ts-node/register/transpile-only');
 
+if (!process.env.TOKEN_SECRET) {
+  // Тестовый запуск не должен падать из-за отсутствия реального секрета:
+  // выдаём детерминированный ключ только для локальных/CI тестов.
+  process.env.TOKEN_SECRET = 'test_suite_token_secret';
+  console.warn('[tests] TOKEN_SECRET не задан, используется тестовый ключ');
+}
+
 const testDir = __dirname;
 
 const files = [];
