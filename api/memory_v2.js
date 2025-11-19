@@ -8,6 +8,7 @@ const {
   ALLOWED_STATUSES,
 } = require('../logic/memory_v2_store');
 const { estimate_cost } = require('../tools/text_utils');
+const { tryLogMemoryUsage } = require('../src/memory/memory_usage_log');
 
 const router = express.Router();
 
@@ -92,7 +93,7 @@ router.post('/memory/search', (req, res) => {
   }
 });
 
-router.post('/memory/get_context', (req, res) => {
+router.post('/memory/get_context', async (req, res) => {
   try {
     const { token_budget, tags, type, project, lang, status } = req.body || {};
     const budget = Number(token_budget);
@@ -115,6 +116,19 @@ router.post('/memory/get_context', (req, res) => {
     const { items, tokensUsed } = pickByScore(filtered, budget);
     const remaining = Math.max(budget - tokensUsed, 0);
     const total_tokens = filtered.reduce((acc, item) => acc + estimate_cost(String(item.content || ''), 'tokens'), 0);
+
+    const logPayload = {
+      user_id: req.body?.user_id,
+      agent_id: req.body?.agent_id,
+      project: project || 'default',
+      request_type: 'get_context',
+      query: req.body?.query || '',
+      memory_ids: (items || []).map(item => item.id).filter(Boolean),
+      outcome: 'ok',
+      notes: `tokens_used=${tokensUsed}; total_tokens=${total_tokens}; remaining=${remaining}`,
+    };
+
+    await tryLogMemoryUsage(logPayload);
     return res.json({
       status: 'ok',
       tokens_used: tokensUsed,
@@ -124,6 +138,16 @@ router.post('/memory/get_context', (req, res) => {
       items,
     });
   } catch (e) {
+    await tryLogMemoryUsage({
+      user_id: req.body?.user_id,
+      agent_id: req.body?.agent_id,
+      project: req.body?.project || 'default',
+      request_type: 'get_context',
+      query: req.body?.query || '',
+      memory_ids: [],
+      outcome: 'error',
+      notes: e.message || 'unknown error',
+    });
     const status = resolveStatusCode(e);
     return res.status(status).json({ status: 'error', message: e.message });
   }
