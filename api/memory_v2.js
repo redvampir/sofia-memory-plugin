@@ -71,6 +71,12 @@ router.post('/memory/search', (req, res) => {
         .json({ status: 'error', message: `status должен быть одним из: ${ALLOWED_STATUSES.join(', ')}` });
     }
     if (tags !== undefined) validateArray(tags, 'tags');
+
+    const access = checkAccess('memory/memory_store.json', 'read');
+    if (!access.allowed) {
+      return res.status(403).json({ status: 'error', message: access.message });
+    }
+
     const results = searchEntries({ tags, type, project, lang, status, include_deleted });
     return res.json({ status: 'ok', items: results });
   } catch (e) {
@@ -91,6 +97,12 @@ router.post('/memory/get_context', (req, res) => {
         .json({ status: 'error', message: `status должен быть одним из: ${ALLOWED_STATUSES.join(', ')}` });
     }
     if (tags !== undefined) validateArray(tags, 'tags');
+
+    const access = checkAccess('memory/memory_store.json', 'read');
+    if (!access.allowed) {
+      return res.status(403).json({ status: 'error', message: access.message });
+    }
+
     const filtered = filterEntries(searchEntries(), { tags, type, project, lang, status });
     const { items, tokensUsed } = pickByScore(filtered, budget);
     const remaining = Math.max(budget - tokensUsed, 0);
