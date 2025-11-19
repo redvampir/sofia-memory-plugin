@@ -5,7 +5,8 @@
   },
   "pluginRepo": {
     "repo": "https://github.com/redvampir/Memori_LLV.git",
-    "token": "YOUR_GITHUB_TOKEN_HERE"
+    "token": null,
+    "tokenNote": "GitHub PAT задаётся через переменную окружения GITHUB_TOKEN"
   },
   "mirrorNeurons": [],
   "memory": {

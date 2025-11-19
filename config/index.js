@@ -19,16 +19,24 @@ function loadFromFile() {
   return cached;
 }
 
-function getEnvRepoDefaults() {
+function getEnvPluginDefaults() {
   return {
     repo: process.env.GITHUB_REPO || null,
     token: process.env.GITHUB_TOKEN || null,
   };
 }
 
+function getEnvStudentDefaults() {
+  const repo =
+    process.env.STUDENT_GITHUB_REPO || process.env.GITHUB_REPO || null;
+  const token =
+    process.env.STUDENT_GITHUB_TOKEN || process.env.GITHUB_TOKEN || null;
+  return { repo, token };
+}
+
 function getPluginRepo() {
   const fileCfg = loadFromFile().pluginRepo || {};
-  const envDefaults = getEnvRepoDefaults();
+  const envDefaults = getEnvPluginDefaults();
   return {
     repo: envDefaults.repo || fileCfg.repo || null,
     token: envDefaults.token || fileCfg.token || null,
@@ -37,7 +45,7 @@ function getPluginRepo() {
 
 function getStudentRepo() {
   const fileCfg = loadFromFile().studentRepo || {};
-  const envDefaults = getEnvRepoDefaults();
+  const envDefaults = getEnvStudentDefaults();
   return {
     repo: envDefaults.repo || fileCfg.repo || null,
     token: envDefaults.token || fileCfg.token || null,
@@ -86,7 +94,8 @@ module.exports = {
   loadConfig,
   getPluginRepo,
   getStudentRepo,
-  getEnvRepoDefaults,
+  getEnvPluginDefaults,
+  getEnvStudentDefaults,
   getMirrorNeurons,
   getMemoryLimits,
   getDefaultUserId,
