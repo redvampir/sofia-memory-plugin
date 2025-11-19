@@ -13,6 +13,7 @@ paths:
     get:
       summary: Проверка доступности сервиса
       description: Быстрый health-check; при успешной работе возвращает строку «pong».
+      operationId: ping
       responses:
         '200':
           description: Сервис отвечает и готов принимать запросы.
@@ -20,13 +21,14 @@ paths:
             text/plain:
               schema:
                 type: string
-                example: pong
+              example: pong
   /api/memory/save:
     post:
       summary: Сохранение памяти пользователя
       description: >-
         Записывает текстовое содержимое в память пользователя по указанному пути.
         В опциональном объекте meta можно передавать дополнительные атрибуты (ключ-значение).
+      operationId: saveMemory
       requestBody:
         required: true
         content:
@@ -48,6 +50,12 @@ paths:
                   type: object
                   additionalProperties: true
                   description: Произвольные метаданные (опционально).
+            example:
+              userId: user-123
+              path: dialogs/2024-05-20
+              content: "Новый ответ пользователя"
+              meta:
+                source: chat
       responses:
         '200':
           description: Запись сохранена.
@@ -62,10 +70,14 @@ paths:
                   savedPath:
                     type: string
                     description: Итоговый путь сохранённой записи.
+              example:
+                status: ok
+                savedPath: dialogs/2024-05-20
   /api/memory/read:
     post:
       summary: Чтение памяти пользователя
       description: Возвращает содержимое записи по userId и path.
+      operationId: readMemory
       requestBody:
         required: true
         content:
@@ -80,6 +92,9 @@ paths:
                 path:
                   type: string
                   description: Путь ранее сохранённой записи.
+            example:
+              userId: user-123
+              path: dialogs/2024-05-20
       responses:
         '200':
           description: Найденная запись.
@@ -95,5 +110,9 @@ paths:
                     type: object
                     additionalProperties: true
                     description: Сохранённые метаданные (если есть).
+              example:
+                content: "Новый ответ пользователя"
+                meta:
+                  source: chat
         '404':
           description: Запись не найдена.

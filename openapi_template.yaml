@@ -1,506 +1,118 @@
 openapi: 3.1.0
 info:
-  title: Sofia Memory Plugin
+  title: Sofia Memory API
   version: 1.0.0
+  description: >-
+    Минимальное описание публичных методов памяти Софии для интеграции
+    внешних сервисов.
 servers:
-  - url: https://sofia-memory.onrender.com
+  - url: https://example.com
+    description: Заменить на Render URL после деплоя
 paths:
-  /save:
-    post:
-      summary: Save memory or context data
-      operationId: save
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/SaveMemoryRequest'
-      responses:
-        '200':
-          description: Saved
-  /read:
-    post:
-      summary: Read memory or context data
-      operationId: read
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ReadMemoryRequest'
-      responses:
-        '200':
-          description: File contents
-  /setMemoryRepo:
-    post:
-      summary: Set repository for a user
-      operationId: setMemoryRepo
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                repoUrl:
-                  type: string
-                userId:
-                  type: string
-      responses:
-        '200':
-          description: Repo stored
-  /memory/set-mode:
-    post:
-      summary: Set memory mode for a user
-      operationId: setMemoryMode
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                userId:
-                  type: string
-                mode:
-                  type: string
-                  enum: [local, github]
-      responses:
-        '200':
-          description: Mode stored
-        '400':
-          description: Invalid mode
-  /memory-mode:
-    get:
-      summary: Get global memory mode
-      operationId: getGlobalMemoryMode
-      responses:
-        '200':
-          description: Current global mode
-    post:
-      summary: Set global memory mode
-      operationId: setGlobalMemoryMode
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                mode:
-                  type: string
-                  enum: [local, github]
-      responses:
-        '200':
-          description: Mode stored
-        '400':
-          description: Invalid mode
-  /local-path:
-    post:
-      summary: Set local storage path
-      operationId: setLocalPath
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                path:
-                  type: string
-                userId:
-                  type: string
-      responses:
-        '200':
-          description: Path stored
-        '400':
-          description: Missing path
-  /saveLessonPlan:
-    post:
-      summary: Update learning plan
-      operationId: saveLessonPlan
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/SaveLessonPlanRequest'
-      responses:
-        '200':
-          description: Plan updated
-  /saveMemoryWithIndex:
-    post:
-      summary: Save memory and update index
-      operationId: saveMemoryWithIndex
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/SaveMemoryRequest'
-      responses:
-        '200':
-          description: Saved
-  /saveAnswer:
-    post:
-      summary: Save reference answer
-      operationId: saveAnswer
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/SaveAnswerRequest'
-      responses:
-        '200':
-          description: Saved
-  /getToken:
-    post:
-      summary: Get stored GitHub token
-      operationId: getToken
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                userId:
-                  type: string
-      responses:
-        '200':
-          description: Token value
-  /plan:
-    get:
-      summary: Read current plan
-      operationId: readPlan
-      responses:
-        '200':
-          description: Plan data
-  /profile:
-    get:
-      summary: Read stored profile
-      operationId: readProfile
-      parameters:
-        - in: query
-          name: userId
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Profile data
-  /setToken:
-    post:
-      summary: Store GitHub token
-      operationId: setToken
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/SetTokenRequest'
-      responses:
-        '200':
-          description: Token stored status
-  /token/status:
-    get:
-      summary: Check if a token is stored
-      operationId: tokenStatus
-      parameters:
-        - in: query
-          name: userId
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Status info
-  /loadMemoryToContext:
-    post:
-      summary: Load a memory file into context
-      operationId: loadMemoryToContext
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/LoadMemoryToContextRequest'
-      responses:
-        '200':
-          description: Load result
-  /loadContextFromIndex:
-    post:
-      summary: Load context using index entry
-      operationId: loadContextFromIndex
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/LoadContextFromIndexRequest'
-      responses:
-        '200':
-          description: Load result
-  /chat/setup:
-    post:
-      summary: Parse setup message
-      operationId: chatSetup
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                text:
-                  type: string
-      responses:
-        '200':
-          description: Setup parsed
-  /updateIndex:
-    post:
-      summary: Manually update index entries
-      operationId: updateIndex
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/UpdateIndexRequest'
-      responses:
-        '200':
-          description: Updated entries
-  /list:
-    post:
-      summary: List memory files
-      operationId: listFiles
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ListFilesRequest'
-      responses:
-        '200':
-          description: File list
-  /version/commit:
-    post:
-      summary: Commit instructions version
-      operationId: commitInstructions
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CommitInstructionsRequest'
-      responses:
-        '200':
-          description: Version saved
-  /version/rollback:
-    post:
-      summary: Roll back instructions
-      operationId: rollbackInstructions
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/RollbackInstructionsRequest'
-      responses:
-        '200':
-          description: Restored version
-  /version/list:
-    post:
-      summary: List instruction versions
-      operationId: listVersions
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/VersionListRequest'
-      responses:
-        '200':
-          description: Version history
   /ping:
     get:
-      summary: Health check
+      summary: Проверка доступности сервиса
+      description: Быстрый health-check; при успешной работе возвращает строку «pong».
       operationId: ping
       responses:
         '200':
-          description: Pong
-  /health:
-    get:
-      summary: Render health check
-      operationId: health
+          description: Сервис отвечает и готов принимать запросы.
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: pong
+  /api/memory/save:
+    post:
+      summary: Сохранение памяти пользователя
+      description: >-
+        Записывает текстовое содержимое в память пользователя по указанному пути.
+        В опциональном объекте meta можно передавать дополнительные атрибуты (ключ-значение).
+      operationId: saveMemory
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId, path, content]
+              properties:
+                userId:
+                  type: string
+                  description: Уникальный идентификатор пользователя.
+                path:
+                  type: string
+                  description: Логический путь или ключ записи.
+                content:
+                  type: string
+                  description: Сохраняемый текст.
+                meta:
+                  type: object
+                  additionalProperties: true
+                  description: Произвольные метаданные (опционально).
+            example:
+              userId: user-123
+              path: dialogs/2024-05-20
+              content: "Новый ответ пользователя"
+              meta:
+                source: chat
       responses:
         '200':
-          description: OK
-  /docs:
-    get:
-      summary: List plugin endpoints
-      operationId: docs
+          description: Запись сохранена.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  savedPath:
+                    type: string
+                    description: Итоговый путь сохранённой записи.
+              example:
+                status: ok
+                savedPath: dialogs/2024-05-20
+  /api/memory/read:
+    post:
+      summary: Чтение памяти пользователя
+      description: Возвращает содержимое записи по userId и path.
+      operationId: readMemory
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId, path]
+              properties:
+                userId:
+                  type: string
+                  description: Уникальный идентификатор пользователя.
+                path:
+                  type: string
+                  description: Путь ранее сохранённой записи.
+            example:
+              userId: user-123
+              path: dialogs/2024-05-20
       responses:
         '200':
-          description: Endpoint list
-components:
-  schemas:
-    VersionListRequest:
-      type: object
-      properties:
-        version:
-          type: string
-    RollbackInstructionsRequest:
-      type: object
-      properties:
-        version:
-          type: string
-        historyFile:
-          type: string
-    CommitInstructionsRequest:
-      type: object
-      properties:
-        version:
-          type: string
-        content:
-          type: string
-    ListFilesRequest:
-      type: object
-      properties:
-        repo:
-          type: string
-        token:
-          type: string
-        path:
-          type: string
-    IndexEntry:
-      type: object
-      properties:
-        path:
-          type: string
-        title:
-          type: string
-        type:
-          type: string
-        description:
-          type: string
-        lastModified:
-          type: string
-    UpdateIndexRequest:
-      type: object
-      properties:
-        entries:
-          type: array
-          items:
-            $ref: '#/components/schemas/IndexEntry'
-        repo:
-          type: string
-        token:
-          type: string
-        userId:
-          type: string
-    LoadContextFromIndexRequest:
-      type: object
-      properties:
-        index:
-          type: string
-        repo:
-          type: string
-        token:
-          type: string
-        userId:
-          type: string
-    LoadMemoryToContextRequest:
-      type: object
-      properties:
-        filename:
-          type: string
-        repo:
-          type: string
-        token:
-          type: string
-        userId:
-          type: string
-    SetTokenRequest:
-      type: object
-      properties:
-        userId:
-          type: string
-        token:
-          type: string
-    SaveAnswerRequest:
-      type: object
-      properties:
-        key:
-          type: string
-        content:
-          type: string
-        repo:
-          type: string
-        token:
-          type: string
-        userId:
-          type: string
-    SaveLessonPlanRequest:
-      type: object
-      properties:
-        title:
-          type: string
-        summary:
-          type: string
-        projectFiles:
-          type: array
-          items:
-            type: string
-        plannedLessons:
-          type: array
-          items:
-            type: string
-    ReadMemoryRequest:
-      type: object
-      properties:
-        repo:
-          type: string
-        token:
-          type: string
-        filename:
-          type: string
-        userId:
-          type: string
-        type:
-          type: string
-          enum:
-            - memory
-            - context
-    SaveMemoryRequest:
-      type: object
-      properties:
-        repo:
-          type: string
-        token:
-          type: string
-        filename:
-          type: string
-        content:
-          type: string
-        userId:
-          type: string
-        type:
-          type: string
-          enum:
-            - memory
-            - context
-    PluginConfig:
-      type: object
-      properties:
-        mirrorNeurons:
-          type: array
-          description: >-
-            Список модулей Mirror Neurons, которые следует активировать
-            при генерации черновиков. Оставьте массив пустым или опустите
-            параметр, чтобы отключить нейроны.
-          items:
-            type: string
-          default: []
-          example:
-            - StyleMirrorNeuron
-            - EmotionMirrorNeuron
+          description: Найденная запись.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  content:
+                    type: string
+                    description: Хранимый текст.
+                  meta:
+                    type: object
+                    additionalProperties: true
+                    description: Сохранённые метаданные (если есть).
+              example:
+                content: "Новый ответ пользователя"
+                meta:
+                  source: chat
+        '404':
+          description: Запись не найдена.
