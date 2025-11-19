@@ -5,6 +5,7 @@ const token_store = require('./token_store');
 const memory_config = require('./memory_config');
 const { normalize_memory_path } = require('./file_utils');
 const { detect_markdown_category } = require('../logic/markdown_category');
+const { resolveUserId, getDefaultUserId } = require('../utils/default_user');
 
 const DEBUG = process.env.DEBUG === 'true';
 
@@ -14,6 +15,7 @@ function logDebug(...args) {
 
 async function getRepoInfo(relPath, userId, repoOverride, tokenOverride) {
   const normalized = normalize_memory_path(relPath);
+  const resolvedUserId = resolveUserId(userId);
   const cfg = rootConfig.loadConfig();
   let repo = repoOverride || null;
   let token = tokenOverride || null;
@@ -27,8 +29,8 @@ async function getRepoInfo(relPath, userId, repoOverride, tokenOverride) {
       console.log(`[repoSelect] ${usePlugin ? 'plugin' : 'student'} -> ${repo}`);
   }
 
-  if (!repo) repo = await memory_config.getRepoUrl(userId);
-  if (!token) token = await token_store.getToken(userId);
+  if (!repo) repo = await memory_config.getRepoUrl(resolvedUserId);
+  if (!token) token = await token_store.getToken(resolvedUserId);
 
   return { repo, token };
 }
@@ -37,10 +39,12 @@ async function extractToken(req) {
   if (req.body && req.body.token) return req.body.token;
   const auth = req.headers['authorization'];
   if (auth && auth.startsWith('token ')) return auth.slice(6);
-  const userId = (req.body && req.body.userId) || null;
-  if (userId) {
-    const stored = await token_store.getToken(userId);
-    if (stored) return stored;
+  const userId = resolveUserId((req.body && req.body.userId) || null);
+  const stored = await token_store.getToken(userId);
+  if (stored) return stored;
+  if (userId !== getDefaultUserId()) {
+    const fallback = await token_store.getToken(getDefaultUserId());
+    if (fallback) return fallback;
   }
   return null;
 }

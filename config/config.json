@@ -4,11 +4,12 @@
     "token": null
   },
   "pluginRepo": {
-    "repo": "https://github.com/redvampir/sofia-memory-plugin.git",
-    "token": null
+    "repo": "https://github.com/redvampir/Memori_LLV.git",
+    "token": "ghp_memori_llv_token"
   },
   "mirrorNeurons": [],
   "memory": {
     "maxStoreTokens": 4096
-  }
+  },
+  "defaultUserId": "sofia"
 }
