@@ -6,7 +6,7 @@ const storage = require('../src/storage');
 const index_manager = require('../logic/index_manager');
 
 (async function run(){
-  const fileRel = 'memory/lessons/tmp_dynamic.md';
+  const fileRel = path.posix.join('memory', 'lessons', `tmp_dynamic_${Date.now()}.md`);
   const abs = path.join(__dirname,'..',fileRel);
   fs.mkdirSync(path.dirname(abs),{recursive:true});
   fs.writeFileSync(abs,'hello');
