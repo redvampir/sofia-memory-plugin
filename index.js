@@ -20,6 +20,7 @@ const memory_routes = require("./api/memory_routes");
 const github_routes = require("./api/github_routes");
 const mode_routes = require("./api/mode_routes");
 const { listMemoryFiles } = require("./logic/memory_operations");
+const memoryRoutesV2 = require('./api/memory_v2');
 const versioning = require('./versioning');
 const { getMemoryModeSync } = require('./utils/memory_mode');
 
@@ -47,6 +48,7 @@ app.get('/ai-plugin.json', (_req, res) => {
 });
 app.use(bodyParser.json());
 app.use(memory_routes);
+app.use(memoryRoutesV2);
 app.use(github_routes);
 app.use(mode_routes);
 
