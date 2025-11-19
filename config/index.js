@@ -19,19 +19,28 @@ function loadFromFile() {
   return cached;
 }
 
+function getEnvRepoDefaults() {
+  return {
+    repo: process.env.GITHUB_REPO || null,
+    token: process.env.GITHUB_TOKEN || null,
+  };
+}
+
 function getPluginRepo() {
   const fileCfg = loadFromFile().pluginRepo || {};
+  const envDefaults = getEnvRepoDefaults();
   return {
-    repo: process.env.PLUGIN_REPO || fileCfg.repo || null,
-    token: process.env.PLUGIN_TOKEN || fileCfg.token || null,
+    repo: envDefaults.repo || fileCfg.repo || null,
+    token: envDefaults.token || fileCfg.token || null,
   };
 }
 
 function getStudentRepo() {
   const fileCfg = loadFromFile().studentRepo || {};
+  const envDefaults = getEnvRepoDefaults();
   return {
-    repo: process.env.STUDENT_REPO || fileCfg.repo || null,
-    token: process.env.STUDENT_TOKEN || fileCfg.token || null,
+    repo: envDefaults.repo || fileCfg.repo || null,
+    token: envDefaults.token || fileCfg.token || null,
   };
 }
 
@@ -77,6 +86,7 @@ module.exports = {
   loadConfig,
   getPluginRepo,
   getStudentRepo,
+  getEnvRepoDefaults,
   getMirrorNeurons,
   getMemoryLimits,
   getDefaultUserId,
