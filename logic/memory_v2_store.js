@@ -3,9 +3,11 @@ const path = require('path');
 const crypto = require('crypto');
 const { ensure_dir } = require('../tools/file_utils');
 const { estimate_cost } = require('../tools/text_utils');
+const { getMemoryLimits } = require('../config');
 
 const DEFAULT_STORE_PATH = process.env.MEMORY_V2_STORE || path.join(__dirname, '..', 'memory', 'memory_store.json');
 const ALLOWED_STATUSES = ['draft', 'active', 'archived'];
+const FALLBACK_MAX_STORE_TOKENS = 4096;
 
 function getStorePath() {
   return DEFAULT_STORE_PATH;
@@ -80,6 +82,14 @@ function normalizeContent(content) {
   return JSON.stringify(content);
 }
 
+function getMaxStoreTokens() {
+  const { maxStoreTokens } = getMemoryLimits();
+  if (!Number.isFinite(maxStoreTokens) || maxStoreTokens <= 0) {
+    return FALLBACK_MAX_STORE_TOKENS;
+  }
+  return Math.floor(maxStoreTokens);
+}
+
 function normalizeEntry(payload) {
   const now = new Date().toISOString();
   const normalizedTags = toArrayOfStrings(payload.tags);
@@ -88,6 +98,18 @@ function normalizeEntry(payload) {
   }
   if (!payload.project || typeof payload.project !== 'string') {
     throw new Error('project обязателен и должен быть строкой');
+  }
+
+  const content = normalizeContent(payload.content);
+  const tokens = estimate_cost(content, 'tokens');
+  const maxTokens = getMaxStoreTokens();
+  if (tokens > maxTokens) {
+    const error = new Error(
+      `Содержимое записи слишком велико: ${tokens} токенов при лимите ${maxTokens}. Сократите контент и повторите попытку.`,
+    );
+    error.statusCode = 413;
+    error.code = 'MEMORY_ENTRY_TOO_LARGE';
+    throw error;
   }
 
   const entry = {
@@ -104,7 +126,7 @@ function normalizeEntry(payload) {
     status: validateStatus(payload.status),
     created_at: payload.created_at || now,
     updated_at: now,
-    content: normalizeContent(payload.content),
+    content,
   };
 
   if (payload.deleted) {

@@ -40,12 +40,31 @@ function getMirrorNeurons() {
   return Array.isArray(list) ? list : [];
 }
 
+function parsePositiveInteger(value) {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return null;
+  if (num <= 0) return null;
+  return Math.floor(num);
+}
+
+function getMemoryLimits() {
+  const fileCfg = loadFromFile().memory || {};
+  const envLimit = parsePositiveInteger(process.env.MAX_STORE_TOKENS || process.env.MEMORY_V2_MAX_TOKENS);
+  const fileLimit = parsePositiveInteger(fileCfg.maxStoreTokens);
+  const fallback = 4096;
+
+  return {
+    maxStoreTokens: envLimit ?? fileLimit ?? fallback,
+  };
+}
+
 function loadConfig() {
   return {
     pluginRepo: getPluginRepo(),
     studentRepo: getStudentRepo(),
     mirrorNeurons: getMirrorNeurons(),
+    memory: getMemoryLimits(),
   };
 }
 
-module.exports = { loadConfig, getPluginRepo, getStudentRepo, getMirrorNeurons };
+module.exports = { loadConfig, getPluginRepo, getStudentRepo, getMirrorNeurons, getMemoryLimits };
