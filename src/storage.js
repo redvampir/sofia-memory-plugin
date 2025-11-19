@@ -26,8 +26,13 @@ const { estimate_cost } = require('../tools/text_utils');
 async function read_memory(user_id, repo, token, filename, opts = {}) {
   const normalized = normalize_memory_path(filename);
   const parse_json = opts.parseJson || false;
-  const finalRepo = repo || (await memory_config.getRepoUrl(user_id));
-  const finalToken = token || (await token_store.getToken(user_id));
+  const skipGit = process.env.NO_GIT === 'true';
+  let finalRepo = repo || (await memory_config.getRepoUrl(user_id));
+  let finalToken = token || (await token_store.getToken(user_id));
+  if (skipGit) {
+    finalRepo = null;
+    finalToken = null;
+  }
 
   if (isLocalMode(user_id || 'default')) {
     const data = await requestToAgent('/read', 'GET', {
@@ -108,8 +113,13 @@ async function save_memory(user_id, repo, token, filename, content) {
       `save_memory expects a file path, got directory: ${filename}`
     );
   }
-  const finalRepo = repo || (await memory_config.getRepoUrl(user_id));
-  const finalToken = token || (await token_store.getToken(user_id));
+  const skipGit = process.env.NO_GIT === 'true';
+  let finalRepo = repo || (await memory_config.getRepoUrl(user_id));
+  let finalToken = token || (await token_store.getToken(user_id));
+  if (skipGit) {
+    finalRepo = null;
+    finalToken = null;
+  }
   const masked = finalToken ? `${finalToken.slice(0, 4)}...` : 'null';
   console.log('[save_memory] repo:', finalRepo);
   console.log('[save_memory] token:', masked);

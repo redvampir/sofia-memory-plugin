@@ -672,9 +672,14 @@ async function fetchIndex(repo, token) {
 async function persistIndex(data, repo, token, userId) {
   ensure_dir(indexFilename());
 
-  const finalRepo =
+  const skipGit = process.env.NO_GIT === 'true';
+  let finalRepo =
     repo || (userId ? await memory_config.getRepoUrl(userId) : await memory_config.getRepoUrl());
-  const finalToken = token || (userId ? await token_store.getToken(userId) : null);
+  let finalToken = token || (userId ? await token_store.getToken(userId) : null);
+  if (skipGit) {
+    finalRepo = null;
+    finalToken = null;
+  }
 
   let payload = data;
   if (Array.isArray(data)) {
