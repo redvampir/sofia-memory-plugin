@@ -58,13 +58,26 @@ function getMemoryLimits() {
   };
 }
 
+function getDefaultUserId() {
+  const fileCfg = loadFromFile() || {};
+  return process.env.DEFAULT_USER_ID || fileCfg.defaultUserId || 'default';
+}
+
 function loadConfig() {
   return {
     pluginRepo: getPluginRepo(),
     studentRepo: getStudentRepo(),
     mirrorNeurons: getMirrorNeurons(),
     memory: getMemoryLimits(),
+    defaultUserId: getDefaultUserId(),
   };
 }
 
-module.exports = { loadConfig, getPluginRepo, getStudentRepo, getMirrorNeurons, getMemoryLimits };
+module.exports = {
+  loadConfig,
+  getPluginRepo,
+  getStudentRepo,
+  getMirrorNeurons,
+  getMemoryLimits,
+  getDefaultUserId,
+};

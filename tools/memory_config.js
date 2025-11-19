@@ -2,6 +2,7 @@
 const fs = require('fs');
 const fsp = fs.promises;
 const path = require('path');
+const { getDefaultUserId } = require('../utils/default_user');
 
 const cacheDir = path.join(__dirname, '.cache');
 const reposDir = path.join(cacheDir, 'repos');
@@ -56,8 +57,12 @@ exports.getAllUsers = async () => {
   try {
     await fsp.access(reposDir);
   } catch {
-    return [];
+    return [getDefaultUserId()];
   }
   const files = await fsp.readdir(reposDir);
-  return files.map(f => path.basename(f, '.txt'));
+  const users = files.map(f => path.basename(f, '.txt'));
+  if (!users.includes(getDefaultUserId())) {
+    users.push(getDefaultUserId());
+  }
+  return users;
 };
