@@ -3,4 +3,4 @@ node_modules/
 token.json
 memory/_backups/
 tests/tmp*/
-
+node_modules/

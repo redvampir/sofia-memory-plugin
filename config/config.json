@@ -5,7 +5,7 @@
   },
   "pluginRepo": {
     "repo": "https://github.com/redvampir/Memori_LLV.git",
-    "token": "ghp_memori_llv_token"
+    "token": "YOUR_GITHUB_TOKEN_HERE"
   },
   "mirrorNeurons": [],
   "memory": {
