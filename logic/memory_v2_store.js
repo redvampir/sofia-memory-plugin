@@ -13,16 +13,45 @@ function getStorePath() {
   return DEFAULT_STORE_PATH;
 }
 
+function backupCorruptedStore(filePath, rawContent = '') {
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const backupPath = `${filePath}.${stamp}.bak`;
+  ensure_dir(backupPath);
+  fs.writeFileSync(backupPath, rawContent, 'utf-8');
+  return backupPath;
+}
+
 function readStore() {
   const filePath = getStorePath();
+  if (!fs.existsSync(filePath)) return [];
+
+  const raw = fs.readFileSync(filePath, 'utf-8');
+
   try {
-    if (!fs.existsSync(filePath)) return [];
-    const raw = fs.readFileSync(filePath, 'utf-8');
     const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
+    if (!Array.isArray(parsed)) {
+      throw new Error('Формат хранилища повреждён: ожидается массив записей');
+    }
     return parsed;
-  } catch {
-    return [];
+  } catch (e) {
+    console.warn('[memoryV2Store] не удалось прочитать memory_store.json', e.message);
+
+    let backupPath;
+    try {
+      backupPath = backupCorruptedStore(filePath, raw);
+    } catch (backupError) {
+      console.warn('[memoryV2Store] резервная копия повреждённого файла не создана', backupError.message);
+    }
+
+    const error = new Error(
+      backupPath
+        ? `Файл памяти повреждён. Создана резервная копия: ${path.basename(backupPath)}`
+        : 'Файл памяти повреждён и не может быть прочитан',
+    );
+    error.statusCode = 500;
+    error.code = 'MEMORY_STORE_READ_ERROR';
+    error.cause = e;
+    throw error;
   }
 }
 

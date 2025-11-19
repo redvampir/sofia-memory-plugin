@@ -10,10 +10,20 @@ const {
   upsertEntry,
   searchEntries,
   pickByScore,
+  readStore,
 } = require('../logic/memory_v2_store');
+
+function cleanupBackups() {
+  const dir = path.dirname(tempStore);
+  if (!fs.existsSync(dir)) return;
+  fs.readdirSync(dir)
+    .filter(f => f.startsWith('memory_v2_store.json.') && f.endsWith('.bak'))
+    .forEach(f => fs.unlinkSync(path.join(dir, f)));
+}
 
 function cleanup() {
   if (fs.existsSync(tempStore)) fs.unlinkSync(tempStore);
+  cleanupBackups();
 }
 
 function ensureDraftDir() {
@@ -80,6 +90,25 @@ try {
   } finally {
     process.env.MAX_STORE_TOKENS = originalMaxTokens;
   }
+
+  cleanup();
+  ensureDraftDir();
+  fs.writeFileSync(tempStore, '{ invalid json');
+
+  assert.throws(
+    () => readStore(),
+    err => {
+      assert.strictEqual(err.code, 'MEMORY_STORE_READ_ERROR');
+      assert.strictEqual(err.statusCode, 500);
+      return true;
+    },
+    'повреждённый JSON должен приводить к ошибке',
+  );
+
+  const backups = fs
+    .readdirSync(path.dirname(tempStore))
+    .filter(f => f.startsWith('memory_v2_store.json.') && f.endsWith('.bak'));
+  assert.ok(backups.length >= 1, 'резервная копия должна быть создана');
 } finally {
   cleanup();
 }
