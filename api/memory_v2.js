@@ -41,6 +41,11 @@ function validateStoreBody(body = {}) {
   if (body.tags !== undefined) validateArray(body.tags, 'tags');
 }
 
+function resolveStatusCode(error) {
+  if (error?.statusCode === 413) return 413;
+  return 400;
+}
+
 router.post('/memory/store', async (req, res) => {
   try {
     validateStoreBody(req.body || {});
@@ -57,7 +62,8 @@ router.post('/memory/store', async (req, res) => {
     const entry = upsertEntry(req.body || {});
     return res.json({ status: 'ok', entry });
   } catch (e) {
-    return res.status(400).json({ status: 'error', message: e.message });
+    const status = resolveStatusCode(e);
+    return res.status(status).json({ status: 'error', message: e.message });
   }
 });
 
