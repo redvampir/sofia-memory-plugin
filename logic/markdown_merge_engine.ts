@@ -45,7 +45,8 @@ function parseMarkdownStructure(content: string): MarkdownNode[] {
         stack.pop();
       }
       const parent = stack[stack.length - 1];
-      parent.children.push(node);
+      const parentChildren = parent.children ?? (parent.children = []);
+      parentChildren.push(node);
       stack.push(node);
       continue;
     }
@@ -70,7 +71,8 @@ function parseMarkdownStructure(content: string): MarkdownNode[] {
       let parent = stack[stack.length - 1];
       if (parent.type !== 'list' || parent.level !== indent) {
         const listNode: MarkdownNode = { type: 'list', level: indent, text: '', children: [] };
-        parent.children!.push(listNode);
+        const parentChildren = parent.children ?? (parent.children = []);
+        parentChildren.push(listNode);
         stack.push(listNode);
         parent = listNode;
       }
@@ -81,7 +83,8 @@ function parseMarkdownStructure(content: string): MarkdownNode[] {
         checked,
         children: []
       };
-      parent.children!.push(itemNode);
+      const parentChildren = parent.children ?? (parent.children = []);
+      parentChildren.push(itemNode);
       stack.push(itemNode);
       continue;
     }
@@ -89,7 +92,8 @@ function parseMarkdownStructure(content: string): MarkdownNode[] {
     if (line.trim() !== '') {
       const para: MarkdownNode = { type: 'paragraph', level: 0, text: line.trim(), children: [] };
       const parent = stack[stack.length - 1];
-      parent.children!.push(para);
+      const parentChildren = parent.children ?? (parent.children = []);
+      parentChildren.push(para);
     }
   }
 
@@ -188,6 +192,7 @@ function dedupeTree(nodes: MarkdownNode[]): MarkdownNode[] {
       const key = `${node.level ?? 0}:${node.text}`;
       if (seenHeadings.has(key)) {
         const existing = seenHeadings.get(key);
+        if (!existing) continue;
         existing.children = mergeMarkdownTrees(existing.children || [], node.children || [], { replace: true });
         continue;
       }
@@ -197,6 +202,7 @@ function dedupeTree(nodes: MarkdownNode[]): MarkdownNode[] {
       const key = node.text.toLowerCase();
       if (seenItems.has(key)) {
         const existing = seenItems.get(key);
+        if (!existing) continue;
         if (node.checked) existing.checked = true;
         continue;
       }
