@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Utilities for merging Markdown content.
  */

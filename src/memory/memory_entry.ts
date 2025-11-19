@@ -115,10 +115,13 @@ export function assertStatus(status: unknown): MemoryStatus {
   if (typeof status !== "string") {
     throw new StatusValidationError("Статус должен быть строкой.");
   }
-  if (!MEMORY_STATUSES.includes(status)) {
+
+  const statusValue = status as string;
+
+  if (!MEMORY_STATUSES.includes(statusValue as MemoryStatus)) {
     throw new StatusValidationError(
       `Статус должен быть одним из: ${MEMORY_STATUSES.join(", ")}.`
     );
   }
-  return status as MemoryStatus;
+  return statusValue as MemoryStatus;
 }
