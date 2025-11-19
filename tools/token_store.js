@@ -4,7 +4,14 @@ const fsp = fs.promises;
 const path = require('path');
 const crypto = require('crypto');
 
-const SECRET = process.env.TOKEN_SECRET || 'sofia_default_secret';
+const SECRET = process.env.TOKEN_SECRET;
+
+if (!SECRET) {
+  console.error(
+    '[tokenStore] переменная окружения TOKEN_SECRET не задана: невозможно шифровать токены'
+  );
+  throw new Error('TOKEN_SECRET is required to start tokenStore');
+}
 const KEY = crypto.createHash('sha256').update(String(SECRET)).digest();
 const ALGORITHM = 'aes-256-cbc';
 const IV_LENGTH = 16;
