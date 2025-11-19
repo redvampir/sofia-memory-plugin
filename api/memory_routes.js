@@ -81,7 +81,10 @@ async function check_context_periodically() {
   await process_users_in_batches(users);
 }
 
-setInterval(check_context_periodically, 30 * 60 * 1000);
+const contextCheckTimer = setInterval(check_context_periodically, 30 * 60 * 1000);
+if (contextCheckTimer && typeof contextCheckTimer.unref === 'function') {
+  contextCheckTimer.unref();
+}
 
 async function setMemoryRepo(req, res) {
   const { repoUrl, userId } = req.body;
