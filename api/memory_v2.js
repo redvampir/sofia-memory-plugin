@@ -41,9 +41,10 @@ function validateStoreBody(body = {}) {
   if (body.tags !== undefined) validateArray(body.tags, 'tags');
 }
 
-function resolveStatusCode(error) {
-  if (error?.statusCode === 413) return 413;
-  return 400;
+function resolveStatusCode(error, fallback = 400) {
+  if (error?.statusCode) return error.statusCode;
+  if (error?.code === 'MEMORY_ENTRY_TOO_LARGE') return 413;
+  return fallback;
 }
 
 router.post('/memory/store', async (req, res) => {
@@ -86,7 +87,8 @@ router.post('/memory/search', (req, res) => {
     const results = searchEntries({ tags, type, project, lang, status, include_deleted });
     return res.json({ status: 'ok', items: results });
   } catch (e) {
-    return res.status(400).json({ status: 'error', message: e.message });
+    const status = resolveStatusCode(e);
+    return res.status(status).json({ status: 'error', message: e.message });
   }
 });
 
@@ -122,7 +124,8 @@ router.post('/memory/get_context', (req, res) => {
       items,
     });
   } catch (e) {
-    return res.status(400).json({ status: 'error', message: e.message });
+    const status = resolveStatusCode(e);
+    return res.status(status).json({ status: 'error', message: e.message });
   }
 });
 
