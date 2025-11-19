@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Получение кода
+        uses: actions/checkout@v4
+
+      - name: Настройка Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: npm
+
+      - name: Установка зависимостей
+        run: npm ci
+
+      - name: Запуск линтера
+        run: npm run lint
+
+      - name: Типовой контроль
+        run: npm run typecheck
+
+      - name: Прогон тестов
+        run: npm test
