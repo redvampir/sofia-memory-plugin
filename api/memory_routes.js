@@ -30,6 +30,7 @@ const { saveReferenceAnswer } = require('../src/memory');
 const { load_memory_to_context, load_context_from_index } = require('../src/memory');
 const logger = require('../utils/logger');
 const { restoreContext } = require('../utils/restore_context');
+const { resolveUserId, getDefaultUserId } = require('../utils/default_user');
 
 function log_restore_action(user_id, success) {
   if (success) {
@@ -77,7 +78,7 @@ async function process_users_in_batches(users) {
 
 async function check_context_periodically() {
   const users = await memory_config.getAllUsers();
-  if (!users.length) users.push(null);
+  if (!users.length) users.push(getDefaultUserId());
   await process_users_in_batches(users);
 }
 
@@ -98,12 +99,12 @@ async function setMemoryModeRoute(req, res) {
   if (!['local', 'github'].includes(val)) {
     return res.status(400).json({ status: 'error', message: 'Invalid mode' });
   }
-  await setMemoryMode(userId || 'default', val);
+  await setMemoryMode(resolveUserId(userId), val);
   res.json({ status: 'success', mode: val });
 }
 
 async function systemStatus(req, res) {
-  const userId = (req.query.userId || (req.body || {}).userId || 'default').toString();
+  const userId = resolveUserId((req.query.userId || (req.body || {}).userId || '').toString());
   const mode = await getMemoryMode(userId);
   const repo = await memory_config.getRepoUrl(userId);
   res.json({ status: 'success', mode, repo });
@@ -739,7 +740,7 @@ router.post('/chat/load_memory', async (req, res) => {
     return res.status(400).json({ status: 'error', message: 'Invalid command' });
   const { name } = parsed;
   try {
-    const { index, plan } = await switchMemoryFolder('default', name);
+    const { index, plan } = await switchMemoryFolder(getDefaultUserId(), name);
     res.json({ status: 'success', folder: name, index, plan });
   } catch (e) {
     res.status(500).json({ status: 'error', message: e.message });
