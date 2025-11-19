@@ -2,10 +2,7 @@ import assert from 'assert';
 import fs from 'fs';
 import path from 'path';
 
-const {
-  buildLogEntry,
-  logMemoryUsage,
-} = require('../src/memory/memory_usage_log');
+const { buildLogEntry, logMemoryUsage } = require('../src/memory/memory_usage_log');
 
 function readLastLogLine(filePath: string) {
   const raw = fs.readFileSync(filePath, 'utf-8').trim();
@@ -13,7 +10,7 @@ function readLastLogLine(filePath: string) {
   return JSON.parse(lines[lines.length - 1]);
 }
 
-(function run() {
+async function run() {
   const tempDir = path.join(__dirname, 'tmp_logs');
   const filePath = path.join(tempDir, 'memory_usage.jsonl');
   fs.rmSync(tempDir, { recursive: true, force: true });
@@ -35,19 +32,28 @@ function readLastLogLine(filePath: string) {
   assert.strictEqual(entry.memory_ids.length, 2);
   assert.strictEqual(entry.outcome, 'ok');
 
-  logMemoryUsage(entry, {
+  await logMemoryUsage(entry, {
     mode: 'file',
     filePath,
     sqlitePath: path.join(tempDir, 'db.sqlite'),
-  }).then(() => {
-    const stored = readLastLogLine(filePath);
-    assert.strictEqual(stored.project, 'demo');
-    assert.deepStrictEqual(stored.memory_ids, ['m1', 'm2']);
-    assert.strictEqual(stored.outcome, 'ok');
-    assert.strictEqual(stored.notes, 'проверка');
-    console.log('memory_usage_log.test.ts: ok');
-  }).catch(err => {
-    console.error('memory_usage_log.test.ts: failed', err);
-    process.exit(1);
   });
-})();
+
+  const stored = readLastLogLine(filePath);
+  assert.strictEqual(stored.project, 'demo');
+  assert.deepStrictEqual(stored.memory_ids, ['m1', 'm2']);
+  assert.strictEqual(stored.outcome, 'ok');
+  assert.strictEqual(stored.notes, 'проверка');
+
+  const defaults = buildLogEntry({ query: 'simple', memory_ids: 'm10, m20' });
+  assert.strictEqual(defaults.project, 'default');
+  assert.strictEqual(defaults.request_type, 'get_context');
+  assert.deepStrictEqual(defaults.memory_ids, ['m10', 'm20']);
+  assert.strictEqual(defaults.outcome, 'ok');
+
+  console.log('memory_usage_log.test.ts: ok');
+}
+
+run().catch(err => {
+  console.error('memory_usage_log.test.ts: failed', err);
+  process.exit(1);
+});

@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const { ensure_dir } = require('../../tools/file_utils');
 
 const DEFAULT_FILE_PATH = path.join(__dirname, '..', '..', 'memory', 'memory_usage_log.jsonl');
+const STORAGE_MODES = ['file', 'sqlite'];
 
 function normalizeString(value, fallback = '') {
   if (value === undefined || value === null) return fallback;
@@ -25,10 +26,19 @@ function generateId() {
 }
 
 function getLogStorageConfig() {
-  const mode = (process.env.MEMORY_USAGE_LOG_STORAGE || 'file').toLowerCase();
+  const rawMode = (process.env.MEMORY_USAGE_LOG_STORAGE || 'file').toLowerCase();
+  const mode = STORAGE_MODES.includes(rawMode) ? rawMode : 'file';
   const filePath = process.env.MEMORY_USAGE_LOG_PATH || DEFAULT_FILE_PATH;
   const sqlitePath = process.env.MEMORY_USAGE_LOG_DB || path.join(__dirname, '..', '..', 'memory', 'memory_usage_log.db');
   return { mode, filePath, sqlitePath };
+}
+
+function validateStorageConfig(config) {
+  if (!config || typeof config !== 'object') return getLogStorageConfig();
+  if (!STORAGE_MODES.includes(config.mode)) {
+    return { ...config, mode: 'file' };
+  }
+  return config;
 }
 
 function buildLogEntry(payload = {}) {
@@ -124,11 +134,12 @@ function writeToSqlite(entry, sqlitePath) {
 }
 
 async function persistLogEntry(entry, config = getLogStorageConfig()) {
-  if (config.mode === 'sqlite') {
-    await writeToSqlite(entry, config.sqlitePath);
+  const safeConfig = validateStorageConfig(config);
+  if (safeConfig.mode === 'sqlite') {
+    await writeToSqlite(entry, safeConfig.sqlitePath);
     return entry;
   }
-  await writeToFile(entry, config.filePath);
+  await writeToFile(entry, safeConfig.filePath);
   return entry;
 }
 
@@ -138,9 +149,19 @@ async function logMemoryUsage(payload = {}, config) {
   return entry;
 }
 
+async function tryLogMemoryUsage(payload = {}, config) {
+  try {
+    return await logMemoryUsage(payload, config);
+  } catch (logError) {
+    console.warn('[memory_usage_log] лог не записан', logError.message);
+    return null;
+  }
+}
+
 module.exports = {
   getLogStorageConfig,
   buildLogEntry,
   persistLogEntry,
   logMemoryUsage,
+  tryLogMemoryUsage,
 };
