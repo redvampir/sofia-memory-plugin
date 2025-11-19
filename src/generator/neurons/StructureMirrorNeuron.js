@@ -50,7 +50,7 @@ class StructureMirrorNeuron extends MirrorNeuron {
    * @param {Object} context - generation context (unused)
    * @returns {string} generated text
    */
-  generate(context = {}) { // eslint-disable-line no-unused-vars
+  generate(_context = {}) {
     const { order = [], passiveRatio = 0 } = this.style;
     const templates = {
       declarative: {

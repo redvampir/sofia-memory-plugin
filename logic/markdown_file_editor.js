@@ -7,7 +7,7 @@ const {
   parseMarkdownStructure,
   serializeMarkdownTree,
   mergeMarkdownTrees
-} = require('./markdown_merge_engine.ts');
+} = require('./markdown_merge_engine');
 const { ensure_dir } = require('../tools/file_utils');
 const memory_settings = require('../tools/memory_settings');
 

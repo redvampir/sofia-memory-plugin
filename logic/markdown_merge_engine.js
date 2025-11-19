@@ -1,34 +1,38 @@
 /**
- * Utilities for merging Markdown content.
+ * Утилиты для разбора, слияния и сериализации Markdown.
+ * Полностью совместимо с версиями на TypeScript, но исполняется в Node.js без сборки.
  */
 
-type MarkdownNodeType = 'heading' | 'list' | 'item' | 'paragraph';
-
-interface MarkdownNode {
-  type: MarkdownNodeType;
-  level?: number;
-  text: string;
-  checked?: boolean;
-  pos?: number;
-  children?: MarkdownNode[];
-}
-
-interface RootNode extends Omit<MarkdownNode, 'type' | 'text'> {
-  type: 'root';
-  text: '';
-  level: 0;
-  children: MarkdownNode[];
-}
+/**
+ * @typedef {'heading' | 'list' | 'item' | 'paragraph'} MarkdownNodeType
+ * @typedef {Object} MarkdownNode
+ * @property {MarkdownNodeType} type
+ * @property {number} [level]
+ * @property {string} text
+ * @property {boolean} [checked]
+ * @property {number} [pos]
+ * @property {MarkdownNode[]} [children]
+ */
 
 /**
- * Parse raw Markdown into a tree of semantic nodes.
- * Supports headings (h1-h6), nested lists and checkboxes.
+ * @typedef {Object} RootNode
+ * @property {'root'} type
+ * @property {''} text
+ * @property {0} level
+ * @property {MarkdownNode[]} children
+ */
+
+/**
+ * Разбор Markdown в дерево узлов.
+ * Поддерживает заголовки (h1-h6), вложенные списки и чекбоксы.
  * @param {string} content
  * @returns {MarkdownNode[]}
  */
-function parseMarkdownStructure(content: string): MarkdownNode[] {
-  const root: RootNode = { type: 'root', level: 0, text: '', children: [] };
-  const stack: Array<MarkdownNode | RootNode> = [root];
+function parseMarkdownStructure(content) {
+  /** @type {RootNode} */
+  const root = { type: 'root', level: 0, text: '', children: [] };
+  /** @type {(MarkdownNode | RootNode)[]} */
+  const stack = [root];
   const lines = content.split(/\r?\n/);
 
   for (const line of lines) {
@@ -36,7 +40,7 @@ function parseMarkdownStructure(content: string): MarkdownNode[] {
     if (heading) {
       const level = heading[1].length;
       const text = heading[2].trim();
-      const node: MarkdownNode = { type: 'heading', level, text, children: [] };
+      const node = { type: 'heading', level, text, children: [] };
       while (
         stack.length > 1 &&
         (stack[stack.length - 1].type !== 'heading' ||
@@ -70,13 +74,13 @@ function parseMarkdownStructure(content: string): MarkdownNode[] {
       }
       let parent = stack[stack.length - 1];
       if (parent.type !== 'list' || parent.level !== indent) {
-        const listNode: MarkdownNode = { type: 'list', level: indent, text: '', children: [] };
+        const listNode = { type: 'list', level: indent, text: '', children: [] };
         const parentChildren = parent.children ?? (parent.children = []);
         parentChildren.push(listNode);
         stack.push(listNode);
         parent = listNode;
       }
-      const itemNode: MarkdownNode = {
+      const itemNode = {
         type: 'item',
         level: indent,
         text: text.trim(),
@@ -90,7 +94,7 @@ function parseMarkdownStructure(content: string): MarkdownNode[] {
     }
 
     if (line.trim() !== '') {
-      const para: MarkdownNode = { type: 'paragraph', level: 0, text: line.trim(), children: [] };
+      const para = { type: 'paragraph', level: 0, text: line.trim(), children: [] };
       const parent = stack[stack.length - 1];
       const parentChildren = parent.children ?? (parent.children = []);
       parentChildren.push(para);
@@ -101,7 +105,11 @@ function parseMarkdownStructure(content: string): MarkdownNode[] {
   return root.children;
 }
 
-function assignPositions(nodes: MarkdownNode[]): void {
+/**
+ * @param {MarkdownNode[]} nodes
+ * @returns {void}
+ */
+function assignPositions(nodes) {
   for (let i = 0; i < nodes.length; i++) {
     const node = nodes[i];
     node.pos = i;
@@ -109,7 +117,12 @@ function assignPositions(nodes: MarkdownNode[]): void {
   }
 }
 
-function findMatch(list: MarkdownNode[], node: MarkdownNode): MarkdownNode | undefined {
+/**
+ * @param {MarkdownNode[]} list
+ * @param {MarkdownNode} node
+ * @returns {MarkdownNode | undefined}
+ */
+function findMatch(list, node) {
   if (node.type === 'heading') {
     return list.find(
       (n) => n.type === 'heading' && n.level === node.level && n.text === node.text
@@ -125,18 +138,13 @@ function findMatch(list: MarkdownNode[], node: MarkdownNode): MarkdownNode | und
 }
 
 /**
- * Deeply merge two MarkdownNode trees.
- * Existing content is preserved; new items are appended when missing.
- * Checklist items prefer checked versions if duplicates appear.
+ * Глубокое слияние двух деревьев MarkdownNode.
  * @param {MarkdownNode[]} base
  * @param {MarkdownNode[]} update
+ * @param {{ replace?: boolean; dedupe?: boolean }} [opts]
  * @returns {MarkdownNode[]}
  */
-function mergeMarkdownTrees(
-  base: MarkdownNode[],
-  update: MarkdownNode[],
-  opts: { replace?: boolean; dedupe?: boolean } = {}
-): MarkdownNode[] {
+function mergeMarkdownTrees(base, update, opts = {}) {
   const { replace = false, dedupe = false } = opts;
   const result = base.map(cloneNode);
 
@@ -177,16 +185,24 @@ function mergeMarkdownTrees(
   return dedupe ? dedupeTree(result) : result;
 }
 
-function cloneNode(node: MarkdownNode): MarkdownNode {
-  const copy: MarkdownNode = { ...node };
+/**
+ * @param {MarkdownNode} node
+ * @returns {MarkdownNode}
+ */
+function cloneNode(node) {
+  const copy = { ...node };
   if (node.children) copy.children = node.children.map(cloneNode);
   return copy;
 }
 
-function dedupeTree(nodes: MarkdownNode[]): MarkdownNode[] {
-  const seenHeadings = new Map<string, MarkdownNode>();
-  const seenItems = new Map<string, MarkdownNode>();
-  const result: MarkdownNode[] = [];
+/**
+ * @param {MarkdownNode[]} nodes
+ * @returns {MarkdownNode[]}
+ */
+function dedupeTree(nodes) {
+  const seenHeadings = new Map();
+  const seenItems = new Map();
+  const result = [];
   for (const node of nodes) {
     if (node.type === 'heading') {
       const key = `${node.level ?? 0}:${node.text}`;
@@ -216,13 +232,13 @@ function dedupeTree(nodes: MarkdownNode[]): MarkdownNode[] {
 }
 
 /**
- * Serialize a MarkdownNode tree back to raw Markdown.
+ * Сериализация дерева MarkdownNode в Markdown.
  * @param {MarkdownNode[]} tree
  * @returns {string}
  */
-function serializeMarkdownTree(tree: MarkdownNode[]): string {
-  const lines: string[] = [];
-  const walk = (nodes: MarkdownNode[]): void => {
+function serializeMarkdownTree(tree) {
+  const lines = [];
+  const walk = (nodes) => {
     for (const node of nodes) {
       if (node.type === 'heading') {
         const level = node.level ?? 0;

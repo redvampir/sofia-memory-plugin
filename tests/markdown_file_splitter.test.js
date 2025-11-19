@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const assert = require('assert');
 const { splitMarkdownFile, MAX_MD_FILE_SIZE } = require('../utils/file_splitter');
-const { parseMarkdownStructure } = require('../logic/markdown_merge_engine.ts');
+const { parseMarkdownStructure } = require('../logic/markdown_merge_engine');
 
 const tmpDir = path.join(__dirname, 'tmp_md_file_split');
 if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true });

@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const { parseMarkdownStructure, serializeMarkdownTree } = require('../logic/markdown_merge_engine.ts');
+const { parseMarkdownStructure, serializeMarkdownTree } = require('../logic/markdown_merge_engine');
 
 // Константы для максимального размера файлов
 // Увеличенные лимиты для хранимых и записываемых файлов

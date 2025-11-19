@@ -4,7 +4,7 @@ const axios = require('axios');
 const { editMarkdownFile, readMarkdownFile } = require('./markdown_safe_edit');
 const fileEditor = require('../logic/markdown_file_editor');
 const validator = require('../logic/markdown_validator');
-const { parseMarkdownStructure, serializeMarkdownTree } = require('../logic/markdown_merge_engine.ts');
+const { parseMarkdownStructure, serializeMarkdownTree } = require('../logic/markdown_merge_engine');
 
 function ensure_section_exists(filePath, heading) {
   const content = fs.readFileSync(filePath, 'utf-8');

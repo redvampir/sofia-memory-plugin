@@ -7,6 +7,7 @@ require('ts-node/register/transpile-only');
 const testDir = __dirname;
 
 const files = [];
+
 function collect(dir) {
   fs.readdirSync(dir).forEach(f => {
     const p = path.join(dir, f);
@@ -23,9 +24,8 @@ files.sort();
 
 files.forEach(file => {
   console.log(`Running ${path.relative(testDir, file)}`);
-  const args = file.endsWith('.test.ts')
-    ? ['-r', 'ts-node/register/transpile-only', file]
-    : [file];
+  const baseArgs = ['-r', 'ts-node/register/transpile-only'];
+  const args = [...baseArgs, file];
   const env = file.endsWith('.test.ts')
     ? { ...process.env, TS_NODE_COMPILER_OPTIONS: JSON.stringify({ module: 'commonjs' }) }
     : process.env;
