@@ -27,10 +27,11 @@ async function read_memory(user_id, repo, token, filename, opts = {}) {
   const normalized = normalize_memory_path(filename);
   const parse_json = opts.parseJson || false;
   const envSkipGit = process.env.NO_GIT === 'true';
-  let finalRepo = repo || (await memory_config.getRepoUrl(user_id));
-  let finalToken = token || (await token_store.getToken(user_id));
-  const skipGit = envSkipGit && !(finalRepo && finalToken);
-  if (skipGit) {
+  const suppliedRepo = repo;
+  const suppliedToken = token;
+  let finalRepo = suppliedRepo || (await memory_config.getRepoUrl(user_id));
+  let finalToken = suppliedToken || (await token_store.getToken(user_id));
+  if (envSkipGit && !(suppliedRepo && suppliedToken)) {
     finalRepo = null;
     finalToken = null;
   }
@@ -115,10 +116,11 @@ async function save_memory(user_id, repo, token, filename, content) {
     );
   }
   const envSkipGit = process.env.NO_GIT === 'true';
-  let finalRepo = repo || (await memory_config.getRepoUrl(user_id));
-  let finalToken = token || (await token_store.getToken(user_id));
-  const skipGit = envSkipGit && !(finalRepo && finalToken);
-  if (skipGit) {
+  const suppliedRepo = repo;
+  const suppliedToken = token;
+  let finalRepo = suppliedRepo || (await memory_config.getRepoUrl(user_id));
+  let finalToken = suppliedToken || (await token_store.getToken(user_id));
+  if (envSkipGit && !(suppliedRepo && suppliedToken)) {
     finalRepo = null;
     finalToken = null;
   }
