@@ -625,7 +625,6 @@ async function scanMemoryFolderRecursively(repo, token, basePath = 'memory') {
 
   const verified = [];
   for (const rel of files) {
-    // eslint-disable-next-line no-await-in-loop
     if (await fileExistsInRepo(repo, token, rel)) {
       verified.push(rel);
     } else {
