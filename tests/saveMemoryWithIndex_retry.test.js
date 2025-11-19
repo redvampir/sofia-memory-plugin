@@ -10,8 +10,10 @@ const github = require('../tools/github_client');
   // patch GitHub helpers to avoid network
   const origValidate = github.validateToken;
   const origExists = github.repoExists;
+  const origExistsSafe = github.repoExistsSafe;
   github.validateToken = async () => ({ valid: true });
   github.repoExists = async () => ({ exists: true });
+  github.repoExistsSafe = async () => ({ exists: true });
 
   // mock axios to simulate 5xx errors
   const origGet = axios.get;
@@ -39,6 +41,7 @@ const github = require('../tools/github_client');
   // restore patches and cleanup
   github.validateToken = origValidate;
   github.repoExists = origExists;
+  github.repoExistsSafe = origExistsSafe;
   axios.get = origGet;
   axios.put = origPut;
   fs.rmSync(path.join(__dirname, '..', 'memory', 'tmp_retry'), { recursive: true, force: true });

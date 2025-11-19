@@ -22,7 +22,7 @@ const memory_config = require('../tools/memory_config');
 const token_store = require('../tools/token_store');
 const { setMemoryMode, getMemoryMode } = require('../utils/memory_mode');
 const { generateTitleFromPath, inferTypeFromPath, normalize_memory_path, ensure_dir } = require('../tools/file_utils');
-const { parseMarkdownStructure, mergeMarkdownTrees, serializeMarkdownTree } = require('../logic/markdown_merge_engine.ts');
+const { parseMarkdownStructure, mergeMarkdownTrees, serializeMarkdownTree } = require('../logic/markdown_merge_engine');
 const { getRepoInfo, extractToken, categorizeMemoryFile, logDebug } = require('../tools/memory_helpers');
 const { logError } = require('../tools/error_handler');
 const { readMarkdownFile } = require('../src/memory');
@@ -39,9 +39,9 @@ function log_restore_action(user_id, success) {
   }
 }
 
-function get_context_for_user(_id) {
+function get_context_for_user(userId) {
   try {
-    const data = fs.readFileSync(contextFilename(), 'utf-8');
+    const data = fs.readFileSync(contextFilename(userId), 'utf-8');
     return data.trim();
   } catch {
     return '';
