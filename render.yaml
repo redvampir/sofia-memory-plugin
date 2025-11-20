@@ -7,11 +7,14 @@ services:
     healthCheckPath: /health
     startTimeout: 120
     envVars:
+      # Обязательный секрет для шифрования OAuth-токенов
       - key: TOKEN_SECRET
         required: true
         noValue: true
+      # Режим хранения памяти: локальные файлы или GitHub (по умолчанию GitHub)
       - key: MEMORY_MODE
         value: github
+      # Опциональный URL репозитория GitHub, если хотим задать заранее
       - key: GITHUB_REPO
         required: false
 
