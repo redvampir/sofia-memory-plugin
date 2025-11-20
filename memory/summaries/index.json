@@ -1,5 +1,18 @@
 {
   "type": "index-branch",
   "category": "summaries",
-  "files": []
+  "files": [
+    {
+      "context_priority": "high",
+      "last_accessed": "2025-11-20T16:50:38.483Z",
+      "access_count": 0,
+      "edit_count": 0,
+      "pinned": false,
+      "importance_score": 0,
+      "title": "Index",
+      "type": "file",
+      "lastModified": "2025-11-20T16:50:38.483Z",
+      "file": "summaries/index.json"
+    }
+  ]
 }
