@@ -1,0 +1,37 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Build outputs
+dist/
+build/
+*.min.js
+
+# Data & Cache
+memory/
+config/
+.cache/
+logs/
+*.log
+
+# Test artifacts
+coverage/
+.nyc_output/
+test-results/
+.deprecation_log.json
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Git
+.git/
+.github/
+
+# Environment
+.env
+.env.*
+!.env.example

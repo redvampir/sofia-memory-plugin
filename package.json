@@ -8,8 +8,10 @@
     "build:openapi": "node ./scripts/generate_openapi.js",
     "prepare:render": "node ./scripts/prepare_render.js",
     "lint": "eslint . --ext .js,.ts",
+    "lint:fix": "eslint . --ext .js,.ts --fix",
     "typecheck": "tsc --noEmit",
     "pre-deploy": "node scripts/pre_deploy_check.js",
+    "setup:hooks": "bash scripts/setup_git_hooks.sh",
     "health": "curl -s http://localhost:10000/health | json_pp",
     "health:detailed": "curl -s http://localhost:10000/health/detailed | json_pp"
   },
