@@ -11,8 +11,8 @@ const {
   incrementEditCount,
 } = require('../tools/context_priority');
 const {
-  ensure_dir,
-  normalize_memory_path,
+  ensureDir,
+  normalizeMemoryPath,
 } = require('../tools/file_utils');
 const { split_memory_file } = require('../tools/memory_splitter');
 const {
@@ -23,27 +23,27 @@ const { logError } = require('../tools/error_handler');
 const memory_settings = require('../tools/memory_settings');
 const { estimate_cost } = require('../tools/text_utils');
 
-async function read_memory(user_id, repo, token, filename, opts = {}) {
-  const normalized = normalize_memory_path(filename);
-  const parse_json = opts.parseJson || false;
+async function readMemory(userId, repo, token, filename, opts = {}) {
+  const normalized = normalizeMemoryPath(filename);
+  const parseJson = opts.parseJson || false;
   const envSkipGit = process.env.NO_GIT === 'true';
   const suppliedRepo = repo;
   const suppliedToken = token;
-  let finalRepo = suppliedRepo || (await memory_config.getRepoUrl(user_id));
-  let finalToken = suppliedToken || (await token_store.getToken(user_id));
+  let finalRepo = suppliedRepo || (await memory_config.getRepoUrl(userId));
+  let finalToken = suppliedToken || (await token_store.getToken(userId));
   if (envSkipGit && !(suppliedRepo && suppliedToken)) {
     finalRepo = null;
     finalToken = null;
   }
 
-  if (isLocalMode(user_id || 'default')) {
+  if (isLocalMode(userId || 'default')) {
     const data = await requestToAgent('/read', 'GET', {
       repo: finalRepo,
       token: finalToken,
       filename,
-      userId: user_id,
+      userId: userId,
     });
-    if (parse_json && filename.trim().toLowerCase().endsWith('.json')) {
+    if (parseJson && filename.trim().toLowerCase().endsWith('.json')) {
       try {
         return JSON.parse(data);
       } catch {
@@ -54,9 +54,9 @@ async function read_memory(user_id, repo, token, filename, opts = {}) {
   }
 
   const masked = finalToken ? `${finalToken.slice(0, 4)}...` : 'null';
-  console.log('[read_memory] repo:', finalRepo);
-  console.log('[read_memory] token:', masked);
-  console.log('[read_memory] file:', normalized);
+  console.log('[readMemory] repo:', finalRepo);
+  console.log('[readMemory] token:', masked);
+  console.log('[readMemory] file:', normalized);
 
   let content = null;
 
@@ -69,7 +69,7 @@ async function read_memory(user_id, repo, token, filename, opts = {}) {
   }
 
   if (!content) {
-    const localPath = resolvePath(normalized, user_id || 'default');
+    const localPath = resolvePath(normalized, userId || 'default');
     if (fs.existsSync(localPath)) {
       content = fs.readFileSync(localPath, 'utf-8');
     } else {
@@ -84,10 +84,10 @@ async function read_memory(user_id, repo, token, filename, opts = {}) {
       type: index_manager.inferTypeFromPath(normalized),
       lastModified: new Date().toISOString(),
     });
-    await index_manager.saveIndex(token, repo, user_id);
+    await index_manager.saveIndex(token, repo, userId);
   }
 
-  if (parse_json && normalized.endsWith('.json')) {
+  if (parseJson && normalized.endsWith('.json')) {
     try {
       return JSON.parse(content);
     } catch (e) {
@@ -98,39 +98,39 @@ async function read_memory(user_id, repo, token, filename, opts = {}) {
   return content;
 }
 
-async function save_memory(user_id, repo, token, filename, content) {
-  if (isLocalMode(user_id || 'default')) {
+async function saveMemory(userId, repo, token, filename, content) {
+  if (isLocalMode(userId || 'default')) {
     return requestToAgent('/save', 'POST', {
       repo,
       token,
       filename,
       content,
-      userId: user_id,
+      userId: userId,
     });
   }
-  const normalized = normalize_memory_path(filename);
+  const normalized = normalizeMemoryPath(filename);
   const parsed = path.posix.parse(normalized);
   if (!parsed.ext) {
     throw new Error(
-      `save_memory expects a file path, got directory: ${filename}`
+      `saveMemory expects a file path, got directory: ${filename}`
     );
   }
   const envSkipGit = process.env.NO_GIT === 'true';
   const suppliedRepo = repo;
   const suppliedToken = token;
-  let finalRepo = suppliedRepo || (await memory_config.getRepoUrl(user_id));
-  let finalToken = suppliedToken || (await token_store.getToken(user_id));
+  let finalRepo = suppliedRepo || (await memory_config.getRepoUrl(userId));
+  let finalToken = suppliedToken || (await token_store.getToken(userId));
   if (envSkipGit && !(suppliedRepo && suppliedToken)) {
     finalRepo = null;
     finalToken = null;
   }
   const masked = finalToken ? `${finalToken.slice(0, 4)}...` : 'null';
-  console.log('[save_memory] repo:', finalRepo);
-  console.log('[save_memory] token:', masked);
-  console.log('[save_memory] file:', normalized);
+  console.log('[saveMemory] repo:', finalRepo);
+  console.log('[saveMemory] token:', masked);
+  console.log('[saveMemory] file:', normalized);
   const tokens = estimate_cost(content, 'tokens');
   if (tokens > memory_settings.token_soft_limit) {
-    console.warn('[save_memory] token limit reached', tokens);
+    console.warn('[saveMemory] token limit reached', tokens);
     if (memory_settings.enforce_soft_limit) {
       return {
         warning: 'This file is too large for safe future use.',
@@ -140,8 +140,8 @@ async function save_memory(user_id, repo, token, filename, content) {
       return { split: true, parts };
     }
   }
-  const localPath = resolvePath(normalized, user_id || 'default');
-  ensure_dir(localPath);
+  const localPath = resolvePath(normalized, userId || 'default');
+  ensureDir(localPath);
   if (fs.existsSync(localPath)) {
     const backup = `${localPath}.bak`;
     fs.copyFileSync(localPath, backup);
@@ -153,7 +153,7 @@ async function save_memory(user_id, repo, token, filename, content) {
     const parts = splitMarkdownFile(localPath, MAX_MD_FILE_SIZE);
     fs.unlinkSync(localPath);
     const relParts = parts.map(p =>
-      path.relative(baseDir(user_id || 'default'), p).replace(/\\/g, '/')
+      path.relative(baseDir(userId || 'default'), p).replace(/\\/g, '/')
     );
     return { split: true, parts: relParts };
   }
@@ -182,14 +182,14 @@ async function save_memory(user_id, repo, token, filename, content) {
   return normalized;
 }
 
-async function save_memory_with_index(user_id, repo, token, filename, content) {
-  if (isLocalMode(user_id || 'default')) {
+async function saveMemoryWithIndex(userId, repo, token, filename, content) {
+  if (isLocalMode(userId || 'default')) {
     return requestToAgent('/saveMemoryWithIndex', 'POST', {
       repo,
       token,
       filename,
       content,
-      userId: user_id,
+      userId: userId,
     });
   }
   const check = await index_manager.validateFilePathAgainstIndex(filename);
@@ -197,7 +197,7 @@ async function save_memory_with_index(user_id, repo, token, filename, content) {
   const finalPath = check.expectedPath || filename;
   const tokens = estimate_cost(content, 'tokens');
   if (tokens > memory_settings.token_soft_limit) {
-    console.warn('[save_memory_with_index] token limit reached', tokens);
+    console.warn('[saveMemory_with_index] token limit reached', tokens);
     if (memory_settings.enforce_soft_limit) {
       return {
         warning: 'This file is too large for safe future use.',
@@ -213,13 +213,13 @@ async function save_memory_with_index(user_id, repo, token, filename, content) {
   }
   const byteSize = Buffer.byteLength(content, 'utf-8');
   if (byteSize > MAX_MD_FILE_SIZE) {
-    const abs = resolvePath(normalize_memory_path(finalPath), user_id || 'default');
-    ensure_dir(abs);
+    const abs = resolvePath(normalizeMemoryPath(finalPath), userId || 'default');
+    ensureDir(abs);
     fs.writeFileSync(abs, content, 'utf-8');
     const parts = splitMarkdownFile(abs, MAX_MD_FILE_SIZE);
     fs.unlinkSync(abs);
     const relParts = parts.map(p =>
-      path.relative(baseDir(user_id || 'default'), p).replace(/\\/g, '/')
+      path.relative(baseDir(userId || 'default'), p).replace(/\\/g, '/')
     );
     for (const p of relParts) {
       await index_manager.addOrUpdateEntry({
@@ -231,7 +231,7 @@ async function save_memory_with_index(user_id, repo, token, filename, content) {
     }
     return { split: true, parts: relParts };
   }
-  const savedPath = await save_memory(user_id, repo, token, finalPath, content);
+  const savedPath = await saveMemory(userId, repo, token, finalPath, content);
   if (
     savedPath &&
     typeof savedPath === 'object' &&
@@ -258,7 +258,7 @@ async function save_memory_with_index(user_id, repo, token, filename, content) {
     type: index_manager.inferTypeFromPath(savedPathStr),
     lastModified: new Date().toISOString(),
   });
-  const result2 = await index_manager.saveIndex(token, repo, user_id);
+  const result2 = await index_manager.saveIndex(token, repo, userId);
   if (result2 && result2.warning) {
     console.warn(`[index] ${result2.warning}`);
   }
@@ -266,31 +266,38 @@ async function save_memory_with_index(user_id, repo, token, filename, content) {
   return savedPathStr;
 }
 
-async function get_file(user_id, repo, token, filename) {
+async function getFile(userId, repo, token, filename) {
   const isJson = filename.trim().toLowerCase().endsWith('.json');
   try {
-    const content = await read_memory(user_id, repo, token, filename);
+    const content = await readMemory(userId, repo, token, filename);
     if (isJson) {
       try {
         const json = JSON.parse(content);
         return { content, json };
       } catch (e) {
-        logError('get_file parse json', e);
+        logError('getFile parse json', e);
         return { content, json: null };
       }
     }
     return { content };
   } catch (e) {
-    logError('get_file', e);
+    logError('getFile', e);
     throw e;
   }
 }
 
 module.exports = {
-  read_memory,
-  save_memory,
-  save_memory_with_index,
-  get_file,
+  // New camelCase names
+  readMemory,
+  saveMemory,
+  saveMemoryWithIndex,
+  getFile,
   addOrUpdateEntry: index_manager.addOrUpdateEntry,
   saveIndex: index_manager.saveIndex,
+
+  // Backward compatibility (deprecated)
+  read_memory: readMemory,
+  save_memory: saveMemory,
+  save_memory_with_index: saveMemoryWithIndex,
+  get_file: getFile,
 };

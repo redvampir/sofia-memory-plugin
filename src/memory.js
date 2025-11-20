@@ -1,4 +1,4 @@
-const { read_memory, save_memory, get_file } = require('./storage');
+const { readMemory: storageReadMemory, saveMemory: storageSaveMemory, getFile: storageGetFile } = require('./storage');
 const { restore_context, maybeRestoreContext } = require('./context');
 const {
   getContextFiles,
@@ -191,7 +191,7 @@ async function saveMemory(repo, token, filename, content) {
   }
 
   try {
-    const result = await save_memory(null, repo, token, filename, content);
+    const result = await storageSaveMemory(null, repo, token, filename, content);
     logger.info('[saveMemory] success');
     return result;
   } catch (e) {
@@ -376,7 +376,7 @@ async function readMemoryFile(filename, opts = {}) {
   const normalized = normalizeMemoryPath(filename);
   logger.info('[readMemoryFile] open', { path: normalized, source });
   try {
-    const result = await get_file(null, repo, token, normalized);
+    const result = await storageGetFile(null, repo, token, normalized);
     let content = result.content;
     if (/^---/.test(content)) {
       const end = content.indexOf('\n---', 3);
@@ -398,7 +398,7 @@ async function readMemoryFile(filename, opts = {}) {
           let full = '';
           for (const p of list) {
             const part_path = path.posix.join(dir, p);
-            const part = await get_file(null, repo, token, part_path);
+            const part = await storageGetFile(null, repo, token, part_path);
             full += part.content + '\n';
           }
           content = full.trim();
@@ -419,7 +419,7 @@ async function readMemoryFile(filename, opts = {}) {
       if (entry && entry.archived && entry.archivePath) {
         try {
           const arch = normalizeMemoryPath(entry.archivePath);
-          const res = await get_file(null, repo, token, arch);
+          const res = await storageGetFile(null, repo, token, arch);
           logger.info('[readMemoryFile] success', { path: arch, source });
           await touchIndexEntry(normalized);
           return res.content;
@@ -469,7 +469,7 @@ async function readMarkdownFile(filepath, opts = {}) {
   }
 
   try {
-    const content = await read_memory(null, finalRepo, finalToken, normalized);
+    const content = await readMemory(null, finalRepo, finalToken, normalized);
     await touchIndexEntry(normalized);
     return content;
   } catch (e) {
