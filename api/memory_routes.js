@@ -27,7 +27,7 @@ const { getRepoInfo, extractToken, categorizeMemoryFile, logDebug } = require('.
 const { logError } = require('../tools/error_handler');
 const { readMarkdownFile } = require('../src/memory');
 const { saveReferenceAnswer } = require('../src/memory');
-const { load_memory_to_context, load_context_from_index } = require('../src/memory');
+const { loadMemoryToContext, loadContextFromIndex } = require('../src/memory');
 const logger = require('../utils/logger');
 const { restoreContext } = require('../utils/restore_context');
 const { resolveUserId, getDefaultUserId } = require('../utils/default_user');
@@ -669,7 +669,7 @@ async function loadMemoryToContextRoute(req, res) {
     token
   );
   try {
-    const result = await load_memory_to_context(
+    const result = await loadMemoryToContext(
       filename,
       effectiveRepo,
       effectiveToken
@@ -694,7 +694,7 @@ async function loadContextFromIndexRoute(req, res) {
     token
   );
   try {
-    const result = await load_context_from_index(
+    const result = await loadContextFromIndex(
       index,
       effectiveRepo,
       effectiveToken

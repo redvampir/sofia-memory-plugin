@@ -9,7 +9,7 @@ const path = require('path');
 const fs = require('fs');
 const bodyParser = require('body-parser');
 const config = require('./config');
-const { setMemoryRepo, auto_recover_context, switchMemoryRepo } = require('./src/memory');
+const { setMemoryRepo, autoRecoverContext, switchMemoryRepo } = require('./src/memory');
 const { startContextChecker } = require('./utils/context_checker');
 const { setupGracefulShutdown, rejectDuringShutdown } = require('./utils/graceful_shutdown');
 const {
@@ -51,7 +51,7 @@ try {
 } catch (e) {
   console.error('[INIT] failed to set memory repo', e.message);
 }
-auto_recover_context().catch(e =>
+autoRecoverContext().catch(e =>
   console.error('[INIT] auto recover failed', e.message)
 );
 

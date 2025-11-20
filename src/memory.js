@@ -11,7 +11,7 @@ const {
 } = require('../tools/context_priority');
 const memory_config = require('../tools/memory_config');
 const token_store = require('../tools/token_store');
-const { normalize_memory_path } = require('../tools/file_utils');
+const { normalizeMemoryPath } = require('../tools/file_utils');
 const path = require('path');
 const {
   isLocalMode,
@@ -63,7 +63,12 @@ async function autoRefreshContext(repo, token, userId = 'default') {
   }
 }
 
-function normalize_repo(repo) {
+/**
+ * Normalize GitHub repository URL to owner/repo format
+ * @param {string} repo - GitHub repository URL or owner/repo
+ * @returns {string} Normalized repository name
+ */
+function normalizeRepo(repo) {
   if (!repo) return repo;
   const m = repo.match(/github\.com[:\/](.+?)(?:\.git)?$/);
   return m ? m[1] : repo;
@@ -114,15 +119,15 @@ async function readMemory(repo, token, filename, userId = 'default') {
     throw new Error('File not found');
   }
 
-  const normalized_file = normalize_memory_path(target);
+  const normalized_file = normalizeMemoryPath(target);
 
   if (final_repo && final_token) {
-    const url = `https://api.github.com/repos/${normalize_repo(final_repo)}/contents/${encodePath(normalized_file)}`;
+    const url = `https://api.github.com/repos/${normalizeRepo(final_repo)}/contents/${encodePath(normalized_file)}`;
     logger.debug('[readMemory] url', url);
   }
 
   try {
-    let content = await read_memory_file(normalized_file, {
+    let content = await readMemoryFile(normalized_file, {
       repo: final_repo,
       token: final_token,
       source: 'readMemory',
@@ -132,7 +137,7 @@ async function readMemory(repo, token, filename, userId = 'default') {
     if (/not found/i.test(e.message) && /\.md$/i.test(normalized_file)) {
       const alt = normalized_file.replace(/\.md$/i, '/index.md');
       try {
-        return await read_memory_file(alt, {
+        return await readMemoryFile(alt, {
           repo: final_repo,
           token: final_token,
           source: 'readMemory',
@@ -151,7 +156,7 @@ async function saveMemory(repo, token, filename, content) {
   const final_repo = repo || await memory_config.getRepoUrl(null);
   const final_token = token || await token_store.getToken(null);
   const masked_token = final_token ? `${final_token.slice(0, 4)}...` : 'null';
-  const normalized_file = normalize_memory_path(filename);
+  const normalized_file = normalizeMemoryPath(filename);
 
   logger.info('[saveMemory] called', {
     repo: repo || null,
@@ -161,7 +166,7 @@ async function saveMemory(repo, token, filename, content) {
   });
 
   if (final_repo && final_token) {
-    const url = `https://api.github.com/repos/${normalize_repo(final_repo)}/contents/${encodePath(normalized_file)}`;
+    const url = `https://api.github.com/repos/${normalizeRepo(final_repo)}/contents/${encodePath(normalized_file)}`;
     logger.debug('[saveMemory] request url', url);
   }
 
@@ -272,7 +277,7 @@ async function refreshContextFromMemoryFiles(repo, token, keywords = [], opts = 
 
   for (const p of context_files) {
     try {
-      const content = await read_memory_file(p, {
+      const content = await readMemoryFile(p, {
         repo: final_repo,
         token: final_token,
         source: 'context-refresh'
@@ -294,7 +299,7 @@ async function refreshContextFromMemoryFiles(repo, token, keywords = [], opts = 
 
   let summaries = [];
   try {
-    const idxRaw = await read_memory_file('memory/summaries/index.json', {
+    const idxRaw = await readMemoryFile('memory/summaries/index.json', {
       repo: final_repo,
       token: final_token,
       source: 'context-refresh'
@@ -304,7 +309,7 @@ async function refreshContextFromMemoryFiles(repo, token, keywords = [], opts = 
     for (const f of files) {
       const filePath = f.file.startsWith('memory/') ? f.file : `memory/${f.file}`;
       try {
-        const raw = await read_memory_file(filePath, {
+        const raw = await readMemoryFile(filePath, {
           repo: final_repo,
           token: final_token,
           source: 'context-refresh'
@@ -319,12 +324,12 @@ async function refreshContextFromMemoryFiles(repo, token, keywords = [], opts = 
         if (includeFull) {
           const qRel = rel(data.questionPath);
           const aRel = rel(data.answerPath);
-          item.question = await read_memory_file(qRel, {
+          item.question = await readMemoryFile(qRel, {
             repo: final_repo,
             token: final_token,
             source: 'context-refresh'
           }).catch(() => null);
-          item.answer = await read_memory_file(aRel, {
+          item.answer = await readMemoryFile(aRel, {
             repo: final_repo,
             token: final_token,
             source: 'context-refresh'
@@ -355,15 +360,21 @@ async function refreshContextFromMemoryFiles(repo, token, keywords = [], opts = 
   };
 }
 
-async function read_memory_file(filename, opts = {}) {
+/**
+ * Read memory file with support for multi-part files and archives
+ * @param {string} filename - File path to read
+ * @param {object} opts - Options {repo, token, source, userId}
+ * @returns {Promise<string>} File content
+ */
+async function readMemoryFile(filename, opts = {}) {
   const { repo = null, token = null, source = 'chat', userId = 'default' } = opts;
   await autoRefreshContext(
     repo || (await memory_config.getRepoUrl(userId)),
     token || (await token_store.getToken(userId)),
     userId
   );
-  const normalized = normalize_memory_path(filename);
-  logger.info('[read_memory_file] open', { path: normalized, source });
+  const normalized = normalizeMemoryPath(filename);
+  logger.info('[readMemoryFile] open', { path: normalized, source });
   try {
     const result = await get_file(null, repo, token, normalized);
     let content = result.content;
@@ -394,11 +405,11 @@ async function read_memory_file(filename, opts = {}) {
         }
       }
     }
-    logger.info('[read_memory_file] success', { path: normalized, source });
+    logger.info('[readMemoryFile] success', { path: normalized, source });
     await touchIndexEntry(normalized);
     return content;
   } catch (e) {
-    logger.error('[read_memory_file] error', {
+    logger.error('[readMemoryFile] error', {
       path: normalized,
       source,
       error: e.message,
@@ -407,13 +418,13 @@ async function read_memory_file(filename, opts = {}) {
       const entry = getByPath(normalized);
       if (entry && entry.archived && entry.archivePath) {
         try {
-          const arch = normalize_memory_path(entry.archivePath);
+          const arch = normalizeMemoryPath(entry.archivePath);
           const res = await get_file(null, repo, token, arch);
-          logger.info('[read_memory_file] success', { path: arch, source });
+          logger.info('[readMemoryFile] success', { path: arch, source });
           await touchIndexEntry(normalized);
           return res.content;
         } catch (e2) {
-          logger.error('[read_memory_file] archive error', {
+          logger.error('[readMemoryFile] archive error', {
             path: entry.archivePath,
             source,
             error: e2.message,
@@ -452,7 +463,7 @@ async function readMarkdownFile(filepath, opts = {}) {
 
   if (!target) throw new Error('File not found');
 
-  const normalized = normalize_memory_path(target);
+  const normalized = normalizeMemoryPath(target);
   if (!/\.md$/i.test(normalized)) {
     throw new Error('Markdown file expected');
   }
@@ -469,7 +480,14 @@ async function readMarkdownFile(filepath, opts = {}) {
 }
 
 
-async function load_memory_to_context(filename, repo, token) {
+/**
+ * Load memory file content into context
+ * @param {string} filename - File to load
+ * @param {string} repo - Repository URL
+ * @param {string} token - GitHub token
+ * @returns {Promise<object>} Load result with file and tokens count
+ */
+async function loadMemoryToContext(filename, repo, token) {
   if (isLocalMode('default')) {
     return requestToAgent('/loadMemoryToContext', 'POST', {
       filename,
@@ -477,8 +495,8 @@ async function load_memory_to_context(filename, repo, token) {
       token,
     });
   }
-  const normalized = normalize_memory_path(filename);
-  const content = await read_memory_file(normalized, {
+  const normalized = normalizeMemoryPath(filename);
+  const content = await readMemoryFile(normalized, {
     repo,
     token,
     source: 'manual-load',
@@ -488,8 +506,15 @@ async function load_memory_to_context(filename, repo, token) {
   return { file: normalized, tokens: estimate_cost(content, 'tokens') };
 }
 
-async function load_context_from_index(index_path, repo, token) {
-  const normalized = normalize_memory_path(index_path);
+/**
+ * Load multiple files from index into context
+ * @param {string} indexPath - Index file path
+ * @param {string} repo - Repository URL
+ * @param {string} token - GitHub token
+ * @returns {Promise<object|null>} Load result or null if no files
+ */
+async function loadContextFromIndex(indexPath, repo, token) {
+  const normalized = normalizeMemoryPath(indexPath);
   const abs = path.join(getRootDir(), normalized);
   try {
     await fsp.access(abs);
@@ -505,7 +530,7 @@ async function load_context_from_index(index_path, repo, token) {
   for (const f of files) {
     const rel = f.startsWith('memory/') ? f : `memory/${f}`;
     try {
-      const c = await read_memory_file(rel, {
+      const c = await readMemoryFile(rel, {
         repo,
         token,
         source: 'index-load',
@@ -513,7 +538,7 @@ async function load_context_from_index(index_path, repo, token) {
       full += `${c}\n`;
       loaded.push(rel);
     } catch (e) {
-      logger.error('[load_context_from_index] failed', {
+      logger.error('[loadContextFromIndex] failed', {
         path: rel,
         error: e.message,
       });
@@ -525,7 +550,11 @@ async function load_context_from_index(index_path, repo, token) {
   return { files: loaded, content: full.trim() };
 }
 
-async function auto_recover_context() {
+/**
+ * Automatically recover context from high-priority memory files
+ * @returns {Promise<object|null>} Recovery result or null if no files
+ */
+async function autoRecoverContext() {
   const targets = new Set();
   const scan = async dir => {
     try {
@@ -589,11 +618,11 @@ async function auto_recover_context() {
   const loaded = [];
   for (const p of targets) {
     try {
-      const c = await read_memory_file(p, { source: 'auto-recover' });
+      const c = await readMemoryFile(p, { source: 'auto-recover' });
       full += `${c}\n`;
       loaded.push(p);
     } catch (e) {
-      logger.error('[auto_recover_context] failed', { path: p, error: e.message });
+      logger.error('[autoRecoverContext] failed', { path: p, error: e.message });
     }
   }
   if (!loaded.length) return null;
@@ -626,18 +655,23 @@ module.exports = {
   saveMemory,
   refreshContextFromMemoryFiles,
   setMemoryRepo,
-  read_memory_file,
+  readMemoryFile,
   readMarkdownFile,
   saveReferenceAnswer,
   split_memory_file,
   register_user_prompt: context_state.register_user_prompt,
-  auto_recover_context,
-  load_memory_to_context,
-  load_context_from_index,
+  autoRecoverContext,
+  loadMemoryToContext,
+  loadContextFromIndex,
   checkAndRestoreContext,
   getTokenCounter,
   formatTokenCounter,
   setLocalMemoryPath,
   createMemoryFolder,
   switchMemoryRepo,
+
+  // Backward compatibility (deprecated)
+  auto_recover_context: autoRecoverContext,
+  load_memory_to_context: loadMemoryToContext,
+  load_context_from_index: loadContextFromIndex,
 };
