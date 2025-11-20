@@ -6,6 +6,7 @@
     "start": "node index.js",
     "test": "node tests/runAll.js",
     "build:openapi": "node ./scripts/generate_openapi.js",
+    "prepare:render": "node ./scripts/prepare_render.js",
     "lint": "eslint . --ext .js,.ts",
     "typecheck": "tsc --noEmit"
   },

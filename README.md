@@ -27,15 +27,14 @@ Sofia Memory Plugin \u2014 это небольшой сервис на Node.js, 
 ## Чек-лист деплоя на Render
 
 1. Задать обязательные переменные окружения в Render Dashboard: `TOKEN_SECRET`, `MEMORY_MODE` (при необходимости — `GITHUB_REPO`, `DEBUG_ADMIN_TOKEN`).
-2. Указать публичный URL Render в `PUBLIC_BASE_URL` и сгенерировать схему:
+2. Запустить подготовку с публичным URL Render (без `PUBLIC_BASE_URL` скрипт завершится с ошибкой):
    ```bash
    export PUBLIC_BASE_URL="https://<имя-сервиса>.onrender.com"
-   npm run build:openapi
+   npm run prepare:render
    ```
-   Скрипт подставит URL в `openapi.yaml` из шаблона `openapi_template.yaml`, чтобы GPT и Actions били по реальному хосту.
-3. Обновить ссылки в `ai-plugin.json` на тот же публичный хост (поля `api.url` и `logo_url`).
-4. Закоммитить обновлённые `openapi.yaml` и `ai-plugin.json`, задеплоить на Render, убедиться, что ответы `GET /ping` и `GET /openapi.yaml` приходят с нового домена.
-5. Подключить плагин в Actions или в настройках GPT, указывая именно публичный URL, который вернул Render.
+   Скрипт подставит URL в `openapi.yaml` из шаблона `openapi_template.yaml` и обновит `ai-plugin.json` (`api.url`, `logo_url`) на тот же хост.
+3. Закоммитить обновлённые `openapi.yaml` и `ai-plugin.json`, задеплоить на Render, убедиться, что ответы `GET /ping` и `GET /openapi.yaml` приходят с нового домена.
+4. Подключить плагин в Actions или в настройках GPT, указывая именно публичный URL, который вернул Render.
 
 ## Безопасность токенов и данных
 

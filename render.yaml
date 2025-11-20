@@ -2,7 +2,7 @@ services:
   - type: web
     name: sofia-memory-plugin
     env: node
-    buildCommand: npm install
+    buildCommand: npm install && npm run prepare:render
     startCommand: node index.js
     healthCheckPath: /health
     startTimeout: 120
@@ -17,4 +17,7 @@ services:
       # Опциональный URL репозитория GitHub, если хотим задать заранее
       - key: GITHUB_REPO
         required: false
+      # Публичный хост Render, нужен для генерации openapi.yaml и ai-plugin.json на этапе сборки
+      - key: PUBLIC_BASE_URL
+        required: true
 
