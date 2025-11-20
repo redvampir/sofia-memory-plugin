@@ -7,7 +7,8 @@ require('ts-node/register/transpile-only');
 if (!process.env.TOKEN_SECRET) {
   // Тестовый запуск не должен падать из-за отсутствия реального секрета:
   // выдаём детерминированный ключ только для локальных/CI тестов.
-  process.env.TOKEN_SECRET = 'test_suite_token_secret';
+  // Минимум 32 символа для соответствия требованиям безопасности
+  process.env.TOKEN_SECRET = 'test_suite_token_secret_32chars_min_required';
   console.warn('[tests] TOKEN_SECRET не задан, используется тестовый ключ');
 }
 
