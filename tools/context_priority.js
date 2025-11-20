@@ -1,13 +1,13 @@
 const fs = require('fs/promises');
 const path = require('path');
 
-const index_file = path.join(__dirname, '..', 'memory', 'index.json');
+const indexFile = path.join(__dirname, '..', 'memory', 'index.json');
 const { index_to_array, array_to_index } = require('./index_utils');
 const { archiveFile } = require('../logic/archive_manager');
 
-async function load_index() {
+async function loadIndex() {
   try {
-    const raw = await fs.readFile(index_file, 'utf-8');
+    const raw = await fs.readFile(indexFile, 'utf-8');
     const data = JSON.parse(raw);
     return index_to_array(data);
   } catch {
@@ -15,39 +15,39 @@ async function load_index() {
   }
 }
 
-async function save_index(data) {
+async function saveIndex(data) {
   try {
-    await fs.writeFile(index_file, JSON.stringify(array_to_index(data), null, 2), 'utf-8');
+    await fs.writeFile(indexFile, JSON.stringify(array_to_index(data), null, 2), 'utf-8');
   } catch {
     // ignore errors
   }
 }
 
-async function touchIndexEntry(file_path) {
-  if (!file_path) return;
-  const index = await load_index();
-  const idx = index.findIndex(e => e.path === file_path);
+async function touchIndexEntry(filePath) {
+  if (!filePath) return;
+  const index = await loadIndex();
+  const idx = index.findIndex(e => e.path === filePath);
   if (idx >= 0) {
     const entry = index[idx];
     entry.last_accessed = new Date().toISOString();
     entry.access_count = (entry.access_count || 0) + 1;
-    await save_index(index);
+    await saveIndex(index);
   }
 }
 
-async function incrementEditCount(file_path) {
-  if (!file_path) return;
-  const index = await load_index();
-  const idx = index.findIndex(e => e.path === file_path);
+async function incrementEditCount(filePath) {
+  if (!filePath) return;
+  const index = await loadIndex();
+  const idx = index.findIndex(e => e.path === filePath);
   if (idx >= 0) {
     const entry = index[idx];
     entry.edit_count = (entry.edit_count || 0) + 1;
-    await save_index(index);
+    await saveIndex(index);
   }
 }
 
 async function updateContextPriority() {
-  const index = await load_index();
+  const index = await loadIndex();
   const now = Date.now();
   let changed = false;
   const keep = [];
@@ -108,7 +108,7 @@ async function updateContextPriority() {
     keep.push(entry);
   }
 
-  if (changed) await save_index(keep);
+  if (changed) await saveIndex(keep);
 }
 
 module.exports = { updateContextPriority, touchIndexEntry, incrementEditCount };
