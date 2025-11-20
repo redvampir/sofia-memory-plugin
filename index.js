@@ -35,6 +35,7 @@ const githubRoutes = require("./api/github_routes");
 const modeRoutes = require("./api/mode_routes");
 const { deprecationMiddleware } = require('./utils/deprecation_middleware');
 const { expressRedactorMiddleware } = require('./utils/log_redactor');
+const { createRateLimiter, presets, getRateLimitStats } = require('./utils/rate_limiter');
 const { listMemoryFiles } = require("./logic/memory_operations");
 const memoryRoutesV2 = require('./api/memory_v2');
 const versioning = require('./versioning');
@@ -54,10 +55,28 @@ auto_recover_context().catch(e =>
   console.error('[INIT] auto recover failed', e.message)
 );
 
+// Rate limiting configuration
+const generalLimiter = createRateLimiter({
+  ...presets.moderate,
+  skip: (req) => {
+    // Skip rate limiting для health checks и static assets
+    return req.path.startsWith('/health') ||
+           req.path.startsWith('/ping') ||
+           req.path === '/openapi.yaml' ||
+           req.path === '/ai-plugin.json';
+  },
+});
+
+const strictLimiter = createRateLimiter({
+  ...presets.strict,
+  message: 'Too many attempts, please try again later',
+});
+
 // Apply middleware
 app.use(allowCors);
 app.use(rejectDuringShutdown); // Reject requests during shutdown
 app.use(expressRedactorMiddleware); // Redact secrets from logs
+app.use(generalLimiter); // Rate limiting
 app.use(deprecationMiddleware);
 app.use(express.static(path.join(__dirname, 'assets')));
 
@@ -210,6 +229,19 @@ app.get('/health/security', (_req, res) => {
       totalSecretsRedacted: stats.total,
       byType: stats.byType,
       status: stats.total === 0 ? 'clean' : 'active'
+    }
+  });
+});
+
+// Rate limiting monitoring: Statistics
+app.get('/health/ratelimit', (_req, res) => {
+  const stats = getRateLimitStats();
+  res.status(200).json({
+    rateLimit: {
+      totalClients: stats.totalClients,
+      totalRequests: stats.totalRequests,
+      topClients: stats.topClients.slice(0, 5), // Top 5 для краткости
+      status: stats.totalClients > 50 ? 'high-traffic' : 'normal'
     }
   });
 });
