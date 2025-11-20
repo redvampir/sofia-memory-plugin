@@ -9,6 +9,12 @@ const BASE_URL_TOKEN = '{{PUBLIC_BASE_URL}}';
 const BASE_URL_PLACEHOLDER = new RegExp(BASE_URL_TOKEN, 'g');
 const DEFAULT_BASE_URL = 'http://localhost:10000';
 
+function isProductionEnv(env = process.env) {
+  const nodeEnv = (env.NODE_ENV || '').toLowerCase();
+  const renderFlag = (env.RENDER || '').toLowerCase();
+  return nodeEnv === 'production' || renderFlag === 'true';
+}
+
 function ensureTemplate() {
   if (!fs.existsSync(TEMPLATE_PATH)) {
     if (fs.existsSync(OUTPUT_PATH)) {
@@ -36,11 +42,19 @@ function normalizeBaseUrl(baseUrl) {
 
 function resolveBaseUrl(options = {}) {
   const envValue = (process.env.PUBLIC_BASE_URL || '').trim();
+  const production = options.required ?? isProductionEnv();
+
   if (!envValue) {
-    if (options.required) {
-      console.error('PUBLIC_BASE_URL не задан — остановка сборки OpenAPI.');
+    if (production) {
+      console.error(
+        'PUBLIC_BASE_URL обязателен в продакшене (NODE_ENV=production или RENDER=true) — остановка генерации OpenAPI.'
+      );
       process.exit(1);
     }
+
+    console.log(
+      `PUBLIC_BASE_URL не задан, dev-режим: используется локальный адрес ${DEFAULT_BASE_URL}`
+    );
     return DEFAULT_BASE_URL;
   }
 
