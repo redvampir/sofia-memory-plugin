@@ -105,15 +105,32 @@ app.get('/', (req, res) => {
   res.send('Sofia plugin is running');
 });
 
-// Debug route to inspect index.json
-app.get('/debug/index', (req, res) => {
-  const indexPath = path.join(__dirname, 'memory', 'index.json');
-  if (!fs.existsSync(indexPath)) {
-    return res.status(404).json({ status: 'error', message: 'index.json not found' });
+const debugAdminToken = process.env.DEBUG_ADMIN_TOKEN;
+
+function requireDebugToken(req, res, next) {
+  const token = req.header('x-admin-token') || req.header('authorization');
+  const normalizedToken = token?.startsWith('Bearer ')
+    ? token.slice('Bearer '.length)
+    : token;
+
+  if (!debugAdminToken || !normalizedToken || normalizedToken !== debugAdminToken) {
+    return res.status(403).json({ status: 'forbidden', message: 'Debug access denied' });
   }
-  const data = fs.readFileSync(indexPath, 'utf-8');
-  res.type('text/plain').send(data);
-});
+
+  next();
+}
+
+// Debug route to inspect index.json
+if (process.env.NODE_ENV !== 'production' || debugAdminToken) {
+  app.get('/debug/index', requireDebugToken, (req, res) => {
+    const indexPath = path.join(__dirname, 'memory', 'index.json');
+    if (!fs.existsSync(indexPath)) {
+      return res.status(404).json({ status: 'error', message: 'index.json not found' });
+    }
+    const data = fs.readFileSync(indexPath, 'utf-8');
+    res.type('text/plain').send(data);
+  });
+}
 
 // Дополнительные alias-маршруты для совместимости
 
