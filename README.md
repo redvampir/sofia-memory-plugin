@@ -24,6 +24,19 @@ Sofia Memory Plugin \u2014 это небольшой сервис на Node.js, 
 - Переменные окружения для Render описаны в [render.yaml](render.yaml) и совпадают с именами в локальном `.env`: `TOKEN_SECRET` (обязательный секрет, задаётся вручную и не хранится в логах Render), `MEMORY_MODE` (по умолчанию `github`) и опциональная `GITHUB_REPO` для предзадания URL репозитория.
 - Если используете локальный `.env` (см. `.env.example`), задайте те же имена (`TOKEN_SECRET`, `MEMORY_MODE`, `GITHUB_REPO`), чтобы конфигурация совпадала с Render Dashboard и переключение окружений не требовало переименования ключей.
 
+## Чек-лист деплоя на Render
+
+1. Задать обязательные переменные окружения в Render Dashboard: `TOKEN_SECRET`, `MEMORY_MODE` (при необходимости — `GITHUB_REPO`, `DEBUG_ADMIN_TOKEN`).
+2. Указать публичный URL Render в `PUBLIC_BASE_URL` и сгенерировать схему:
+   ```bash
+   export PUBLIC_BASE_URL="https://<имя-сервиса>.onrender.com"
+   npm run build:openapi
+   ```
+   Скрипт подставит URL в `openapi.yaml` из шаблона `openapi_template.yaml`, чтобы GPT и Actions били по реальному хосту.
+3. Обновить ссылки в `ai-plugin.json` на тот же публичный хост (поля `api.url` и `logo_url`).
+4. Закоммитить обновлённые `openapi.yaml` и `ai-plugin.json`, задеплоить на Render, убедиться, что ответы `GET /ping` и `GET /openapi.yaml` приходят с нового домена.
+5. Подключить плагин в Actions или в настройках GPT, указывая именно публичный URL, который вернул Render.
+
 ## Безопасность токенов и данных
 
 - **Где хранятся токены:** OAuth-токены GitHub сохраняются на диск в каталоге `tools/.cache/tokens/<userId>.txt`; при необходимости можно заменить на БД с той же схемой шифрования.
