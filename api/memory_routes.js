@@ -21,7 +21,7 @@ const index_manager = require('../logic/index_manager');
 const memory_config = require('../tools/memory_config');
 const token_store = require('../tools/token_store');
 const { setMemoryMode, getMemoryMode } = require('../utils/memory_mode');
-const { generateTitleFromPath, inferTypeFromPath, normalize_memory_path, ensure_dir } = require('../tools/file_utils');
+const { generateTitleFromPath, inferTypeFromPath, normalizeMemoryPath, ensureDir } = require('../tools/file_utils');
 const { parseMarkdownStructure, mergeMarkdownTrees, serializeMarkdownTree } = require('../logic/markdown_merge_engine');
 const { getRepoInfo, extractToken, categorizeMemoryFile, logDebug } = require('../tools/memory_helpers');
 const { logError } = require('../tools/error_handler');
@@ -32,15 +32,15 @@ const logger = require('../utils/logger');
 const { restoreContext } = require('../utils/restore_context');
 const { resolveUserId, getDefaultUserId } = require('../utils/default_user');
 
-function log_restore_action(user_id, success) {
+function logRestoreAction(userId, success) {
   if (success) {
-    logger.info(`Контекст восстановлен для пользователя: ${user_id}`);
+    logger.info(`Контекст восстановлен для пользователя: ${userId}`);
   } else {
-    logger.error(`Ошибка восстановления контекста для пользователя: ${user_id}`);
+    logger.error(`Ошибка восстановления контекста для пользователя: ${userId}`);
   }
 }
 
-function get_context_for_user(userId) {
+function getContextForUser(userId) {
   try {
     const data = fs.readFileSync(contextFilename(userId), 'utf-8');
     return data.trim();
@@ -49,40 +49,40 @@ function get_context_for_user(userId) {
   }
 }
 
-async function restore_user_context(user_id) {
+async function restoreUserContext(userId) {
   try {
-    await restoreContext(user_id);
-    log_restore_action(user_id, true);
+    await restoreContext(userId);
+    logRestoreAction(userId, true);
   } catch (e) {
-    log_restore_action(user_id, false);
-    logger.error('[restore_user_context]', e.message);
+    logRestoreAction(userId, false);
+    logger.error('[restoreUserContext]', e.message);
   }
 }
 
-async function check_context_for_user(user_id) {
-  const context = get_context_for_user(user_id);
+async function checkContextForUser(userId) {
+  const context = getContextForUser(userId);
   if (!context) {
-    await restore_user_context(user_id);
+    await restoreUserContext(userId);
   }
 }
 
-async function process_users_in_batches(users) {
-  const batch_size = 10;
-  for (let i = 0; i < users.length; i += batch_size) {
-    const batch = users.slice(i, i + batch_size);
+async function processUsersInBatches(users) {
+  const batchSize = 10;
+  for (let i = 0; i < users.length; i += batchSize) {
+    const batch = users.slice(i, i + batchSize);
     for (const id of batch) {
-      await check_context_for_user(id);
+      await checkContextForUser(id);
     }
   }
 }
 
-async function check_context_periodically() {
+async function checkContextPeriodically() {
   const users = await memory_config.getAllUsers();
   if (!users.length) users.push(getDefaultUserId());
-  await process_users_in_batches(users);
+  await processUsersInBatches(users);
 }
 
-const contextCheckTimer = setInterval(check_context_periodically, 30 * 60 * 1000);
+const contextCheckTimer = setInterval(checkContextPeriodically, 30 * 60 * 1000);
 if (contextCheckTimer && typeof contextCheckTimer.unref === 'function') {
   contextCheckTimer.unref();
 }
@@ -152,9 +152,9 @@ async function saveMemory(req, res) {
     }
   }
 
-  const normalizedFilename = normalize_memory_path(filename);
+  const normalizedFilename = normalizeMemoryPath(filename);
   const filePath = path.join(__dirname, '..', normalizedFilename);
-  ensure_dir(filePath);
+  ensureDir(filePath);
 
   let finalContent = content;
   const isMarkdown = normalizedFilename.endsWith('.md');
@@ -305,7 +305,7 @@ async function readMemory(req, res) {
   const token = await extractToken(req);
   const { repo: effectiveRepo, token: effectiveToken } = await getRepoInfo(filename, userId, repo, token);
 
-  const normalizedFilename = normalize_memory_path(filename);
+  const normalizedFilename = normalizeMemoryPath(filename);
   const filePath = path.join(__dirname, '..', normalizedFilename);
   const isJson = normalizedFilename.endsWith('.json');
 
@@ -407,7 +407,7 @@ async function saveContext(req, res) {
   const token = await extractToken(req);
   const { repo: effectiveRepo, token: effectiveToken } = await getRepoInfo('memory/context.md', userId, repo, token);
 
-  ensure_dir(contextFilename());
+  ensureDir(contextFilename());
   try {
     await writeFileSafe(contextFilename(), content || '');
   } catch (e) {
@@ -458,7 +458,7 @@ async function readContext(req, res) {
   const token = await extractToken(req);
   const { repo: effectiveRepo, token: effectiveToken } = await getRepoInfo('memory/context.md', userId, repo, token);
 
-  ensure_dir(contextFilename());
+  ensureDir(contextFilename());
 
   if (effectiveRepo && effectiveToken) {
     try {
@@ -507,7 +507,7 @@ async function tokenStatus(req, res) {
 
 function readPlan(req, res) {
   try {
-    ensure_dir(planFilename());
+    ensureDir(planFilename());
     const content = fs.existsSync(planFilename()) ? fs.readFileSync(planFilename(), 'utf-8') : '{}';
     const plan = JSON.parse(content || '{}');
     res.json({ status: 'success', plan });
@@ -546,7 +546,7 @@ async function save(req, res) {
       return res.status(401).json({ status: 'error', message: 'Invalid GitHub token' });
     }
 
-    const normalized = normalize_memory_path(filename);
+    const normalized = normalizeMemoryPath(filename);
     const access = checkAccess(normalized, 'write');
     if (!access.allowed) {
       logError('access denied', new Error(access.message));
@@ -752,7 +752,7 @@ router.post('/mark_important', async (req, res) => {
     return res.status(400).json({ status: 'error', message: 'Missing file' });
   }
   try {
-    const normalized = normalize_memory_path(file);
+    const normalized = normalizeMemoryPath(file);
     const existing = index_manager.getByPath(normalized);
     const current = existing ? existing.importance_score || 0 : 0;
     const updated = await index_manager.updateMetadata(
@@ -769,6 +769,12 @@ router.post('/updateIndex', updateIndexManual);
 router.get('/plan', readPlan);
 router.get('/profile', readProfile);
 
-router._check_context_for_user = check_context_for_user;
-router._process_users_in_batches = process_users_in_batches;
+// Export for tests (new camelCase names)
+router._checkContextForUser = checkContextForUser;
+router._processUsersInBatches = processUsersInBatches;
+
+// Backward compatibility (deprecated)
+router._check_context_for_user = checkContextForUser;
+router._process_users_in_batches = processUsersInBatches;
+
 module.exports = router;

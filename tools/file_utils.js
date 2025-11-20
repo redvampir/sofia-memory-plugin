@@ -3,7 +3,11 @@ const fs = require('fs');
 const path = require('path');
 const { detect_markdown_category } = require('../logic/markdown_category');
 
-function ensure_dir(p) {
+/**
+ * Ensure directory exists, create if not
+ * @param {string} p - Directory or file path
+ */
+function ensureDir(p) {
   const dir = path.extname(p) ? path.dirname(p) : p;
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 }
@@ -42,7 +46,12 @@ function deepMerge(target, source, matchKey) {
   return source;
 }
 
-function normalize_memory_path(p) {
+/**
+ * Normalize memory path to ensure it's within memory/ directory
+ * @param {string} p - Path to normalize
+ * @returns {string} Normalized path within memory/
+ */
+function normalizeMemoryPath(p) {
   if (!p) return 'memory/';
   let rel = p.replace(/\\+/g, '/');
   rel = path.posix
@@ -92,9 +101,14 @@ function inferTypeFromPath(p) {
 }
 
 module.exports = {
-  ensure_dir,
+  // New camelCase names
+  ensureDir,
   deepMerge,
-  normalize_memory_path,
+  normalizeMemoryPath,
   generateTitleFromPath,
   inferTypeFromPath,
+
+  // Backward compatibility (deprecated)
+  ensure_dir: ensureDir,
+  normalize_memory_path: normalizeMemoryPath,
 };
