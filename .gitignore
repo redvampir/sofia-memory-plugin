@@ -4,3 +4,14 @@ token.json
 .env
 memory/_backups/
 tests/tmp*/
+
+# Test artifacts
+.deprecation_log.json
+config/.sofia/
+config/users/
+local_memory/
+logs/
+memory/context.md
+memory/log.json
+*.bak
+memory/lessons/tmp_*
