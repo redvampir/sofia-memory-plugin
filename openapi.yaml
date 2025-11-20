@@ -6,8 +6,8 @@ info:
     Минимальное описание публичных методов памяти Софии для интеграции
     внешних сервисов.
 servers:
-  - url: https://sofia-memory-plugin.onrender.com
-    description: Фактический публичный Render-хост сервиса
+  - url: http://localhost:10000
+    description: Базовый URL сервиса; подставляется из переменной окружения PUBLIC_BASE_URL или по умолчанию http://localhost:10000
 paths:
   /ping:
     get:
