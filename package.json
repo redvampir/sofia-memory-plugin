@@ -8,7 +8,10 @@
     "build:openapi": "node ./scripts/generate_openapi.js",
     "prepare:render": "node ./scripts/prepare_render.js",
     "lint": "eslint . --ext .js,.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "pre-deploy": "node scripts/pre_deploy_check.js",
+    "health": "curl -s http://localhost:10000/health | json_pp",
+    "health:detailed": "curl -s http://localhost:10000/health/detailed | json_pp"
   },
   "dependencies": {
     "@octokit/rest": "^20.1.2",

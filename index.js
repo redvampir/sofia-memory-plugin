@@ -1,5 +1,9 @@
 require('dotenv').config();
 
+// Validate environment variables before starting
+const { validateAndLog } = require('./utils/env_validator');
+const envConfig = validateAndLog();
+
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
@@ -7,6 +11,13 @@ const bodyParser = require('body-parser');
 const config = require('./config');
 const { setMemoryRepo, auto_recover_context, switchMemoryRepo } = require('./src/memory');
 const { startContextChecker } = require('./utils/context_checker');
+const { setupGracefulShutdown, rejectDuringShutdown } = require('./utils/graceful_shutdown');
+const {
+  detailedHealthCheck,
+  simpleHealthCheck,
+  readinessCheck,
+  livenessCheck,
+} = require('./utils/health_check');
 
 // CORS middleware without external dependencies
 function allowCors(req, res, next) {
@@ -44,6 +55,7 @@ auto_recover_context().catch(e =>
 
 // Apply middleware
 app.use(allowCors);
+app.use(rejectDuringShutdown); // Reject requests during shutdown
 app.use(deprecationMiddleware);
 app.use(express.static(path.join(__dirname, 'assets')));
 
@@ -143,19 +155,49 @@ if (process.env.NODE_ENV !== 'production' || debugAdminToken) {
 
 // Дополнительные alias-маршруты для совместимости
 
-const PORT = process.env.PORT || 10000;
-app.listen(PORT, () => {
+const PORT = envConfig.PORT || process.env.PORT || 10000;
+const server = app.listen(PORT, () => {
   console.log(`[START] Sofia Plugin is running on port ${PORT}`);
+  console.log(`[START] Environment: ${envConfig.NODE_ENV}`);
+  console.log(`[START] Memory mode: ${envConfig.MEMORY_MODE}`);
   startContextChecker();
 });
 
-// Проверка доступности сервера
+// Setup graceful shutdown
+setupGracefulShutdown(server);
+
+// Health check endpoints
 app.get('/ping', (req, res) => {
   res.send('pong');
 });
 
-// Health check route for Render
-app.get('/health', (_req, res) => res.send('OK'));
+// Simple health check for monitoring tools
+app.get('/health', (_req, res) => {
+  const health = simpleHealthCheck();
+  res.status(200).json(health);
+});
+
+// Detailed health check for debugging
+app.get('/health/detailed', (_req, res) => {
+  const health = detailedHealthCheck();
+  res.status(200).json(health);
+});
+
+// Kubernetes readiness probe
+app.get('/health/ready', (_req, res) => {
+  const readiness = readinessCheck();
+  if (readiness.ready) {
+    res.status(200).json(readiness);
+  } else {
+    res.status(503).json(readiness);
+  }
+});
+
+// Kubernetes liveness probe
+app.get('/health/live', (_req, res) => {
+  const liveness = livenessCheck();
+  res.status(200).json(liveness);
+});
 
 // Автодокументация
 app.get('/docs', (req, res) => {
