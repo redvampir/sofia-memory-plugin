@@ -9,10 +9,10 @@
   },
   "api": {
     "type": "openapi",
-    "url": "https://sofia-memory.onrender.com/openapi.yaml",
+    "url": "https://sofia-memory-plugin.onrender.com/openapi.yaml",
     "is_user_authenticated": false
   },
-  "logo_url": "https://sofia-memory.onrender.com/logo.png",
+  "logo_url": "https://sofia-memory-plugin.onrender.com/logo.png",
   "contact_email": "dev@example.com",
   "legal_info_url": "https://example.com/privacy"
 }

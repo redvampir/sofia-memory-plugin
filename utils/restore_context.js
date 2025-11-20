@@ -20,7 +20,7 @@ function logRestoreAction(userId, success) {
  * @returns {Promise<object>} API response
  */
 async function restoreContext(userId) {
-  const endpoint = 'https://sofia-memory.onrender.com/loadMemoryToContext';
+  const endpoint = 'https://sofia-memory-plugin.onrender.com/loadMemoryToContext';
   try {
     const res = await axios.post(endpoint, { userId });
     logRestoreAction(userId, true);
