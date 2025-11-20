@@ -3,7 +3,7 @@ info:
   title: Sofia Memory Plugin
   version: 1.0.0
 servers:
-  - url: https://sofia-memory.onrender.com
+  - url: https://sofia-memory-plugin.onrender.com
 paths:
   /save:
     post:

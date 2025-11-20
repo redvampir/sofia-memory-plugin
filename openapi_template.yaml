@@ -6,8 +6,8 @@ info:
     Минимальное описание публичных методов памяти Софии для интеграции
     внешних сервисов.
 servers:
-  - url: https://sofia-memory.onrender.com
-    description: Публичный Render-хост после продакшн-деплоя
+  - url: https://sofia-memory-plugin.onrender.com
+    description: Фактический публичный Render-хост сервиса
 paths:
   /ping:
     get:
