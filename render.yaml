@@ -6,4 +6,12 @@ services:
     startCommand: node index.js
     healthCheckPath: /health
     startTimeout: 120
+    envVars:
+      - key: TOKEN_SECRET
+        required: true
+        noValue: true
+      - key: MEMORY_MODE
+        value: github
+      - key: GITHUB_REPO
+        required: false
 
