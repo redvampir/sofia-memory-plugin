@@ -2,8 +2,8 @@ const fs = require('fs');
 const path = require('path');
 const SessionSummarizer = require('../src/generator/summarization/SessionSummarizer');
 
-const cache_dir = path.join(__dirname, '.cache');
-const state_file = path.join(cache_dir, 'context_state.json');
+const cacheDir = path.join(__dirname, '.cache');
+const stateFile = path.join(cacheDir, 'context_state.json');
 
 const TOKEN_LIMIT = 3000;
 
@@ -13,8 +13,8 @@ const summarizer = new SessionSummarizer();
 function load() {
   if (state._loaded) return;
   try {
-    if (fs.existsSync(state_file)) {
-      const raw = fs.readFileSync(state_file, 'utf-8');
+    if (fs.existsSync(stateFile)) {
+      const raw = fs.readFileSync(stateFile, 'utf-8');
       const data = JSON.parse(raw);
       if (data && typeof data === 'object') {
         state.users = data.users || {};
@@ -25,9 +25,9 @@ function load() {
 }
 
 function save() {
-  if (!fs.existsSync(cache_dir)) fs.mkdirSync(cache_dir, { recursive: true });
+  if (!fs.existsSync(cacheDir)) fs.mkdirSync(cacheDir, { recursive: true });
   const data = { users: state.users };
-  fs.writeFileSync(state_file, JSON.stringify(data, null, 2), 'utf-8');
+  fs.writeFileSync(stateFile, JSON.stringify(data, null, 2), 'utf-8');
 }
 
 function ensure(userId) {
@@ -35,26 +35,26 @@ function ensure(userId) {
     state.users[userId] = { needs_refresh: false, tokens: 0, summarized: false };
   }
 }
-function get_needs_refresh(userId = 'default') {
+function getNeedsRefresh(userId = 'default') {
   load();
   ensure(userId);
   return !!state.users[userId].needs_refresh;
 }
 
-function set_needs_refresh(val, userId = 'default') {
+function setNeedsRefresh(val, userId = 'default') {
   load();
   ensure(userId);
   state.users[userId].needs_refresh = !!val;
   save();
 }
 
-function get_tokens(userId = 'default') {
+function getTokens(userId = 'default') {
   load();
   ensure(userId);
   return state.users[userId].tokens || 0;
 }
 
-function increment_tokens(n = 0, userId = 'default', lastQuestion = '', lastAnswer = '') {
+function incrementTokens(n = 0, userId = 'default', lastQuestion = '', lastAnswer = '') {
   load();
   ensure(userId);
   state.users[userId].tokens += n;
@@ -73,7 +73,7 @@ function increment_tokens(n = 0, userId = 'default', lastQuestion = '', lastAnsw
   save();
 }
 
-function reset_tokens(userId = 'default') {
+function resetTokens(userId = 'default') {
   load();
   ensure(userId);
   state.users[userId].tokens = 0;
@@ -81,36 +81,47 @@ function reset_tokens(userId = 'default') {
   save();
 }
 
-function get_token_limit() {
+function getTokenLimit() {
   return TOKEN_LIMIT;
 }
 
-function get_status(userId = 'default') {
+function getStatus(userId = 'default') {
   load();
   ensure(userId);
   return { used: state.users[userId].tokens, limit: TOKEN_LIMIT };
 }
 
-function register_user_prompt(prompt = '', userId = 'default') {
+function registerUserPrompt(prompt = '', userId = 'default') {
   const len = typeof prompt === 'string' ? prompt.length : 0;
-  increment_tokens(len, userId);
+  incrementTokens(len, userId);
   const triggers = [
     /ты ничего не помнишь/i,
     /ты потеряла контекст/i,
     /вспомни урок/i,
   ];
   if (triggers.some(r => r.test(prompt))) {
-    set_needs_refresh(true, userId);
+    setNeedsRefresh(true, userId);
   }
 }
 
 module.exports = {
-  get_needs_refresh,
-  set_needs_refresh,
-  get_tokens,
-  increment_tokens,
-  reset_tokens,
-  get_token_limit,
-  get_status,
-  register_user_prompt,
+  // New camelCase names
+  getNeedsRefresh,
+  setNeedsRefresh,
+  getTokens,
+  incrementTokens,
+  resetTokens,
+  getTokenLimit,
+  getStatus,
+  registerUserPrompt,
+
+  // Backward compatibility (deprecated)
+  get_needs_refresh: getNeedsRefresh,
+  set_needs_refresh: setNeedsRefresh,
+  get_tokens: getTokens,
+  increment_tokens: incrementTokens,
+  reset_tokens: resetTokens,
+  get_token_limit: getTokenLimit,
+  get_status: getStatus,
+  register_user_prompt: registerUserPrompt,
 };

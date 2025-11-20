@@ -42,7 +42,7 @@ const {
 } = require('../logic/memory_operations');
 
 function getTokenCounter(userId = 'default') {
-  const { used, limit } = context_state.get_status(userId);
+  const { used, limit } = context_state.getStatus(userId);
   const remaining = limit - used;
   const percent = limit ? Math.floor((used / limit) * 100) : 0;
   return { used, limit, remaining, percent };
@@ -55,11 +55,11 @@ function formatTokenCounter(testMode = false, userId = 'default') {
 }
 
 async function autoRefreshContext(repo, token, userId = 'default') {
-  if (context_state.get_needs_refresh(userId)) {
+  if (context_state.getNeedsRefresh(userId)) {
     await refreshContextFromMemoryFiles(repo, token);
     logger.info('🔄 Context refreshed from memory repo');
-    context_state.set_needs_refresh(false, userId);
-    context_state.reset_tokens(userId);
+    context_state.setNeedsRefresh(false, userId);
+    context_state.resetTokens(userId);
   }
 }
 
@@ -639,7 +639,7 @@ async function checkAndRestoreContext(
   lastQuestion = '',
   lastAnswer = ''
 ) {
-  context_state.increment_tokens(tokens, userId, lastQuestion, lastAnswer);
+  context_state.incrementTokens(tokens, userId, lastQuestion, lastAnswer);
   if (currentStage === 'theory' || currentStage === 'practice') {
     logger.info(`[checkAndRestoreContext] stage finished: ${currentStage}`);
   }
@@ -659,7 +659,10 @@ module.exports = {
   readMarkdownFile,
   saveReferenceAnswer,
   split_memory_file,
-  register_user_prompt: context_state.register_user_prompt,
+  registerUserPrompt: context_state.registerUserPrompt,
+
+  // Backward compatibility (deprecated)
+  register_user_prompt: context_state.registerUserPrompt,
   autoRecoverContext,
   loadMemoryToContext,
   loadContextFromIndex,
