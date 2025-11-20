@@ -34,6 +34,7 @@ const memoryRoutes = require("./api/memory_routes");
 const githubRoutes = require("./api/github_routes");
 const modeRoutes = require("./api/mode_routes");
 const { deprecationMiddleware } = require('./utils/deprecation_middleware');
+const { expressRedactorMiddleware } = require('./utils/log_redactor');
 const { listMemoryFiles } = require("./logic/memory_operations");
 const memoryRoutesV2 = require('./api/memory_v2');
 const versioning = require('./versioning');
@@ -56,6 +57,7 @@ auto_recover_context().catch(e =>
 // Apply middleware
 app.use(allowCors);
 app.use(rejectDuringShutdown); // Reject requests during shutdown
+app.use(expressRedactorMiddleware); // Redact secrets from logs
 app.use(deprecationMiddleware);
 app.use(express.static(path.join(__dirname, 'assets')));
 
@@ -197,6 +199,19 @@ app.get('/health/ready', (_req, res) => {
 app.get('/health/live', (_req, res) => {
   const liveness = livenessCheck();
   res.status(200).json(liveness);
+});
+
+// Security monitoring: Log redaction statistics
+app.get('/health/security', (_req, res) => {
+  const { getRedactionStats } = require('./utils/log_redactor');
+  const stats = getRedactionStats();
+  res.status(200).json({
+    redaction: {
+      totalSecretsRedacted: stats.total,
+      byType: stats.byType,
+      status: stats.total === 0 ? 'clean' : 'active'
+    }
+  });
 });
 
 // Автодокументация

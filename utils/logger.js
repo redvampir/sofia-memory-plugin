@@ -1,4 +1,6 @@
 const fs = require('fs');
+const { redactSecrets, redactObject } = require('./log_redactor');
+
 let stream = null;
 
 function setLogFile(path) {
@@ -17,8 +19,23 @@ function timestamp() {
 }
 
 function log(level, msg, data) {
-  const base = `[${timestamp()}] ${level} ${msg}`;
-  const line = data !== undefined ? `${base} ${typeof data === 'string' ? data : JSON.stringify(data)}` : base;
+  // Redact secrets в сообщении и данных
+  const safeMsg = redactSecrets(msg);
+  let safeData = data;
+
+  if (data !== undefined) {
+    if (typeof data === 'string') {
+      safeData = redactSecrets(data);
+    } else if (typeof data === 'object') {
+      safeData = redactObject(data);
+    }
+  }
+
+  const base = `[${timestamp()}] ${level} ${safeMsg}`;
+  const line = safeData !== undefined
+    ? `${base} ${typeof safeData === 'string' ? safeData : JSON.stringify(safeData)}`
+    : base;
+
   if (stream) {
     stream.write(line + '\n');
   } else {
