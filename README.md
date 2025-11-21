@@ -626,7 +626,7 @@ Markdown-документы объёмом более **5 МБ** и файлы 
 Эндпойнты `/api/system/switch_repo` и `/api/system/status` используются Desktop Agent для выбора источника памяти и проверки текущего режима.
 
 - `POST /api/system/switch_repo` — переключает режим хранения. Принимает `repoUrl` и `userId` в теле запроса, сохраняет выбор в конфигурации.
-- `GET /api/system/status` — возвращает актуальный режим (`local|github`) и репозиторий для данного `userId`.
+- `GET /api/system/status` — возвращает `status: "ok"`, актуальный режим (`local|github`) и репозиторий для данного `userId` (при отсутствии настроек `repo` равен `null`).
 
 Desktop Agent отправляет `/api/system/switch_repo` при выборе локальной папки или репозитория на GitHub. Затем он опрашивает `/api/system/status`, чтобы убедиться, что режим успешно переключён. Для обратной совместимости остаются старые маршруты `/setMemoryRepo` и `/status` без префикса `/api`.
 
@@ -638,6 +638,7 @@ curl -X POST "http://localhost:10000/api/system/switch_repo" \
 
 # узнать текущий режим
 curl "http://localhost:10000/api/system/status?userId=123"
+# → {"status":"ok","mode":"github","repo":null}
 ```
 
 ### Миничат пересборки ответа

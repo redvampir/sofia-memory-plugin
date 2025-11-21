@@ -224,9 +224,10 @@ async function setMemoryModeRoute(req, res) {
 
 async function systemStatus(req, res) {
   const userId = resolveUserId((req.query.userId || (req.body || {}).userId || '').toString());
-  const mode = await getMemoryMode(userId);
-  const repo = await memory_config.getRepoUrl(userId);
-  res.json({ status: 'success', mode, repo });
+  const mode = (await getMemoryMode(userId)) || 'github';
+  const repo = (await memory_config.getRepoUrl(userId)) || null;
+
+  res.json({ status: 'ok', mode, repo });
 }
 
 async function saveMemory(req, res) {
