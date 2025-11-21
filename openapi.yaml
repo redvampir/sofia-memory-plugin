@@ -88,7 +88,7 @@ paths:
               userId: "sofia"
       responses:
         '200':
-          description: Результат сохранения.
+          description: Результат сохранения. Успех и ошибки (кроме явной недоступности 503) возвращаются со статусом 200.
           content:
             application/json:
               schema:
@@ -105,16 +105,19 @@ paths:
                   error:
                     type: string
                     description: Описание ошибки, если операция завершилась неуспешно.
+                  details:
+                    type: string
+                    nullable: true
+                    description: Дополнительные детали (например, сообщение GitHub).
               example:
                 ok: true
                 data:
-                  id: "memory/profile/user.json"
-                  type: message
-                  version: 1
-                  data:
-                    name: Sofia
-                    role: assistant
+                  action: saveMemory
+                  filePath: "memory/profile/user.json"
                 error: null
+                details: null
+        '503':
+          description: Сервис временно недоступен.
   /api/memory/read:
     post:
       summary: Чтение памяти пользователя
@@ -158,7 +161,7 @@ paths:
               userId: "sofia"
       responses:
         '200':
-          description: Результат чтения.
+          description: Результат чтения. Успех и ошибки (кроме явной недоступности 503) возвращаются со статусом 200.
           content:
             application/json:
               schema:
@@ -175,16 +178,18 @@ paths:
                   error:
                     type: string
                     description: Описание ошибки, если операция завершилась неуспешно.
+                  details:
+                    type: string
+                    nullable: true
+                    description: Дополнительные детали (например, сообщение GitHub).
               examples:
                 found:
                   summary: Найденная запись
                   value:
                     ok: true
                     data:
-                      id: "memory/profile/user.json"
-                      type: message
-                      version: 1
-                      data:
+                      content: "{\"name\":\"Sofia\",\"role\":\"assistant\"}"
+                      json:
                         name: Sofia
                         role: assistant
                 missing:
@@ -193,3 +198,6 @@ paths:
                     ok: true
                     data: null
                     error: null
+                    details: null
+        '503':
+          description: Сервис временно недоступен.
