@@ -1,4 +1,12 @@
 const fs = require('fs');
+
+const levels = {
+  error: 0,
+  info: 1,
+  debug: 2,
+};
+
+let currentLevel = (process.env.LOG_LEVEL || 'info').toLowerCase();
 let stream = null;
 
 function setLogFile(path) {
@@ -16,13 +24,32 @@ function timestamp() {
   return new Date().toISOString().replace('T', ' ').slice(0, 19);
 }
 
+function shouldLog(level) {
+  const normalized = (level || '').toLowerCase();
+  const current = levels[currentLevel] !== undefined ? levels[currentLevel] : levels.info;
+  const requested = levels[normalized];
+  if (requested === undefined) {
+    return true;
+  }
+  return requested <= current;
+}
+
+function normalizeLevel(level) {
+  const normalized = (level || 'INFO').toUpperCase();
+  return ['ERROR', 'INFO', 'DEBUG'].includes(normalized) ? normalized : 'INFO';
+}
+
 function log(level, msg, data) {
-  const base = `[${timestamp()}] ${level} ${msg}`;
-  const line = data !== undefined ? `${base} ${typeof data === 'string' ? data : JSON.stringify(data)}` : base;
+  const normalizedLevel = normalizeLevel(level);
+  if (!shouldLog(normalizedLevel)) return;
+
+  const base = `[${timestamp()}] ${normalizedLevel} ${msg}`;
+  const line =
+    data !== undefined ? `${base} ${typeof data === 'string' ? data : JSON.stringify(data)}` : base;
   if (stream) {
     stream.write(line + '\n');
   } else {
-    if (level === 'ERROR') {
+    if (normalizedLevel === 'ERROR') {
       console.error(line);
     } else {
       console.log(line);
@@ -32,6 +59,9 @@ function log(level, msg, data) {
 
 module.exports = {
   setLogFile,
+  setLogLevel: level => {
+    currentLevel = (level || '').toLowerCase();
+  },
   info: (msg, data) => log('INFO', msg, data),
   debug: (msg, data) => log('DEBUG', msg, data),
   error: (msg, data) => log('ERROR', msg, data),
