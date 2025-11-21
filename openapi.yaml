@@ -103,7 +103,7 @@ paths:
   /api/memory/read:
     post:
       summary: Чтение памяти пользователя
-      description: Возвращает содержимое файла памяти. Для JSON-файлов параллельно отдаётся распарсенный объект.
+      description: Возвращает содержимое файла памяти. Для JSON-файлов параллельно отдаётся распарсенный объект. Если локальный файл отсутствует, возвращает успешный ответ с `data: null`.
       operationId: readMemory
       requestBody:
         required: true
@@ -131,29 +131,47 @@ paths:
               repo: https://github.com/example/memory-repo
       responses:
         '200':
-          description: Найденная запись.
+          description: Найденная запись или отсутствие локального файла.
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  status:
-                    type: string
-                  content:
-                    type: string
-                    description: Содержимое файла.
-                  json:
-                    description: Распарсенный JSON, если файл в формате JSON.
-                    oneOf:
-                      - type: object
-                      - type: 'null'
-              example:
-                status: success
-                content: '{"name":"Sofia","role":"assistant"}'
-                json:
-                  name: Sofia
-                  role: assistant
+                oneOf:
+                  - type: object
+                    properties:
+                      status:
+                        type: string
+                      content:
+                        type: string
+                        description: Содержимое файла.
+                      json:
+                        description: Распарсенный JSON, если файл в формате JSON.
+                        oneOf:
+                          - type: object
+                          - type: 'null'
+                  - type: object
+                    properties:
+                      ok:
+                        type: boolean
+                        description: Признак успешного ответа при отсутствии локального файла.
+                      data:
+                        description: Отсутствующее содержимое файла.
+                        nullable: true
+                        type: 'null'
+              examples:
+                found:
+                  summary: Найденный файл
+                  value:
+                    status: success
+                    content: '{"name":"Sofia","role":"assistant"}'
+                    json:
+                      name: Sofia
+                      role: assistant
+                missing:
+                  summary: Локальный файл отсутствует
+                  value:
+                    ok: true
+                    data: null
         '401':
           description: Отсутствует или неверный GitHub-токен при работе с удалённым репозиторием.
         '404':
-          description: Запись или репозиторий не найдены.
+          description: Репозиторий или удалённый файл не найдены.

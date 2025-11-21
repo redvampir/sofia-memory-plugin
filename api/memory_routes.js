@@ -418,8 +418,7 @@ async function readMemory(req, res) {
   }
 
   if (!fs.existsSync(filePath)) {
-    logger.error('[readMemory local missing]', filePath);
-    return respond(404, { status: 'error', message: 'File not found.' });
+    return respond(200, { ok: true, data: null });
   }
   const content = fs.readFileSync(filePath, 'utf-8');
   if (isJson) {
