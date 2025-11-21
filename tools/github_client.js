@@ -3,6 +3,7 @@
 const { Octokit } = require('@octokit/rest');
 const axios = require('axios');
 const { logError } = require('./error_handler');
+const logger = require('../utils/logger');
 
 // Заголовок User-Agent для GitHub API
 const DEFAULT_HEADERS = { 'User-Agent': 'sofia-memory-plugin' };
@@ -124,14 +125,15 @@ exports.readFile = async function (token, repo, filePath) {
   }
 };
 
-exports.writeFile = async function(token, repo, filePath, content, message) {
+exports.writeFile = async function(token, repo, filePath, content, message, meta = {}) {
   const normalized = normalizeRepo(repo);
   const url = `https://api.github.com/repos/${normalized}/contents/${encodePath(filePath)}`;
-  const masked = token ? `${token.slice(0, 4)}...` : 'null';
-  console.log('[writeFile] Repo:', normalized);
-  console.log('[writeFile] Token:', masked);
-  console.log('[writeFile] File:', filePath);
-  console.log('[writeFile] URL:', url);
+  const attempt = Number.isFinite(meta.attempt) ? meta.attempt : 1;
+  logger.info('[writeFile] Начало записи файла', {
+    repo: normalized,
+    filePath,
+    attempt
+  });
   let sha = undefined;
   try {
     const res = await axios.get(url, {
@@ -147,8 +149,16 @@ exports.writeFile = async function(token, repo, filePath, content, message) {
   };
   if (sha) body.sha = sha;
   try {
-    await axios.put(url, body, {
+    const res = await axios.put(url, body, {
       headers: { Authorization: `token ${token}`, ...DEFAULT_HEADERS }
+    });
+    const commitSha = res.data && res.data.commit ? res.data.commit.sha : undefined;
+    logger.info('[writeFile] Успешная запись файла', {
+      repo: normalized,
+      filePath,
+      attempt,
+      status: res.status,
+      commitSha
     });
   } catch (e) {
     if (e.response) {
@@ -182,8 +192,13 @@ exports.writeFileSafe = async function(
     'EHOSTUNREACH'
   ]);
   for (let i = 1; i <= attempts; i++) {
+    logger.info('[writeFileSafe] Попытка записи файла', {
+      repo,
+      filePath,
+      attempt: i
+    });
     try {
-      await exports.writeFile(token, repo, filePath, content, message);
+      await exports.writeFile(token, repo, filePath, content, message, { attempt: i });
       return;
     } catch (e) {
       logError(`writeFile attempt ${i}`, e);

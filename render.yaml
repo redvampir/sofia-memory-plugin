@@ -20,4 +20,6 @@ services:
       # Публичный хост Render, нужен для генерации openapi.yaml и ai-plugin.json на этапе сборки
       - key: PUBLIC_BASE_URL
         required: true
+      - key: LOG_LEVEL
+        value: info
 
