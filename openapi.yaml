@@ -54,52 +54,56 @@ paths:
           application/json:
             schema:
               type: object
-              required: [filename, content]
+              required: [id, type, version, data]
               properties:
-                filename:
+                id:
                   type: string
-                  description: Путь файла относительно корня памяти (например, memory/profile/user.json).
-                content:
+                  description: Уникальный идентификатор записи памяти.
+                type:
                   type: string
-                  description: Сохраняемый текст или JSON.
-                repo:
-                  type: string
-                  format: uri
-                  description: URL GitHub-репозитория для удалённого сохранения (опционально).
-                token:
-                  type: string
-                  description: GitHub-токен для записи (опционально, может быть передан в заголовке Authorization).
-                userId:
-                  type: string
-                  description: Идентификатор пользователя/агента, если используется множественное хранилище.
+                  description: Тип записи (например, message, note).
+                version:
+                  type: integer
+                  description: Версия сохраняемого объекта.
+                data:
+                  type: object
+                  description: Произвольное содержимое записи.
             example:
-              filename: memory/profile/user.json
-              content: '{"name":"Sofia","role":"assistant"}'
-              repo: https://github.com/example/memory-repo
+              id: "memory/profile/user.json"
+              type: message
+              version: 1
+              data:
+                name: Sofia
+                role: assistant
       responses:
         '200':
-          description: Запись сохранена.
+          description: Результат сохранения.
           content:
             application/json:
               schema:
                 type: object
+                required: [ok, data]
                 properties:
-                  status:
+                  ok:
+                    type: boolean
+                    description: Признак успешного выполнения операции.
+                  data:
+                    type: object
+                    nullable: true
+                    description: Сохранённые данные или null при ошибке.
+                  error:
                     type: string
-                  action:
-                    type: string
-                  filePath:
-                    type: string
+                    description: Описание ошибки, если операция завершилась неуспешно.
               example:
-                status: success
-                action: saveMemory
-                filePath: memory/profile/user.json
-        '400':
-          description: Неверные входные данные (например, отсутствуют обязательные поля).
-        '401':
-          description: Отсутствует или неверный GitHub-токен при работе с удалённым репозиторием.
-        '404':
-          description: Репозиторий не найден (для удалённого режима).
+                ok: true
+                data:
+                  id: "memory/profile/user.json"
+                  type: message
+                  version: 1
+                  data:
+                    name: Sofia
+                    role: assistant
+                error: null
   /api/memory/read:
     post:
       summary: Чтение памяти пользователя
@@ -111,67 +115,60 @@ paths:
           application/json:
             schema:
               type: object
-              required: [filename]
+              required: [id, type, version, data]
               properties:
-                filename:
+                id:
                   type: string
-                  description: Путь файла относительно корня памяти (например, memory/profile/user.json).
-                repo:
+                  description: Уникальный идентификатор записи памяти.
+                type:
                   type: string
-                  format: uri
-                  description: URL GitHub-репозитория для чтения (опционально).
-                token:
-                  type: string
-                  description: GitHub-токен для чтения (опционально, может быть передан в заголовке Authorization).
-                userId:
-                  type: string
-                  description: Идентификатор пользователя/агента, если используется множественное хранилище.
+                  description: Тип записи (например, message, note).
+                version:
+                  type: integer
+                  description: Версия запрашиваемого объекта.
+                data:
+                  type: object
+                  description: Дополнительные параметры запроса чтения.
             example:
-              filename: memory/profile/user.json
-              repo: https://github.com/example/memory-repo
+              id: "memory/profile/user.json"
+              type: message
+              version: 1
+              data:
+                includeMeta: true
       responses:
         '200':
-          description: Найденная запись или отсутствие локального файла.
+          description: Результат чтения.
           content:
             application/json:
               schema:
-                oneOf:
-                  - type: object
-                    properties:
-                      status:
-                        type: string
-                      content:
-                        type: string
-                        description: Содержимое файла.
-                      json:
-                        description: Распарсенный JSON, если файл в формате JSON.
-                        oneOf:
-                          - type: object
-                          - type: 'null'
-                  - type: object
-                    properties:
-                      ok:
-                        type: boolean
-                        description: Признак успешного ответа при отсутствии локального файла.
-                      data:
-                        description: Отсутствующее содержимое файла.
-                        nullable: true
-                        type: 'null'
+                type: object
+                required: [ok, data]
+                properties:
+                  ok:
+                    type: boolean
+                    description: Признак успешного выполнения операции.
+                  data:
+                    type: object
+                    nullable: true
+                    description: Прочитанные данные или null, если запись не найдена.
+                  error:
+                    type: string
+                    description: Описание ошибки, если операция завершилась неуспешно.
               examples:
                 found:
-                  summary: Найденный файл
+                  summary: Найденная запись
                   value:
-                    status: success
-                    content: '{"name":"Sofia","role":"assistant"}'
-                    json:
-                      name: Sofia
-                      role: assistant
+                    ok: true
+                    data:
+                      id: "memory/profile/user.json"
+                      type: message
+                      version: 1
+                      data:
+                        name: Sofia
+                        role: assistant
                 missing:
-                  summary: Локальный файл отсутствует
+                  summary: Запись отсутствует
                   value:
                     ok: true
                     data: null
-        '401':
-          description: Отсутствует или неверный GitHub-токен при работе с удалённым репозиторием.
-        '404':
-          description: Репозиторий или удалённый файл не найдены.
+                    error: null
