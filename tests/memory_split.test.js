@@ -5,11 +5,13 @@ process.env.NO_INDEX_UPDATE = 'true';
 const { split_memory_file } = require('../tools/memory_splitter');
 const { readMemory } = require('../src/memory');
 const index_manager = require('../logic/index_manager');
+const { setMemoryMode } = require('../utils/memory_mode');
 
 const tmp_dir = path.join(__dirname, '..', 'memory', 'tmp_split');
 if (!fs.existsSync(tmp_dir)) fs.mkdirSync(tmp_dir, { recursive: true });
 
 async function run(){
+  await setMemoryMode('default', 'github');
   const rel = 'memory/tmp_split/long.md';
   const abs = path.join(__dirname, '..', rel);
   const parts = [];
@@ -31,6 +33,7 @@ async function run(){
   fs.rmSync(backup_path, { force: true });
   await index_manager.removeEntry('memory/tmp_split/long/index.md');
   await index_manager.saveIndex();
+  await setMemoryMode('default', 'github');
   console.log('memory split tests passed');
 }
 
