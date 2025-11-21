@@ -6,7 +6,7 @@ const { checkAndSplitIndex } = require('../tools/index_splitter');
 const { MAX_INDEX_FILE_SIZE } = require('../utils/file_splitter');
 const LRUCache = require('../utils/lru_cache');
 
-const BASE_URL = 'https://api.github.com';
+const BASE_URL = (process.env.GITHUB_API_URL || 'https://api.github.com').replace(/\/+$/, '');
 
 const reposCache = new LRUCache(100);
 const contentsCache = new LRUCache(100);

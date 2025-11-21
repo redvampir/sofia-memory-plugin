@@ -28,3 +28,63 @@ jobs:
 
       - name: Прогон тестов
         run: npm test
+
+      - name: Запуск моков GitHub
+        run: |
+          node scripts/mock_github_api.js --port 9999 > mock-github.log 2>&1 & echo $! > mock_github.pid
+
+      - name: Запуск сервиса для интеграционных проверок
+        env:
+          TOKEN_SECRET: ci-token-secret
+          MODE: local
+          GITHUB_API_URL: http://localhost:9999
+          LOCAL_MEMORY_PATH: ${{ runner.temp }}/local_memory
+          PORT: 10000
+        run: |
+          npm start > server.log 2>&1 & echo $! > server.pid
+
+      - name: Ожидание готовности сервиса
+        run: |
+          for i in {1..20}; do
+            if curl -sf http://localhost:10000/ping >/dev/null; then
+              echo "service is up" && break
+            fi
+            sleep 1
+          done
+          if ! curl -sf http://localhost:10000/ping >/dev/null; then
+            echo "service failed to start" >&2
+            exit 1
+          fi
+
+      - name: Интеграционные запросы API
+        run: |
+          {
+            echo "GET /ping";
+            curl -sf http://localhost:10000/ping;
+            echo "\nPOST /api/memory/save";
+            curl -sf -X POST http://localhost:10000/api/memory/save \
+              -H "Content-Type: application/json" \
+              -d '{"id":"memory/ci-status.json","data":{"ok":true},"userId":"ci"}';
+            echo "\nPOST /api/memory/read";
+            curl -sf -X POST http://localhost:10000/api/memory/read \
+              -H "Content-Type: application/json" \
+              -d '{"id":"memory/ci-status.json","userId":"ci"}';
+            echo "\nGET /api/system/status";
+            curl -sf "http://localhost:10000/api/system/status?userId=ci";
+          } | tee ci-integration.log
+
+      - name: Завершение сервисов
+        if: always()
+        run: |
+          if [ -f server.pid ]; then kill $(cat server.pid) || true; fi
+          if [ -f mock-github.pid ]; then kill $(cat mock-github.pid) || true; fi
+
+      - name: Публикация логов интеграции
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-integration-logs
+          path: |
+            ci-integration.log
+            server.log
+            mock-github.log
