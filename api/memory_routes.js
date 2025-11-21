@@ -32,6 +32,86 @@ const logger = require('../utils/logger');
 const { restoreContext } = require('../utils/restore_context');
 const { resolveUserId, getDefaultUserId } = require('../utils/default_user');
 
+function maskValue(value) {
+  if (!value) return undefined;
+  if (typeof value !== 'string') return '[masked]';
+  const trimmed = value.trim();
+  if (!trimmed) return trimmed;
+  if (/bearer\s+/i.test(trimmed)) return 'Bearer ***';
+  if (trimmed.length <= 8) return '***';
+  return `${trimmed.slice(0, 4)}***${trimmed.slice(-2)}`;
+}
+
+function sanitizeHeaders(headers) {
+  return {
+    'content-type': headers['content-type'],
+    authorization: maskValue(headers.authorization),
+  };
+}
+
+function shorten(value) {
+  if (typeof value !== 'string') return value;
+  const limit = 300;
+  return value.length > limit ? `${value.slice(0, limit)}... (truncated)` : value;
+}
+
+function sanitizeBody(body) {
+  if (!body || typeof body !== 'object') return body;
+  const safe = {};
+  for (const [key, val] of Object.entries(body)) {
+    const lower = key.toLowerCase();
+    if (/(token|auth|password|secret|authorization)/.test(lower)) {
+      safe[key] = '[masked]';
+      continue;
+    }
+    if (typeof val === 'string') {
+      safe[key] = shorten(val);
+    } else if (Array.isArray(val)) {
+      safe[key] = val.map(item => (typeof item === 'string' ? shorten(item) : item));
+    } else if (val && typeof val === 'object') {
+      safe[key] = '[object]';
+    } else {
+      safe[key] = val;
+    }
+  }
+  return safe;
+}
+
+function summarizePayload(payload) {
+  const sanitized = sanitizeBody(payload);
+  if (sanitized === undefined) return 'undefined';
+  if (sanitized === null) return 'null';
+  if (typeof sanitized === 'string') return shorten(sanitized);
+  try {
+    const stringified = JSON.stringify(sanitized);
+    return shorten(stringified);
+  } catch (e) {
+    logger.error('[summarizePayload]', e.stack || e.message);
+    return '[unserializable]';
+  }
+}
+
+function logRequest(req) {
+  logger.info('[request]', {
+    method: req.method,
+    path: req.originalUrl || req.url,
+    headers: sanitizeHeaders(req.headers || {}),
+    body: sanitizeBody(req.body || {}),
+  });
+}
+
+function createResponder(req, res) {
+  return (statusCode, payload) => {
+    logger.info('[response]', {
+      method: req.method,
+      path: req.originalUrl || req.url,
+      status: statusCode,
+      body: summarizePayload(payload),
+    });
+    return res.status(statusCode).json(payload);
+  };
+}
+
 function log_restore_action(user_id, success) {
   if (success) {
     logger.info(`Контекст восстановлен для пользователя: ${user_id}`);
@@ -111,26 +191,30 @@ async function systemStatus(req, res) {
 }
 
 async function saveMemory(req, res) {
+  logRequest(req);
+  const respond = createResponder(req, res);
+
   const { repo, filename, content, userId } = req.body;
   const token = await extractToken(req);
   const { repo: effectiveRepo, token: effectiveToken } = await getRepoInfo(filename, userId, repo, token);
 
   if (!filename || content === undefined) {
-    return res.status(400).json({ status: 'error', message: 'Missing required fields.' });
+    return respond(400, { status: 'error', message: 'Missing required fields.' });
   }
 
   if (effectiveRepo) {
     if (!effectiveToken) {
-      return res.status(401).json({ status: 'error', message: 'Missing GitHub token' });
+      return respond(401, { status: 'error', message: 'Missing GitHub token' });
     }
     try {
       const check = await github.validateToken(effectiveToken);
       if (!check.valid) {
-        return res.status(401).json({ status: 'error', message: 'Invalid GitHub token' });
+        return respond(401, { status: 'error', message: 'Invalid GitHub token' });
       }
     } catch (e) {
+      logger.error('[saveMemory validateToken]', e.stack || e.message);
       logError('validateToken', e);
-      return res.status(401).json({ status: 'error', message: 'Invalid GitHub token' });
+      return respond(401, { status: 'error', message: 'Invalid GitHub token' });
     }
     try {
       const { exists, status } = await github.repoExistsSafe(
@@ -139,16 +223,17 @@ async function saveMemory(req, res) {
       );
       if (!exists) {
         if (status === 401) {
-          return res.status(401).json({ status: 'error', message: 'Invalid GitHub token.' });
+          return respond(401, { status: 'error', message: 'Invalid GitHub token.' });
         }
         if (status === 403) {
-          return res.status(403).json({ status: 'error', message: 'Access denied to repository.' });
+          return respond(403, { status: 'error', message: 'Access denied to repository.' });
         }
-        return res.status(404).json({ status: 'error', message: 'Repository not found.' });
+        return respond(404, { status: 'error', message: 'Repository not found.' });
       }
     } catch (e) {
+      logger.error('[saveMemory repoExistsSafe]', e.stack || e.message);
       logError('repoExists', e);
-      return res.status(404).json({ status: 'error', message: 'Repository not found.' });
+      return respond(404, { status: 'error', message: 'Repository not found.' });
     }
   }
 
@@ -180,6 +265,7 @@ async function saveMemory(req, res) {
         finalContent = serializeMarkdownTree(merged);
       }
     } catch (e) {
+      logger.error('[saveMemory markdown merge]', e.stack || e.message);
       logError('saveMemory markdown merge', e);
     }
   }
@@ -189,8 +275,9 @@ async function saveMemory(req, res) {
     try {
       data = JSON.parse(content);
     } catch (e) {
+      logger.error('[saveMemory parse json]', e.stack || e.message);
       logError('saveMemory invalid JSON', e);
-      return res.status(400).json({ status: 'error', message: 'Invalid JSON' });
+      return respond(400, { status: 'error', message: 'Invalid JSON' });
     }
     try {
       await updateOrInsertJsonEntry(
@@ -202,28 +289,27 @@ async function saveMemory(req, res) {
       );
     } catch (e) {
       const code = e.status || 500;
-      return res
-        .status(code)
-        .json({ status: code, message: e.message, detail: e.githubMessage });
+      logger.error('[saveMemory updateOrInsertJsonEntry]', e.stack || e.message);
+      return respond(code, { status: code, message: e.message, detail: e.githubMessage });
     }
   } else {
     try {
       await writeFileSafe(filePath, finalContent);
     } catch (e) {
       const code = e.status || 500;
-      return res
-        .status(code)
-        .json({ status: code, message: e.message, detail: e.githubMessage });
+      logger.error('[saveMemory writeFileSafe]', e.stack || e.message);
+      return respond(code, { status: code, message: e.message, detail: e.githubMessage });
     }
 
     if (effectiveRepo) {
       if (!effectiveToken) {
-        return res.status(401).json({ status: 'error', message: 'Missing GitHub token' });
+        return respond(401, { status: 'error', message: 'Missing GitHub token' });
       }
       const access = checkAccess(normalizedFilename, 'write');
       if (!access.allowed) {
         logError('access denied', new Error(access.message));
-        return res.status(403).json({ status: 403, message: access.message });
+        logger.error('[saveMemory access denied]', access.message);
+        return respond(403, { status: 403, message: access.message });
       }
       try {
         await github.writeFileSafe(
@@ -236,9 +322,8 @@ async function saveMemory(req, res) {
       } catch (e) {
         logError('GitHub write', e);
         const code = e.status || 500;
-        return res
-          .status(code)
-          .json({ status: code, message: e.message, detail: e.githubMessage });
+        logger.error('[saveMemory github write]', e.stack || e.message);
+        return respond(code, { status: code, message: e.message, detail: e.githubMessage });
       }
     }
   }
@@ -259,9 +344,8 @@ async function saveMemory(req, res) {
     );
   } catch (e) {
     const code = e.status || 500;
-    return res
-      .status(code)
-      .json({ status: code, message: e.message, detail: e.githubMessage });
+    logger.error('[saveMemory updateIndexEntry]', e.stack || e.message);
+    return respond(code, { status: code, message: e.message, detail: e.githubMessage });
   }
 
   if (normalizedFilename.startsWith('memory/') && normalizedFilename !== 'memory/index.json') {
@@ -275,13 +359,12 @@ async function saveMemory(req, res) {
       await index_manager.saveIndex(effectiveToken, effectiveRepo, userId);
     } catch (e) {
       const code = e.status || 500;
-      return res
-        .status(code)
-        .json({ status: code, message: e.message, detail: e.githubMessage });
+      logger.error('[saveMemory index_manager save]', e.stack || e.message);
+      return respond(code, { status: code, message: e.message, detail: e.githubMessage });
     }
   }
 
-  res.json({ status: 'success', action: 'saveMemory', filePath: normalizedFilename });
+  return respond(200, { status: 'success', action: 'saveMemory', filePath: normalizedFilename });
 }
 
 async function saveAnswer(req, res) {
@@ -301,6 +384,9 @@ async function saveAnswer(req, res) {
 }
 
 async function readMemory(req, res) {
+  logRequest(req);
+  const respond = createResponder(req, res);
+
   const { repo, filename, userId } = req.body;
   const token = await extractToken(req);
   const { repo: effectiveRepo, token: effectiveToken } = await getRepoInfo(filename, userId, repo, token);
@@ -309,48 +395,44 @@ async function readMemory(req, res) {
   const filePath = path.join(__dirname, '..', normalizedFilename);
   const isJson = normalizedFilename.endsWith('.json');
 
-  logger.info(`[read] repo=${effectiveRepo || 'local'} file=${normalizedFilename}`);
-
   if (effectiveRepo) {
-    if (!effectiveToken) return res.status(401).json({ status: 'error', message: 'Missing GitHub token' });
+    if (!effectiveToken) return respond(401, { status: 'error', message: 'Missing GitHub token' });
     try {
       const content = await github.readFile(effectiveToken, effectiveRepo, normalizedFilename);
-      logger.info(`[read] success remote ${normalizedFilename}`);
       if (isJson) {
         try {
           const json = JSON.parse(content);
-          return res.json({ status: 'success', content, json });
+          return respond(200, { status: 'success', content, json });
         } catch (e) {
+          logger.error('[readMemory parse json remote]', e.stack || e.message);
           logError('readMemory parse json', e);
-          return res.status(500).json({ status: 500, message: 'Failed to parse JSON' });
+          return respond(500, { status: 500, message: 'Failed to parse JSON' });
         }
       }
-      return res.json({ status: 'success', content });
+      return respond(200, { status: 'success', content });
     } catch (e) {
-      logger.error('[read] error remote', e.message);
       const code = e.status || 500;
-      return res
-        .status(code)
-        .json({ status: code, message: e.message, detail: e.githubMessage });
+      logger.error('[readMemory remote]', e.stack || e.message);
+      return respond(code, { status: code, message: e.message, detail: e.githubMessage });
     }
   }
 
   if (!fs.existsSync(filePath)) {
-    logger.error('[read] file not found', filePath);
-    return res.status(404).json({ status: 'error', message: 'File not found.' });
+    logger.error('[readMemory local missing]', filePath);
+    return respond(404, { status: 'error', message: 'File not found.' });
   }
   const content = fs.readFileSync(filePath, 'utf-8');
-  logger.info(`[read] success local ${normalizedFilename}`);
   if (isJson) {
     try {
       const json = JSON.parse(content);
-      return res.json({ status: 'success', content, json });
+      return respond(200, { status: 'success', content, json });
     } catch (e) {
+      logger.error('[readMemory parse json local]', e.stack || e.message);
       logError('readMemory parse json', e);
-      return res.status(500).json({ status: 500, message: 'Failed to parse JSON' });
+      return respond(500, { status: 500, message: 'Failed to parse JSON' });
     }
   }
-  res.json({ status: 'success', content });
+  return respond(200, { status: 'success', content });
 }
 
 async function readFileRoute(req, res) {
