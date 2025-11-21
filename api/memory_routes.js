@@ -112,6 +112,34 @@ function createResponder(req, res) {
   };
 }
 
+function normalizeMemoryBody(body = {}) {
+  const {
+    id,
+    type,
+    version,
+    data,
+    filename,
+    content,
+    ...rest
+  } = body || {};
+
+  const normalizedFilename = filename || id;
+  let normalizedContent = content;
+
+  if (normalizedContent === undefined && data !== undefined) {
+    normalizedContent = typeof data === 'string' ? data : JSON.stringify(data);
+  }
+
+  return {
+    filename: normalizedFilename,
+    content: normalizedContent,
+    type,
+    version,
+    data,
+    ...rest,
+  };
+}
+
 function log_restore_action(user_id, success) {
   if (success) {
     logger.info(`Контекст восстановлен для пользователя: ${user_id}`);
@@ -194,12 +222,15 @@ async function saveMemory(req, res) {
   logRequest(req);
   const respond = createResponder(req, res);
 
-  const { repo, filename, content, userId } = req.body;
+  const { repo, filename, content, userId } = normalizeMemoryBody(req.body);
   const token = await extractToken(req);
   const { repo: effectiveRepo, token: effectiveToken } = await getRepoInfo(filename, userId, repo, token);
 
   if (!filename || content === undefined) {
-    return respond(400, { status: 'error', message: 'Missing required fields.' });
+    return respond(400, {
+      status: 'error',
+      message: 'Не хватает обязательных полей: id/filename или data/content.',
+    });
   }
 
   if (effectiveRepo) {
@@ -387,7 +418,7 @@ async function readMemory(req, res) {
   logRequest(req);
   const respond = createResponder(req, res);
 
-  const { repo, filename, userId } = req.body;
+  const { repo, filename, userId } = normalizeMemoryBody(req.body);
   const token = await extractToken(req);
   const { repo: effectiveRepo, token: effectiveToken } = await getRepoInfo(filename, userId, repo, token);
 
