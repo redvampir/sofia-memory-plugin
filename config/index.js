@@ -21,14 +21,18 @@ function loadFromFile() {
 
 function getEnvPluginDefaults() {
   return {
-    repo: process.env.GITHUB_REPO || null,
+    repo: process.env.REPO || process.env.GITHUB_REPO || null,
     token: process.env.GITHUB_TOKEN || null,
   };
 }
 
 function getEnvStudentDefaults() {
   const repo =
-    process.env.STUDENT_GITHUB_REPO || process.env.GITHUB_REPO || null;
+    process.env.STUDENT_REPO ||
+    process.env.STUDENT_GITHUB_REPO ||
+    process.env.REPO ||
+    process.env.GITHUB_REPO ||
+    null;
   const token =
     process.env.STUDENT_GITHUB_TOKEN || process.env.GITHUB_TOKEN || null;
   return { repo, token };
@@ -77,7 +81,9 @@ function getMemoryConfig() {
   const fileLimit = parsePositiveInteger(fileCfg.maxStoreTokens);
   const fallbackLimit = 4096;
 
-  const envMode = normalizeMemoryMode(process.env.MEMORY_MODE);
+  const envMode = normalizeMemoryMode(
+    process.env.MODE || process.env.MEMORY_MODE,
+  );
   const fileMode = normalizeMemoryMode(fileCfg.mode);
   const fallbackMode = 'github';
 
