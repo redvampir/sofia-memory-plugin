@@ -64,15 +64,31 @@ function parsePositiveInteger(value) {
   return Math.floor(num);
 }
 
-function getMemoryLimits() {
+function normalizeMemoryMode(value) {
+  if (!value || typeof value !== 'string') return null;
+  return value.trim().toLowerCase();
+}
+
+function getMemoryConfig() {
   const fileCfg = loadFromFile().memory || {};
-  const envLimit = parsePositiveInteger(process.env.MAX_STORE_TOKENS || process.env.MEMORY_V2_MAX_TOKENS);
+  const envLimit = parsePositiveInteger(
+    process.env.MAX_STORE_TOKENS || process.env.MEMORY_V2_MAX_TOKENS,
+  );
   const fileLimit = parsePositiveInteger(fileCfg.maxStoreTokens);
-  const fallback = 4096;
+  const fallbackLimit = 4096;
+
+  const envMode = normalizeMemoryMode(process.env.MEMORY_MODE);
+  const fileMode = normalizeMemoryMode(fileCfg.mode);
+  const fallbackMode = 'github';
 
   return {
-    maxStoreTokens: envLimit ?? fileLimit ?? fallback,
+    mode: envMode ?? fileMode ?? fallbackMode,
+    maxStoreTokens: envLimit ?? fileLimit ?? fallbackLimit,
   };
+}
+
+function getMemoryLimits() {
+  return getMemoryConfig();
 }
 
 function getDefaultUserId() {
@@ -85,7 +101,7 @@ function loadConfig() {
     pluginRepo: getPluginRepo(),
     studentRepo: getStudentRepo(),
     mirrorNeurons: getMirrorNeurons(),
-    memory: getMemoryLimits(),
+    memory: getMemoryConfig(),
     defaultUserId: getDefaultUserId(),
   };
 }
@@ -97,6 +113,7 @@ module.exports = {
   getEnvPluginDefaults,
   getEnvStudentDefaults,
   getMirrorNeurons,
+  getMemoryConfig,
   getMemoryLimits,
   getDefaultUserId,
 };
