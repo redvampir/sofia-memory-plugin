@@ -5,9 +5,13 @@ info:
   description: >-
     Минимальное описание публичных методов памяти Софии для интеграции
     внешних сервисов.
+  license:
+    name: MIT
+    url: https://opensource.org/license/mit
 servers:
   - url: {{PUBLIC_BASE_URL}}
-    description: Базовый URL сервиса; подставляется из переменной окружения PUBLIC_BASE_URL или по умолчанию http://localhost:10000
+    description: Render server
+security: []
 paths:
   /ping:
     get:
@@ -22,12 +26,17 @@ paths:
               schema:
                 type: string
               example: pong
+        '400':
+          description: Неверный запрос (например, некорректный HTTP-метод).
+        '503':
+          description: Сервис временно недоступен.
   /api/memory/save:
     post:
       summary: Сохранение памяти пользователя
       description: >-
-        Записывает текстовое содержимое в память пользователя по указанному пути.
-        В опциональном объекте meta можно передавать дополнительные атрибуты (ключ-значение).
+        Записывает содержимое в файловое хранилище памяти. Если указан GitHub-репозиторий,
+        требуется валидный токен (может передаваться в заголовке `Authorization: Bearer <token>`
+        или полем `token`).
       operationId: saveMemory
       requestBody:
         required: true
@@ -35,27 +44,28 @@ paths:
           application/json:
             schema:
               type: object
-              required: [userId, path, content]
+              required: [filename, content]
               properties:
-                userId:
+                filename:
                   type: string
-                  description: Уникальный идентификатор пользователя.
-                path:
-                  type: string
-                  description: Логический путь или ключ записи.
+                  description: Путь файла относительно корня памяти (например, memory/profile/user.json).
                 content:
                   type: string
-                  description: Сохраняемый текст.
-                meta:
-                  type: object
-                  additionalProperties: true
-                  description: Произвольные метаданные (опционально).
+                  description: Сохраняемый текст или JSON.
+                repo:
+                  type: string
+                  format: uri
+                  description: URL GitHub-репозитория для удалённого сохранения (опционально).
+                token:
+                  type: string
+                  description: GitHub-токен для записи (опционально, может быть передан в заголовке Authorization).
+                userId:
+                  type: string
+                  description: Идентификатор пользователя/агента, если используется множественное хранилище.
             example:
-              userId: user-123
-              path: dialogs/2024-05-20
-              content: "Новый ответ пользователя"
-              meta:
-                source: chat
+              filename: memory/profile/user.json
+              content: '{"name":"Sofia","role":"assistant"}'
+              repo: https://github.com/example/memory-repo
       responses:
         '200':
           description: Запись сохранена.
@@ -66,17 +76,24 @@ paths:
                 properties:
                   status:
                     type: string
-                    example: ok
-                  savedPath:
+                  action:
                     type: string
-                    description: Итоговый путь сохранённой записи.
+                  filePath:
+                    type: string
               example:
-                status: ok
-                savedPath: dialogs/2024-05-20
+                status: success
+                action: saveMemory
+                filePath: memory/profile/user.json
+        '400':
+          description: Неверные входные данные (например, отсутствуют обязательные поля).
+        '401':
+          description: Отсутствует или неверный GitHub-токен при работе с удалённым репозиторием.
+        '404':
+          description: Репозиторий не найден (для удалённого режима).
   /api/memory/read:
     post:
       summary: Чтение памяти пользователя
-      description: Возвращает содержимое записи по userId и path.
+      description: Возвращает содержимое файла памяти. Для JSON-файлов параллельно отдаётся распарсенный объект.
       operationId: readMemory
       requestBody:
         required: true
@@ -84,17 +101,24 @@ paths:
           application/json:
             schema:
               type: object
-              required: [userId, path]
+              required: [filename]
               properties:
+                filename:
+                  type: string
+                  description: Путь файла относительно корня памяти (например, memory/profile/user.json).
+                repo:
+                  type: string
+                  format: uri
+                  description: URL GitHub-репозитория для чтения (опционально).
+                token:
+                  type: string
+                  description: GitHub-токен для чтения (опционально, может быть передан в заголовке Authorization).
                 userId:
                   type: string
-                  description: Уникальный идентификатор пользователя.
-                path:
-                  type: string
-                  description: Путь ранее сохранённой записи.
+                  description: Идентификатор пользователя/агента, если используется множественное хранилище.
             example:
-              userId: user-123
-              path: dialogs/2024-05-20
+              filename: memory/profile/user.json
+              repo: https://github.com/example/memory-repo
       responses:
         '200':
           description: Найденная запись.
@@ -103,16 +127,23 @@ paths:
               schema:
                 type: object
                 properties:
+                  status:
+                    type: string
                   content:
                     type: string
-                    description: Хранимый текст.
-                  meta:
-                    type: object
-                    additionalProperties: true
-                    description: Сохранённые метаданные (если есть).
+                    description: Содержимое файла.
+                  json:
+                    description: Распарсенный JSON, если файл в формате JSON.
+                    oneOf:
+                      - type: object
+                      - type: 'null'
               example:
-                content: "Новый ответ пользователя"
-                meta:
-                  source: chat
+                status: success
+                content: '{"name":"Sofia","role":"assistant"}'
+                json:
+                  name: Sofia
+                  role: assistant
+        '401':
+          description: Отсутствует или неверный GitHub-токен при работе с удалённым репозиторием.
         '404':
-          description: Запись не найдена.
+          description: Запись или репозиторий не найдены.
