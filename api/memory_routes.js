@@ -101,14 +101,25 @@ function logRequest(req) {
 }
 
 function createResponder(req, res) {
-  return (statusCode, payload) => {
+  return (ok, payload, statusCode = 200) => {
+    const body = ok
+      ? { ok: true, data: payload === undefined ? null : payload }
+      : {
+          ok: false,
+          error:
+            typeof payload === 'string'
+              ? payload
+              : payload?.error || payload?.message || 'Неизвестная ошибка',
+          ...(payload && payload.details ? { details: payload.details } : {}),
+        };
+
     logger.info('[response]', {
       method: req.method,
       path: req.originalUrl || req.url,
       status: statusCode,
-      body: summarizePayload(payload),
+      body: summarizePayload(body),
     });
-    return res.status(statusCode).json(payload);
+    return res.status(statusCode).json(body);
   };
 }
 
@@ -227,25 +238,22 @@ async function saveMemory(req, res) {
   const { repo: effectiveRepo, token: effectiveToken } = await getRepoInfo(filename, userId, repo, token);
 
   if (!filename || content === undefined) {
-    return respond(400, {
-      status: 'error',
-      message: 'Не хватает обязательных полей: id/filename или data/content.',
-    });
+    return respond(false, 'Не хватает обязательных полей: id/filename или data/content.');
   }
 
   if (effectiveRepo) {
     if (!effectiveToken) {
-      return respond(401, { status: 'error', message: 'Missing GitHub token' });
+      return respond(false, 'Отсутствует GitHub token');
     }
     try {
       const check = await github.validateToken(effectiveToken);
       if (!check.valid) {
-        return respond(401, { status: 'error', message: 'Invalid GitHub token' });
+        return respond(false, 'Некорректный GitHub token');
       }
     } catch (e) {
       logger.error('[saveMemory validateToken]', e.stack || e.message);
       logError('validateToken', e);
-      return respond(401, { status: 'error', message: 'Invalid GitHub token' });
+      return respond(false, 'Некорректный GitHub token');
     }
     try {
       const { exists, status } = await github.repoExistsSafe(
@@ -254,17 +262,19 @@ async function saveMemory(req, res) {
       );
       if (!exists) {
         if (status === 401) {
-          return respond(401, { status: 'error', message: 'Invalid GitHub token.' });
+          return respond(false, 'Некорректный GitHub token');
         }
         if (status === 403) {
-          return respond(403, { status: 'error', message: 'Access denied to repository.' });
+          return respond(false, 'Недостаточно прав для репозитория.');
         }
-        return respond(404, { status: 'error', message: 'Repository not found.' });
+        const unavailable = status === 503 ? 503 : 200;
+        return respond(false, 'Репозиторий не найден.', unavailable);
       }
     } catch (e) {
       logger.error('[saveMemory repoExistsSafe]', e.stack || e.message);
       logError('repoExists', e);
-      return respond(404, { status: 'error', message: 'Repository not found.' });
+      const unavailable = e.status === 503 ? 503 : 200;
+      return respond(false, 'Репозиторий не найден.', unavailable);
     }
   }
 
@@ -308,7 +318,7 @@ async function saveMemory(req, res) {
     } catch (e) {
       logger.error('[saveMemory parse json]', e.stack || e.message);
       logError('saveMemory invalid JSON', e);
-      return respond(400, { status: 'error', message: 'Invalid JSON' });
+      return respond(false, 'Невалидный JSON');
     }
     try {
       await updateOrInsertJsonEntry(
@@ -319,28 +329,28 @@ async function saveMemory(req, res) {
         effectiveToken
       );
     } catch (e) {
-      const code = e.status || 500;
       logger.error('[saveMemory updateOrInsertJsonEntry]', e.stack || e.message);
-      return respond(code, { status: code, message: e.message, detail: e.githubMessage });
+      const unavailable = e.status === 503 ? 503 : 200;
+      return respond(false, { error: e.message, details: e.githubMessage }, unavailable);
     }
   } else {
     try {
       await writeFileSafe(filePath, finalContent);
     } catch (e) {
-      const code = e.status || 500;
       logger.error('[saveMemory writeFileSafe]', e.stack || e.message);
-      return respond(code, { status: code, message: e.message, detail: e.githubMessage });
+      const unavailable = e.status === 503 ? 503 : 200;
+      return respond(false, { error: e.message, details: e.githubMessage }, unavailable);
     }
 
     if (effectiveRepo) {
       if (!effectiveToken) {
-        return respond(401, { status: 'error', message: 'Missing GitHub token' });
+        return respond(false, 'Отсутствует GitHub token');
       }
       const access = checkAccess(normalizedFilename, 'write');
       if (!access.allowed) {
         logError('access denied', new Error(access.message));
         logger.error('[saveMemory access denied]', access.message);
-        return respond(403, { status: 403, message: access.message });
+        return respond(false, access.message);
       }
       try {
         await github.writeFileSafe(
@@ -352,9 +362,9 @@ async function saveMemory(req, res) {
         );
       } catch (e) {
         logError('GitHub write', e);
-        const code = e.status || 500;
         logger.error('[saveMemory github write]', e.stack || e.message);
-        return respond(code, { status: code, message: e.message, detail: e.githubMessage });
+        const unavailable = e.status === 503 ? 503 : 200;
+        return respond(false, { error: e.message, details: e.githubMessage }, unavailable);
       }
     }
   }
@@ -374,9 +384,9 @@ async function saveMemory(req, res) {
       userId
     );
   } catch (e) {
-    const code = e.status || 500;
     logger.error('[saveMemory updateIndexEntry]', e.stack || e.message);
-    return respond(code, { status: code, message: e.message, detail: e.githubMessage });
+    const unavailable = e.status === 503 ? 503 : 200;
+    return respond(false, { error: e.message, details: e.githubMessage }, unavailable);
   }
 
   if (normalizedFilename.startsWith('memory/') && normalizedFilename !== 'memory/index.json') {
@@ -389,13 +399,13 @@ async function saveMemory(req, res) {
       });
       await index_manager.saveIndex(effectiveToken, effectiveRepo, userId);
     } catch (e) {
-      const code = e.status || 500;
       logger.error('[saveMemory index_manager save]', e.stack || e.message);
-      return respond(code, { status: code, message: e.message, detail: e.githubMessage });
+      const unavailable = e.status === 503 ? 503 : 200;
+      return respond(false, { error: e.message, details: e.githubMessage }, unavailable);
     }
   }
 
-  return respond(200, { status: 'success', action: 'saveMemory', filePath: normalizedFilename });
+  return respond(true, { action: 'saveMemory', filePath: normalizedFilename });
 }
 
 async function saveAnswer(req, res) {
@@ -427,42 +437,42 @@ async function readMemory(req, res) {
   const isJson = normalizedFilename.endsWith('.json');
 
   if (effectiveRepo) {
-    if (!effectiveToken) return respond(401, { status: 'error', message: 'Missing GitHub token' });
+    if (!effectiveToken) return respond(false, 'Отсутствует GitHub token');
     try {
       const content = await github.readFile(effectiveToken, effectiveRepo, normalizedFilename);
       if (isJson) {
         try {
           const json = JSON.parse(content);
-          return respond(200, { status: 'success', content, json });
+          return respond(true, { content, json });
         } catch (e) {
           logger.error('[readMemory parse json remote]', e.stack || e.message);
           logError('readMemory parse json', e);
-          return respond(500, { status: 500, message: 'Failed to parse JSON' });
+          return respond(false, 'Не удалось разобрать JSON');
         }
       }
-      return respond(200, { status: 'success', content });
+      return respond(true, { content });
     } catch (e) {
-      const code = e.status || 500;
       logger.error('[readMemory remote]', e.stack || e.message);
-      return respond(code, { status: code, message: e.message, detail: e.githubMessage });
+      const unavailable = e.status === 503 ? 503 : 200;
+      return respond(false, { error: e.message, details: e.githubMessage }, unavailable);
     }
   }
 
   if (!fs.existsSync(filePath)) {
-    return respond(200, { ok: true, data: null });
+    return respond(true, null);
   }
   const content = fs.readFileSync(filePath, 'utf-8');
   if (isJson) {
     try {
       const json = JSON.parse(content);
-      return respond(200, { status: 'success', content, json });
+      return respond(true, { content, json });
     } catch (e) {
       logger.error('[readMemory parse json local]', e.stack || e.message);
       logError('readMemory parse json', e);
-      return respond(500, { status: 500, message: 'Failed to parse JSON' });
+      return respond(false, 'Не удалось разобрать JSON');
     }
   }
-  return respond(200, { status: 'success', content });
+  return respond(true, { content });
 }
 
 async function readFileRoute(req, res) {
