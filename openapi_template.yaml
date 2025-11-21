@@ -16,16 +16,26 @@ paths:
   /ping:
     get:
       summary: Проверка доступности сервиса
-      description: Быстрый health-check; при успешной работе возвращает строку «pong».
+      description: Быстрый health-check; при успешной работе возвращает JSON с полем состояния.
       operationId: ping
       responses:
         '200':
           description: Сервис отвечает и готов принимать запросы.
           content:
-            text/plain:
+            application/json:
               schema:
-                type: string
-              example: pong
+                type: object
+                required: [ok, message]
+                properties:
+                  ok:
+                    type: boolean
+                    description: Признак доступности сервиса.
+                  message:
+                    type: string
+                    description: Сообщение-подтверждение.
+              example:
+                ok: true
+                message: pong
         '400':
           description: Неверный запрос (например, некорректный HTTP-метод).
         '503':

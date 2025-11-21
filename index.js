@@ -142,7 +142,7 @@ app.listen(PORT, () => {
 
 // Проверка доступности сервера
 app.get('/ping', (req, res) => {
-  res.send('pong');
+  res.status(200).json({ ok: true, message: 'pong' });
 });
 
 // Health check route for Render

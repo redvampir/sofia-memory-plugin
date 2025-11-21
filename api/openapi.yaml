@@ -261,7 +261,20 @@ paths:
       operationId: ping
       responses:
         '200':
-          description: Pong
+          description: Service is available
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, message]
+                properties:
+                  ok:
+                    type: boolean
+                  message:
+                    type: string
+              example:
+                ok: true
+                message: pong
   /health:
     get:
       summary: Render health check
