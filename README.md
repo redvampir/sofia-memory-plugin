@@ -171,7 +171,7 @@ Sofia Memory Plugin \u2014 это небольшой сервис на Node.js, 
 
 1. **Генерация ключевых слов и запрос контекста.** Агент выделяет из пользовательского запроса 3–7 ключевых фраз, подбирает релевантные файлы через `getContextFilesForKeywords` и запрашивает их содержимое вызовом `POST /api/memory/context` (синоним `POST /api/memory/load-to-context`) или прямым чтением `POST /api/memory/read`.
 2. **Ответ модели с блоком `memory_to_save`.** LLM формирует основной ответ пользователю и добавляет объект `memory_to_save` (например, новая заметка или уточнённый конспект встречи), который клиент может сразу сохранить.
-3. **Сохранение памяти.** Клиент вызывает `POST /api/memory/save`, передавая `filename`, сериализованный `content` в новом JSON-контракте `{ id, type, version, data }` и при необходимости `updateIndex: true`, чтобы обновить `index.json`.
+3. **Сохранение памяти.** Клиент вызывает `POST /api/memory/save`, передавая единый контракт `{ id, type, version, data }`, где `id` — путь файла в памяти (например, `memory/notes/todo.json`), а `data` — содержимое. При работе с GitHub дополнительно можно передать `repo`, `userId` и `token` или использовать заголовок `Authorization`.
 4. **Контроль токенов.** Периодически вызывайте `GET /api/memory/token/status`, чтобы убедиться, что GitHub-токен действителен и сохранится при следующих запросах.
 
 ### End-to-end пример
@@ -211,10 +211,15 @@ Sofia Memory Plugin \u2014 это небольшой сервис на Node.js, 
    ```bash
    curl -X POST http://localhost:10000/api/memory/save \
      -H "Content-Type: application/json" \
-     -d '{
-       "filename": "memory/notes/meetings/2024-05-12-payments.json",
-       "content": "{\"id\":\"note-2024-05-12\",\"type\":\"note\",\"version\":\"1.0\",\"data\":{\"title\":\"Встреча по оплатам (12.05)\",\"summary\":\"Срок интеграции: конец недели\",\"risks\":[\"задержка API банка\"]}}",
-       "updateIndex": true
+  -d '{
+       "id": "memory/notes/meetings/2024-05-12-payments.json",
+       "type": "note",
+       "version": 1,
+       "data": {
+         "title": "Встреча по оплатам (12.05)",
+         "summary": "Срок интеграции: конец недели",
+         "risks": ["задержка API банка"]
+       }
      }'
    ```
 5. **Проверка токена.**
@@ -312,27 +317,34 @@ npm test
   - `POST /api/memory/save-with-index` — сохранить файл и одновременно обновить `index.json` (ранее `/saveMemoryWithIndex`).
   - `POST /api/memory/load-to-context` — загрузить указанный файл памяти в текущий контекст.
 - **Проверка доступа:** перед записью в GitHub выполняется валидация токена и наличия репозитория; ответы `401/403` возвращают сообщения «Invalid GitHub token.»/«Access denied to repository.», остальные коды — «Repository not found.», запись не происходит.
-- **Базовый контракт записи:** JSON-объект `{ "id": "...", "type": "note|lesson|profile|...", "version": "1.x", "data": <строка|объект> }`, сериализованный строкой в поле `content` (для `.json` файлов). Поле `data` хранит полезную нагрузку и может быть вложенным объектом.
+- **Базовый контракт записи:** JSON-объект `{ "id": "...", "type": "note|lesson|profile|...", "version": "1.x", "data": <строка|объект> }`, где `id` — относительный путь файла в папке `memory/`. Дополнительно можно передать `repo`, `userId` и `token` для работы с GitHub.
 - **Поведение чтения:** при отсутствии записи локальный `readMemory` возвращает `200` с `{ "ok": true, "data": null }` без ошибки.
-- **Пример запроса на сохранение:**
-  ```bash
-  curl -X POST http://localhost:10000/api/memory/save \
-    -H "Content-Type: application/json" \
-    -d '{
-      "filename": "memory/core/context.json",
-      "content": "{\"id\":\"context-core\",\"type\":\"note\",\"version\":\"1.0\",\"data\":\"Ключевые договорённости...\"}",
-      "updateIndex": true
-    }'
-  ```
-- **Пример запроса на чтение:**
-  ```bash
-  curl -X POST http://localhost:10000/api/memory/read \
-    -H "Content-Type: application/json" \
-    -d '{"filename": "memory/core/context.json"}'
-  ```
-  Возможные ответы:
-  - Запись найдена (JSON-файл): `{ "status": "success", "json": { "id": "context-core", ... } }`.
-  - Записи нет: `{ "ok": true, "data": null }`.
+- **Краткие примеры:**
+  - Сохранение записи:
+    ```bash
+    curl -X POST http://localhost:10000/api/memory/save \
+      -H "Content-Type: application/json" \
+      -d '{
+        "id": "memory/core/context.json",
+        "type": "note",
+        "version": 1,
+        "data": "Ключевые договорённости..."
+      }'
+    ```
+  - Чтение записи:
+    ```bash
+    curl -X POST http://localhost:10000/api/memory/read \
+      -H "Content-Type: application/json" \
+      -d '{
+        "id": "memory/core/context.json",
+        "type": "note",
+        "version": 1,
+        "data": {}
+      }'
+    ```
+    Возможные ответы:
+    - Запись найдена (JSON-файл): `{ "status": "success", "json": { "id": "context-core", ... } }`.
+    - Записи нет: `{ "ok": true, "data": null }`.
 - **Когда использовать:** сохранение/получение постоянной памяти, обновление индекса уроков, подготовка контекста для диалогов.
 
 ### /api/lessons — планы, ответы и версии

@@ -68,6 +68,15 @@ paths:
                 data:
                   type: object
                   description: Произвольное содержимое записи.
+                repo:
+                  type: string
+                  description: Полный URL GitHub-репозитория для сохранения.
+                userId:
+                  type: string
+                  description: Идентификатор пользователя, для которого сохраняется память.
+                token:
+                  type: string
+                  description: GitHub-токен (если не передаётся через заголовок Authorization).
             example:
               id: "memory/profile/user.json"
               type: message
@@ -75,6 +84,8 @@ paths:
               data:
                 name: Sofia
                 role: assistant
+              repo: "https://github.com/org/memory-repo"
+              userId: "sofia"
       responses:
         '200':
           description: Результат сохранения.
@@ -129,12 +140,22 @@ paths:
                 data:
                   type: object
                   description: Дополнительные параметры запроса чтения.
+                repo:
+                  type: string
+                  description: Полный URL GitHub-репозитория для чтения.
+                userId:
+                  type: string
+                  description: Идентификатор пользователя, для которого читается память.
+                token:
+                  type: string
+                  description: GitHub-токен (если не передаётся через заголовок Authorization).
             example:
               id: "memory/profile/user.json"
               type: message
               version: 1
               data:
                 includeMeta: true
+              userId: "sofia"
       responses:
         '200':
           description: Результат чтения.
