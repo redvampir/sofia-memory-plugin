@@ -1,5 +1,7 @@
 # Sofia Memory Plugin
 
+[![CI](https://github.com/redvampir/sofia-memory-plugin/actions/workflows/ci.yml/badge.svg)](https://github.com/redvampir/sofia-memory-plugin/actions/workflows/ci.yml)
+
 ## Позиционирование
 
 Sofia Memory Plugin работает как вспомогательный слой для LLM- или десктоп-агента: доступ к памяти идёт через REST API плагина, а сами данные хранятся в локальной папке или GitHub-репозитории.
@@ -18,6 +20,11 @@ Sofia Memory Plugin \u2014 это небольшой сервис на Node.js, 
 - Node.js 18+
 - npm 8+
 - Перед запуском обязательно задайте переменную окружения `TOKEN_SECRET` (длинная случайная строка, например `openssl rand -hex 32`). Без неё сервер аварийно завершится на старте, чтобы не хранить OAuth-токены в открытом виде.
+
+### Локальные моки GitHub для офлайн-запуска
+
+- Для интеграционных и локальных проверок можно поднять мок GitHub API: `node scripts/mock_github_api.js --port 9999`. Передайте `GITHUB_API_URL=http://localhost:9999`, чтобы все вызовы GitHub шли через локальный сервер.
+- CI-пайплайн прогоняет curl-запросы к `/ping`, `/api/memory/save`, `/api/memory/read`, `/api/system/status` и складывает ответы в артефакт `ci-integration-logs`.
 
 ## Режим памяти и GitHub PAT
 
