@@ -8,6 +8,11 @@ const app = express();
 
 app.use(express.json({ limit: '10mb' }));
 
+// === Маршрут ping (без авторизации) ===
+app.get('/ping', (_req, res) => {
+  res.json({ ok: true, message: 'pong' });
+});
+
 // === Middleware авторизации ===
 app.use((req, res, next) => {
   if (req.path.startsWith('/api')) {
@@ -19,7 +24,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// === Маршрут ping ===
+// === Маршрут ping под /api для обратной совместимости ===
 app.get('/api/ping', (_req, res) => {
   res.json({ ok: true, message: 'pong' });
 });
@@ -52,7 +57,7 @@ app.post('/api/saveMemory', (req, res) => {
 });
 
 // === Запуск сервера ===
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => console.log(`sofia-memory API running on port ${PORT}`));
 
 module.exports = app;
