@@ -3,7 +3,8 @@
   "version": "4.0.0",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js",
+    "start": "node server.js",
+    "start:legacy": "node index.js",
     "test": "node tests/runAll.js",
     "build:openapi": "node ./scripts/generate_openapi.js",
     "prepare:render": "node ./scripts/prepare_render.js",
