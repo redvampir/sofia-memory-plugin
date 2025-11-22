@@ -12,7 +12,7 @@ const index_manager = require('../logic/index_manager');
   assert.ok(err, 'expected error for directory path');
   assert.strictEqual(
     err.message,
-    'save_memory expects a file path, got directory: memory/'
+    'saveMemory expects a file path, got directory: memory/'
   );
   console.log('saveMemoryWithIndex directory path test passed');
 })();
