@@ -4,3 +4,12 @@ token.json
 .env
 memory/_backups/
 tests/tmp*/
+
+# ignore test-generated artifacts and local config
+memory/*.{bak,log}
+memory/tmp*/
+memory_backups/
+logs/
+config/.sofia/
+config/users/sofia.json
+config/users/default.json
