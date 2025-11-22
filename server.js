@@ -12,7 +12,7 @@ app.use(express.json());
 app.use('/.well-known', express.static(path.join(__dirname, '.well-known')));
 
 app.get('/ping', (_req, res) => {
-  res.json({ message: 'pong' });
+  res.json({ ok: true, message: 'pong' });
 });
 
 function resolveFileName(rawName) {
