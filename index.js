@@ -49,7 +49,7 @@ app.get('/ai-plugin.json', (_req, res) => {
   res.sendFile(path.join(__dirname, 'ai-plugin.json'));
 });
 app.get('/.well-known/openapi.yaml', (_req, res) => {
-  res.sendFile(path.join(__dirname, 'openapi.yaml'));
+  res.sendFile(path.join(__dirname, '.well-known', 'openapi.yaml'));
 });
 app.get('/.well-known/ai-plugin.json', (_req, res) => {
   res.sendFile(path.join(__dirname, 'ai-plugin.json'));
