@@ -41,16 +41,6 @@
       "priority": "low",
       "updated": "2024-01-01",
       "importance_score": 0
-    },
-    {
-      "title": "T24",
-      "file": "drafts/t24.md",
-      "tags": [
-        "t"
-      ],
-      "priority": "low",
-      "updated": "2024-01-01",
-      "importance_score": 0
     }
   ]
 }
