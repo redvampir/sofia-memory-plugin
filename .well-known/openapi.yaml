@@ -39,7 +39,8 @@ paths:
   /api/memory/save:
     post:
       summary: Сохранение заметки в памяти
-      description: Принимает текст заметки и привязывает его к пользователю.
+      description: Сохраняет переданный контент в файл памяти. Имя файла можно задать явно,
+        по умолчанию используется `memory.json`.
       operationId: saveMemory
       requestBody:
         required: true
@@ -47,19 +48,23 @@ paths:
           application/json:
             schema:
               type: object
-              required: [text]
+              required: [content]
               properties:
-                userId:
+                fileName:
                   type: string
-                  description: Идентификатор пользователя (по умолчанию "default" если не передан).
-                text:
-                  type: string
-                  description: Текст заметки для сохранения.
+                  description: Имя файла для сохранения (например, `note.json`).
+                content:
+                  oneOf:
+                    - type: string
+                      description: Текстовое содержимое файла.
+                    - type: object
+                      description: Любой JSON-объект; будет сериализован при записи.
+                  description: Содержимое файла.
             examples:
               default:
                 value:
-                  userId: default
-                  text: "Запомни, что доклад в пятницу в 15:00"
+                  fileName: memory.json
+                  content: "Запомни, что доклад в пятницу в 15:00"
       responses:
         '200':
           description: Заметка сохранена.
@@ -67,25 +72,25 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [status, message]
+                required: [status, file]
                 properties:
                   status:
                     type: string
                     description: Статус обработки запроса.
-                  message:
+                  file:
                     type: string
-                    description: Текстовое подтверждение сохранения.
+                    description: Имя сохранённого файла.
               examples:
                 success:
                   value:
                     status: ok
-                    message: "Заметка добавлена"
+                    file: memory.json
         '400':
           description: Некорректные данные запроса.
   /api/memory/read:
     post:
-      summary: Чтение заметок из памяти
-      description: Возвращает сохранённые записи для пользователя, отфильтрованные по запросу.
+      summary: Чтение заметки из памяти
+      description: Возвращает сохранённый файл по имени. Если имя не передано, используется `memory.json`.
       operationId: readMemory
       requestBody:
         required: true
@@ -94,50 +99,37 @@ paths:
             schema:
               type: object
               properties:
-                userId:
+                fileName:
                   type: string
-                  description: Идентификатор пользователя (по умолчанию "default" если не передан).
-                query:
-                  type: string
-                  description: Произвольный текст запроса для поиска релевантных заметок.
+                  description: Имя файла для чтения.
             examples:
               simple:
                 value:
-                  userId: default
-                  query: "Когда доклад?"
+                  fileName: memory.json
       responses:
         '200':
-          description: Подходящие записи найдены и возвращены.
+          description: Файл найден и возвращён.
           content:
             application/json:
               schema:
                 type: object
-                required: [status, items]
+                required: [status, file, content]
                 properties:
                   status:
                     type: string
                     description: Статус обработки запроса.
-                  items:
-                    type: array
-                    description: Список найденных заметок.
-                    items:
-                      type: object
-                      required: [text]
-                      properties:
-                        text:
-                          type: string
-                          description: Текст сохранённой заметки.
-                        score:
-                          type: number
-                          format: float
-                          description: Релевантность записи запросу (если доступна).
+                  file:
+                    type: string
+                    description: Имя файла.
+                  content:
+                    type: string
+                    description: Содержимое файла в текстовом виде.
               examples:
                 result:
                   value:
                     status: ok
-                    items:
-                      - text: "Доклад в пятницу в 15:00"
-                        score: 0.92
+                    file: memory.json
+                    content: "Доклад в пятницу в 15:00"
         '404':
-          description: Соответствующие записи не найдены.
+          description: Файл не найден.
 components: {}
