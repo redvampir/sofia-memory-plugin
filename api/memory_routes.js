@@ -31,6 +31,9 @@ const { load_memory_to_context, load_context_from_index } = require('../src/memo
 const logger = require('../utils/logger');
 const { restoreContext } = require('../utils/restore_context');
 const { resolveUserId, getDefaultUserId } = require('../utils/default_user');
+const LOCAL_ADMIN_TOKEN =
+  process.env.ADMIN_TOKEN || process.env.LOCAL_API_TOKEN || process.env.DEBUG_ADMIN_TOKEN || '';
+const ALLOW_INSECURE_LOCAL = process.env.ALLOW_INSECURE_LOCAL === '1';
 
 function maskValue(value) {
   if (!value) return undefined;
@@ -121,6 +124,42 @@ function createResponder(req, res) {
     });
     return res.status(statusCode).json(body);
   };
+}
+
+function methodNotAllowed(res, allowedMethods) {
+  const allow = Array.isArray(allowedMethods) ? allowedMethods : [allowedMethods];
+  res.setHeader('Allow', allow.join(', '));
+  return res
+    .status(405)
+    .json({ status: 'error', message: `Method not allowed. Use ${allow.join(', ')}.` });
+}
+
+function extractAdminToken(req) {
+  const header = req.header('x-admin-token') || req.header('authorization');
+  if (!header) return '';
+  return header.startsWith('Bearer ') ? header.slice('Bearer '.length) : header;
+}
+
+function validateLocalAuth(req) {
+  if (ALLOW_INSECURE_LOCAL) return { ok: true };
+  if (!LOCAL_ADMIN_TOKEN) {
+    logger.error('[auth] ADMIN_TOKEN/LOCAL_API_TOKEN/DEBUG_ADMIN_TOKEN is not set');
+    return { ok: false, status: 500, message: 'Admin token is not configured on the server' };
+  }
+  const provided = extractAdminToken(req);
+  if (!provided || provided !== LOCAL_ADMIN_TOKEN) {
+    return { ok: false, status: 401, message: 'Unauthorized: missing or invalid admin token' };
+  }
+  return { ok: true };
+}
+
+function ensureLocalAuth(req, res, respond) {
+  const verdict = validateLocalAuth(req);
+  if (!verdict.ok) {
+    respond(false, verdict.message, verdict.status || 401);
+    return false;
+  }
+  return true;
 }
 
 function normalizeMemoryBody(body = {}) {
@@ -237,6 +276,10 @@ async function saveMemory(req, res) {
   const { repo, filename, content, userId } = normalizeMemoryBody(req.body);
   const token = await extractToken(req);
   const { repo: effectiveRepo, token: effectiveToken } = await getRepoInfo(filename, userId, repo, token);
+
+  if (!effectiveRepo) {
+    if (!ensureLocalAuth(req, res, respond)) return;
+  }
 
   if (!filename || content === undefined) {
     return respond(false, 'Не хватает обязательных полей: id/filename или data/content.');
@@ -695,6 +738,10 @@ async function read(req, res) {
 router.post('/save', save);
 router.post('/saveMemory', saveMemory);
 router.post('/readMemory', readMemory);
+router.get('/api/saveMemory', (req, res) => methodNotAllowed(res, ['POST']));
+router.post('/api/saveMemory', saveMemory);
+router.get('/api/readMemory', readMemoryGET);
+router.post('/api/readMemory', readMemory);
 router.post('/read', read);
 router.post('/readFile', readFileRoute);
 router.get('/memory', readMemoryGET);
@@ -723,6 +770,13 @@ router.post('/saveLessonPlan', saveLessonPlan);
 async function saveMemoryWithIndexRoute(req, res) {
   const { userId, repo, token, filename, content } = req.body;
   const { repo: effectiveRepo, token: effectiveToken } = await getRepoInfo(filename, userId, repo, token || await extractToken(req));
+  if (!effectiveRepo) {
+    const verdict = validateLocalAuth(req);
+    if (!verdict.ok) {
+      const status = verdict.status || 401;
+      return res.status(status).json({ status: 'error', message: verdict.message });
+    }
+  }
   if (effectiveRepo) {
     if (!effectiveToken) {
       return res.status(401).json({ status: 'error', message: 'Missing GitHub token' });

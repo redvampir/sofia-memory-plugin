@@ -11,6 +11,8 @@ if (!process.env.TOKEN_SECRET) {
   console.warn('[tests] TOKEN_SECRET не задан, используется тестовый ключ');
 }
 
+process.env.ALLOW_INSECURE_LOCAL = '1';
+
 const testDir = __dirname;
 
 const files = [];

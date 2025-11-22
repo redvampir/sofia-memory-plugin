@@ -39,6 +39,25 @@ curl -i \
 - При необходимости смените `filename` на уникальное, чтобы не затирать существующие записи.
 - Если сервер долго отвечает, повторите запрос после паузы: хостинг на Render иногда прогревается 10–20 секунд.
 
+### Защищённый локальный доступ (admin token)
+
+В локальной/тестовой среде сохранение в локальное файловое хранилище требует проверки прав администратора. Сервер ожидает один из заголовков:
+
+- Authorization: Bearer <ADMIN_TOKEN>
+- X-Admin-Token: <ADMIN_TOKEN>
+
+Пример (PowerShell / curl):
+
+```powershell
+$env:ADMIN_TOKEN = 'your-admin-token-here'
+curl -i -X POST http://localhost:10000/api/saveMemory \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $env:ADMIN_TOKEN" \
+  -d '{"filename":"test_memory.json","data":"тест"}'
+```
+
+Если тестовый флаг `ALLOW_INSECURE_LOCAL=1` установлен (только для CI/tests), проверка будет пропущена — **не** оставляйте этот флаг включённым в production.
+
 ## 5. Фиксация результата
 - Если пришёл `{"status":"ok","file":"test_memory.json"}`, тест успешен.
 - Если получена ошибка: сохраните `response.text`, сверите ключи и заголовки, повторите запрос с корректировкой.
