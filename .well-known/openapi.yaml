@@ -88,24 +88,17 @@ paths:
         '400':
           description: Некорректные данные запроса.
   /api/memory/read:
-    post:
+    get:
       summary: Чтение заметки из памяти
-      description: Возвращает сохранённый файл по имени. Если имя не передано, используется `memory.json`.
+      description: Возвращает содержимое сохранённого файла. Если имя не передано, используется `memory.json`.
       operationId: readMemory
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                fileName:
-                  type: string
-                  description: Имя файла для чтения.
-            examples:
-              simple:
-                value:
-                  fileName: memory.json
+      parameters:
+        - in: query
+          name: fileName
+          required: false
+          schema:
+            type: string
+          description: Имя файла для чтения (по умолчанию `memory.json`).
       responses:
         '200':
           description: Файл найден и возвращён.
@@ -132,4 +125,36 @@ paths:
                     content: "Доклад в пятницу в 15:00"
         '404':
           description: Файл не найден.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, message]
+                properties:
+                  status:
+                    type: string
+                    description: Код статуса ответа.
+                  message:
+                    type: string
+                    description: Детали ошибки.
+              example:
+                status: not_found
+                message: Файл не найден
+        '500':
+          description: Ошибка чтения файла.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, message]
+                properties:
+                  status:
+                    type: string
+                    description: Код статуса ответа.
+                  message:
+                    type: string
+                    description: Детали ошибки.
+              example:
+                status: error
+                message: Не удалось прочитать файл
 components: {}
