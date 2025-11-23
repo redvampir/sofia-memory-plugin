@@ -16,9 +16,8 @@ app.get('/ping', (_req, res) => {
 // === Middleware авторизации ===
 app.use((req, res, next) => {
   if (req.path.startsWith('/api')) {
-    const token = req.headers.authorization?.replace('Bearer ', '').trim();
-    if (token !== process.env.ADMIN_TOKEN) {
-      return res.status(401).json({ error: 'Unauthorized: invalid admin token' });
+    if (!process.env.GITHUB_TOKEN) {
+      return res.status(401).json({ error: 'Unauthorized: invalid GitHub token' });
     }
   }
   next();
