@@ -31,8 +31,7 @@ const { load_memory_to_context, load_context_from_index } = require('../src/memo
 const logger = require('../utils/logger');
 const { restoreContext } = require('../utils/restore_context');
 const { resolveUserId, getDefaultUserId } = require('../utils/default_user');
-const LOCAL_ADMIN_TOKEN =
-  process.env.ADMIN_TOKEN || process.env.LOCAL_API_TOKEN || process.env.DEBUG_ADMIN_TOKEN || '';
+const LOCAL_GITHUB_TOKEN = process.env.GITHUB_TOKEN || '';
 const ALLOW_INSECURE_LOCAL = process.env.ALLOW_INSECURE_LOCAL === '1';
 
 function maskValue(value) {
@@ -134,21 +133,11 @@ function methodNotAllowed(res, allowedMethods) {
     .json({ status: 'error', message: `Method not allowed. Use ${allow.join(', ')}.` });
 }
 
-function extractAdminToken(req) {
-  const header = req.header('x-admin-token') || req.header('authorization');
-  if (!header) return '';
-  return header.startsWith('Bearer ') ? header.slice('Bearer '.length) : header;
-}
-
 function validateLocalAuth(req) {
   if (ALLOW_INSECURE_LOCAL) return { ok: true };
-  if (!LOCAL_ADMIN_TOKEN) {
-    logger.error('[auth] ADMIN_TOKEN/LOCAL_API_TOKEN/DEBUG_ADMIN_TOKEN is not set');
-    return { ok: false, status: 500, message: 'Admin token is not configured on the server' };
-  }
-  const provided = extractAdminToken(req);
-  if (!provided || provided !== LOCAL_ADMIN_TOKEN) {
-    return { ok: false, status: 401, message: 'Unauthorized: missing or invalid admin token' };
+  if (!LOCAL_GITHUB_TOKEN) {
+    logger.error('[auth] GITHUB_TOKEN is not set for local mode');
+    return { ok: false, status: 401, message: 'Некорректный GitHub token' };
   }
   return { ok: true };
 }

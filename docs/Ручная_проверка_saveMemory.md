@@ -39,20 +39,16 @@ curl -i \
 - При необходимости смените `filename` на уникальное, чтобы не затирать существующие записи.
 - Если сервер долго отвечает, повторите запрос после паузы: хостинг на Render иногда прогревается 10–20 секунд.
 
-### Защищённый локальный доступ (admin token)
+### Защищённый локальный доступ (проверка `GITHUB_TOKEN`)
 
-В локальной/тестовой среде сохранение в локальное файловое хранилище требует проверки прав администратора. Сервер ожидает один из заголовков:
-
-- Authorization: Bearer <ADMIN_TOKEN>
-- X-Admin-Token: <ADMIN_TOKEN>
+В локальной/тестовой среде сохранение в локальное файловое хранилище требует только наличия переменной окружения `GITHUB_TOKEN`. Заголовки `Authorization`/`X-Admin-Token` больше не используются.
 
 Пример (PowerShell / curl):
 
 ```powershell
-$env:ADMIN_TOKEN = 'your-admin-token-here'
+$env:GITHUB_TOKEN = 'ghp_xxx'  # токен нужен только как факт наличия
 curl -i -X POST http://localhost:10000/api/saveMemory \
   -H 'Content-Type: application/json' \
-  -H "Authorization: Bearer $env:ADMIN_TOKEN" \
   -d '{"filename":"test_memory.json","data":"тест"}'
 ```
 
