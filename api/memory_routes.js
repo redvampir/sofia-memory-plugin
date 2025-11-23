@@ -159,10 +159,13 @@ function normalizeMemoryBody(body = {}) {
     data,
     filename,
     content,
+    fileName,
+    file_path,
+    filePath,
     ...rest
   } = body || {};
 
-  const normalizedFilename = filename || id;
+  const normalizedFilename = filename || fileName || filePath || file_path || id;
   let normalizedContent = content;
 
   if (normalizedContent === undefined && data !== undefined) {
