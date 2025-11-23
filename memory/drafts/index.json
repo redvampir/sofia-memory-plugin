@@ -1,5 +1,76 @@
 {
   "type": "index-branch",
   "category": "drafts",
-  "files": []
+  "files": [
+    {
+      "title": "T20",
+      "file": "drafts/t20.md",
+      "tags": [
+        "t"
+      ],
+      "priority": "low",
+      "updated": "2024-01-01",
+      "importance_score": 0
+    },
+    {
+      "title": "T21",
+      "file": "drafts/t21.md",
+      "tags": [
+        "t"
+      ],
+      "priority": "low",
+      "updated": "2024-01-01",
+      "importance_score": 0
+    },
+    {
+      "title": "T22",
+      "file": "drafts/t22.md",
+      "tags": [
+        "t"
+      ],
+      "priority": "low",
+      "updated": "2024-01-01",
+      "importance_score": 0
+    },
+    {
+      "title": "T23",
+      "file": "drafts/t23.md",
+      "tags": [
+        "t"
+      ],
+      "priority": "low",
+      "updated": "2024-01-01",
+      "importance_score": 0
+    },
+    {
+      "title": "T24",
+      "file": "drafts/t24.md",
+      "tags": [
+        "t"
+      ],
+      "priority": "low",
+      "updated": "2024-01-01",
+      "importance_score": 0
+    },
+    {
+      "title": "T25",
+      "file": "drafts/t25.md",
+      "tags": [
+        "t"
+      ],
+      "priority": "low",
+      "updated": "2024-01-01",
+      "importance_score": 0
+    },
+    {
+      "title": "T26",
+      "file": "drafts/t26.md",
+      "tags": [
+        "t"
+      ],
+      "priority": "low",
+      "updated": "2024-01-01",
+      "importance_score": 0
+    }
+  ]
 }

@@ -11,6 +11,30 @@
       "importance_score": 0
     },
     {
+      "context_priority": "high",
+      "last_accessed": "2025-11-23T14:56:57.530Z",
+      "access_count": 0,
+      "edit_count": 0,
+      "pinned": false,
+      "importance_score": 0,
+      "title": "Tmp Recover",
+      "type": "markdown",
+      "lastModified": "2025-11-23T14:56:57.530Z",
+      "file": "lessons/tmp_recover.md"
+    },
+    {
+      "context_priority": "high",
+      "last_accessed": "2025-11-23T14:59:25.986Z",
+      "access_count": 0,
+      "edit_count": 0,
+      "pinned": false,
+      "importance_score": 0,
+      "title": "Tmp Dynamic 1763909965950",
+      "type": "markdown",
+      "lastModified": "2025-11-23T14:59:25.986Z",
+      "file": "lessons/tmp_dynamic_1763909965950.md"
+    },
+    {
       "title": "Intro Lesson",
       "file": "lessons/intro.md",
       "tags": [

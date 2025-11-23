@@ -274,22 +274,23 @@ async function saveMemory(req, res) {
   }
 
   if (!filename || content === undefined) {
-    return respond(false, 'Не хватает обязательных полей: id/filename или data/content.');
+    return respond(false, '?? ??????? ???????????? ?????: id/filename ??? data/content.');
   }
 
-  if (effectiveRepo) {
+  const needsGithub = Boolean(effectiveRepo);
+  if (needsGithub) {
     if (!effectiveToken) {
-      return respond(false, 'Отсутствует GitHub token');
+      return respond(false, '??????????? GitHub token');
     }
     try {
       const check = await github.validateToken(effectiveToken);
       if (!check.valid) {
-        return respond(false, 'Некорректный GitHub token');
+        return respond(false, '???????????? GitHub token');
       }
     } catch (e) {
       logger.error('[saveMemory validateToken]', e.stack || e.message);
       logError('validateToken', e);
-      return respond(false, 'Некорректный GitHub token');
+      return respond(false, '???????????? GitHub token');
     }
     try {
       const { exists, status } = await github.repoExistsSafe(
@@ -298,19 +299,19 @@ async function saveMemory(req, res) {
       );
       if (!exists) {
         if (status === 401) {
-          return respond(false, 'Некорректный GitHub token');
+          return respond(false, '???????????? GitHub token');
         }
         if (status === 403) {
-          return respond(false, 'Недостаточно прав для репозитория.');
+          return respond(false, '?????? ???????? ? ???????????.');
         }
         const unavailable = status === 503 ? 503 : 200;
-        return respond(false, 'Репозиторий не найден.', unavailable);
+        return respond(false, '??????????? ??????????.', unavailable);
       }
     } catch (e) {
       logger.error('[saveMemory repoExistsSafe]', e.stack || e.message);
       logError('repoExists', e);
       const unavailable = e.status === 503 ? 503 : 200;
-      return respond(false, 'Репозиторий не найден.', unavailable);
+      return respond(false, '??????????? ??????????.', unavailable);
     }
   }
 
@@ -320,6 +321,7 @@ async function saveMemory(req, res) {
 
   let finalContent = content;
   const isMarkdown = normalizedFilename.endsWith('.md');
+  const isJson = normalizedFilename.endsWith('.json');
   if (isMarkdown) {
     try {
       let existing = '';
@@ -347,16 +349,10 @@ async function saveMemory(req, res) {
     }
   }
 
-  if (filename.trim().endsWith('.json')) {
-    let data;
+  let handledAsJson = false;
+  if (isJson) {
     try {
-      data = JSON.parse(content);
-    } catch (e) {
-      logger.error('[saveMemory parse json]', e.stack || e.message);
-      logError('saveMemory invalid JSON', e);
-      return respond(false, 'Невалидный JSON');
-    }
-    try {
+      const data = typeof finalContent === 'string' ? JSON.parse(finalContent) : finalContent;
       await updateOrInsertJsonEntry(
         filePath,
         data,
@@ -364,12 +360,15 @@ async function saveMemory(req, res) {
         effectiveRepo,
         effectiveToken
       );
+      handledAsJson = true;
     } catch (e) {
-      logger.error('[saveMemory updateOrInsertJsonEntry]', e.stack || e.message);
-      const unavailable = e.status === 503 ? 503 : 200;
-      return respond(false, { error: e.message, details: e.githubMessage }, unavailable);
+      logger.warn('[saveMemory json fallback]', e.message || e.stack);
+      logError('saveMemory invalid JSON, fallback to text', e);
+      handledAsJson = false;
     }
-  } else {
+  }
+
+  if (!handledAsJson) {
     try {
       await writeFileSafe(filePath, finalContent);
     } catch (e) {
@@ -378,10 +377,7 @@ async function saveMemory(req, res) {
       return respond(false, { error: e.message, details: e.githubMessage }, unavailable);
     }
 
-    if (effectiveRepo) {
-      if (!effectiveToken) {
-        return respond(false, 'Отсутствует GitHub token');
-      }
+    if (needsGithub) {
       const access = checkAccess(normalizedFilename, 'write');
       if (!access.allowed) {
         logError('access denied', new Error(access.message));
