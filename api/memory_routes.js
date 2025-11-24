@@ -362,7 +362,7 @@ async function saveMemory(req, res) {
       );
       handledAsJson = true;
     } catch (e) {
-      logger.warn('[saveMemory json fallback]', e.message || e.stack);
+      logger.info('[saveMemory json fallback]', e.message || e.stack);
       logError('saveMemory invalid JSON, fallback to text', e);
       handledAsJson = false;
     }

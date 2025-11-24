@@ -51,26 +51,6 @@
       "priority": "low",
       "updated": "2024-01-01",
       "importance_score": 0
-    },
-    {
-      "title": "T25",
-      "file": "drafts/t25.md",
-      "tags": [
-        "t"
-      ],
-      "priority": "low",
-      "updated": "2024-01-01",
-      "importance_score": 0
-    },
-    {
-      "title": "T26",
-      "file": "drafts/t26.md",
-      "tags": [
-        "t"
-      ],
-      "priority": "low",
-      "updated": "2024-01-01",
-      "importance_score": 0
     }
   ]
 }

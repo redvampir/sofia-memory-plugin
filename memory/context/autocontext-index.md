@@ -7,4 +7,5 @@ files:
   - memory/lessons/intro.md
   - memory/answers/vector_basics.md
   - memory/notes/setup_instructions.md
+  - memory/lessons/tmp_recover.md
 ---
