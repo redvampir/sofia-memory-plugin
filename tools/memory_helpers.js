@@ -7,6 +7,10 @@ const { normalize_memory_path } = require('./file_utils');
 const { detect_markdown_category } = require('../logic/markdown_category');
 const { resolveUserId, getDefaultUserId } = require('../utils/default_user');
 
+const DEFAULT_MEMORY_REPO =
+  process.env.DEFAULT_MEMORY_REPO || 'https://github.com/redvampir/Memori_LLV.git';
+const DEFAULT_MEMORY_TOKEN = process.env.DEFAULT_MEMORY_TOKEN || null;
+
 const DEBUG = process.env.DEBUG === 'true';
 
 function logDebug(...args) {
@@ -31,6 +35,12 @@ async function getRepoInfo(relPath, userId, repoOverride, tokenOverride) {
 
   if (!repo) repo = await memory_config.getRepoUrl(resolvedUserId);
   if (!token) token = await token_store.getToken(resolvedUserId);
+
+  // Fallback: используем дефолтный репозиторий, если пользователь ничего не задал
+  if (!repo) repo = DEFAULT_MEMORY_REPO;
+  if (!token && repo === DEFAULT_MEMORY_REPO && DEFAULT_MEMORY_TOKEN) {
+    token = DEFAULT_MEMORY_TOKEN;
+  }
 
   return { repo, token };
 }

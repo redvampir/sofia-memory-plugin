@@ -1,7 +1,19 @@
 {
   "name": "sofia-plugin",
   "version": "4.0.0",
+  "description": "HTTP-сервис для долговременной памяти ассистента с хранением локально или в GitHub.",
+  "license": "MIT",
+  "author": "redvampir",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/redvampir/sofia-memory-plugin"
+  },
+  "homepage": "https://github.com/redvampir/sofia-memory-plugin#readme",
+  "bugs": {
+    "url": "https://github.com/redvampir/sofia-memory-plugin/issues"
+  },
   "main": "index.js",
+  "private": false,
   "scripts": {
     "start": "node server.js",
     "start:legacy": "node index.js",
@@ -28,5 +40,8 @@
   "devDependencies": {
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
+  },
+  "engines": {
+    "node": ">=18"
   }
 }

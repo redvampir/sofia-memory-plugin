@@ -11,8 +11,11 @@ files:
   - memory/lessons/intro.md
   - memory/answers/vector_basics.md
   - memory/notes/setup_instructions.md
+  - memory/lessons/tmp_recover.md
 ---
 
-Intro Lesson
+# Урок: вводная
+
+Заглушка для дальнейшего наполнения. Заполните этот файл реальным содержанием урока.
 
 Setup instructions note
