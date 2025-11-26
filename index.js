@@ -179,13 +179,13 @@ app.get('/docs', (req, res) => {
         "GET /token/status",
         "GET /readContext",
         "POST /saveContext",
-      "POST /version/commit",
-      "POST /version/rollback",
-      "POST /version/list",
-      "POST /list",
-      "POST /updateIndex",
-      "POST /github/repos",
-      "POST /github/repository",
+        "POST /version/commit",
+        "POST /version/rollback",
+        "POST /version/list",
+        "POST /list",
+        "POST /updateIndex",
+        "POST /github/repos",
+        "POST /github/repository",
         "POST /github/file",
         "GET /api/meta",
         "POST /chat/setup",
@@ -193,6 +193,40 @@ app.get('/docs', (req, res) => {
         "GET /debug/index",
         "GET /ping",
         "GET /docs"
-      ]
+      ],
+      meta: {
+        endpoint: 'GET /api/meta',
+        description: 'Возвращает список метаданных заметок из data/meta_index.json с фильтрами, сортировкой и пагинацией.',
+        params: {
+          date: 'ISO 8601, нижняя граница даты (>=), пример: 2024-01-01T00:00:00Z',
+          tags: 'Один или несколько тегов через запятую или несколькими параметрами. Совпадение по любому тегу.',
+          authors: 'Аналогично tags: фильтрация по авторам с совпадением хотя бы одного значения.',
+          page: 'Номер страницы, целое >= 1. По умолчанию 1.',
+          limit: 'Размер страницы, положительное целое. Максимум 200 — всё большее будет обрезано.',
+          sort: 'Поле сортировки: date (по умолчанию) или title.',
+          order: 'Направление сортировки: desc (по умолчанию) или asc.'
+        },
+        filtering: [
+          'По date возвращаются записи не раньше указанной даты',
+          'По tags и authors запись проходит, если совпадает хотя бы один элемент',
+          'Пагинация задаётся параметрами page и limit, сортировка — sort и order'
+        ],
+        example: {
+          request: 'GET /api/meta?tags=meeting,notes&date=2024-01-01T00:00:00Z&page=1&limit=2&sort=title&order=asc',
+          response: {
+            ok: true,
+            total: 12,
+            page: 1,
+            pageSize: 2,
+            sortBy: 'title',
+            order: 'asc',
+            items: [
+              { title: 'Daily notes', date: '2024-02-01T10:00:00Z', tags: ['meeting'], authors: ['alex'] },
+              { title: 'Design review', date: '2024-01-15T12:00:00Z', tags: ['notes'], authors: ['kate'] }
+            ]
+          }
+        },
+        docs: 'Подробности: docs/memory-api.md#get-apimeta'
+      }
   });
 });
