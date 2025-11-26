@@ -33,6 +33,7 @@ const { restoreContext } = require('../utils/restore_context');
 const { resolveUserId, getDefaultUserId } = require('../utils/default_user');
 const LOCAL_GITHUB_TOKEN = process.env.GITHUB_TOKEN || '';
 const ALLOW_INSECURE_LOCAL = process.env.ALLOW_INSECURE_LOCAL === '1';
+const index_tree = require('../tools/index_tree');
 
 function maskValue(value) {
   if (!value) return undefined;
@@ -530,6 +531,20 @@ function readMemoryGET(req, res) {
   return readMemory(req, res);
 }
 
+function listMemoryEntries(req, res) {
+  logRequest(req);
+  const respond = createResponder(req, res);
+  try {
+    const entries = index_tree.listAllEntries
+      ? index_tree.listAllEntries()
+      : [];
+    return respond(true, { entries });
+  } catch (e) {
+    logger.error('[listMemoryEntries]', e.stack || e.message);
+    return respond(false, e.message || 'Failed to list entries', 500);
+  }
+}
+
 async function saveLessonPlan(req, res) {
   const { title, plannedLessons, repo, userId } = req.body;
   const token = await extractToken(req);
@@ -730,6 +745,8 @@ router.get('/api/saveMemory', (req, res) => methodNotAllowed(res, ['POST']));
 router.post('/api/saveMemory', saveMemory);
 router.get('/api/readMemory', readMemoryGET);
 router.post('/api/readMemory', readMemory);
+router.get('/api/memory/read', readMemoryGET);
+router.get('/api/memory/list', listMemoryEntries);
 router.post('/read', read);
 router.post('/readFile', readFileRoute);
 router.get('/memory', readMemoryGET);
