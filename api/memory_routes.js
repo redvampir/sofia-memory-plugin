@@ -527,6 +527,7 @@ function readMemoryGET(req, res) {
     filename: req.query.filename,
     userId: req.query.userId,
     token: req.query.token,
+    limit: req.query.limit,
   };
   return readMemory(req, res);
 }
@@ -543,6 +544,57 @@ function listMemoryEntries(req, res) {
     logger.error('[listMemoryEntries]', e.stack || e.message);
     return respond(false, e.message || 'Failed to list entries', 500);
   }
+}
+
+async function readMemoryPreview(req, res) {
+  logRequest(req);
+  const respond = createResponder(req, res);
+
+  const { repo, filename, userId, limit } = normalizeMemoryBody(req.body);
+  const token = await extractToken(req);
+  const { repo: effectiveRepo, token: effectiveToken } = await getRepoInfo(filename, userId, repo, token);
+  const normalizedFilename = normalize_memory_path(filename);
+  const previewLimit = Math.max(1, parseInt(limit, 10) || 1000);
+
+  const isJson = normalizedFilename.endsWith('.json');
+  let content = '';
+
+  try {
+    if (effectiveRepo) {
+      if (!effectiveToken) {
+        return respond(false, 'Missing GitHub token', 401);
+      }
+      content = await github.readFile(effectiveToken, effectiveRepo, normalizedFilename);
+    } else {
+      const filePath = path.join(__dirname, '..', normalizedFilename);
+      if (!fs.existsSync(filePath)) {
+        return respond(false, 'File not found', 404);
+      }
+      content = fs.readFileSync(filePath, 'utf-8');
+    }
+  } catch (e) {
+    logger.error('[readMemoryPreview]', e.stack || e.message);
+    const code = e.status === 404 ? 404 : e.status || 500;
+    return respond(false, { error: e.message, details: e.githubMessage }, code);
+  }
+
+  const totalLength = content.length;
+  const preview = content.slice(0, previewLimit);
+  let json = null;
+  if (isJson) {
+    try {
+      json = JSON.parse(preview);
+    } catch {
+      json = null;
+    }
+  }
+
+  return respond(true, {
+    preview,
+    totalLength,
+    truncated: totalLength > previewLimit,
+    jsonPreview: json,
+  });
 }
 
 async function saveLessonPlan(req, res) {
@@ -747,6 +799,7 @@ router.get('/api/readMemory', readMemoryGET);
 router.post('/api/readMemory', readMemory);
 router.get('/api/memory/read', readMemoryGET);
 router.get('/api/memory/list', listMemoryEntries);
+router.post('/api/memory/preview', readMemoryPreview);
 router.post('/read', read);
 router.post('/readFile', readFileRoute);
 router.get('/memory', readMemoryGET);
