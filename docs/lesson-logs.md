@@ -77,3 +77,6 @@ curl "http://localhost:10000/lesson/today?status=done"
 ```json
 { "ok": true, "statuses": ["planned", "in_progress", "done", "skipped", "failed"] }
 ```
+
+## Дальнейшие улучшения
+Предложения (со здравым скепсисом) по развитию инструмента вынесены в файл [docs/предложения-по-журналу-уроков.md](./предложения-по-журналу-уроков.md).
