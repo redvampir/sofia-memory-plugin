@@ -22,6 +22,7 @@ const memory_routes = require("./api/memory_routes");
 const github_routes = require("./api/github_routes");
 const mode_routes = require("./api/mode_routes");
 const meta_routes = require('./api/meta_routes');
+const lesson_routes = require('./api/lesson_routes');
 const { listMemoryFiles } = require("./logic/memory_operations");
 const memoryRoutesV2 = require('./api/memory_v2');
 const versioning = require('./versioning');
@@ -61,6 +62,7 @@ app.use(memoryRoutesV2);
 app.use(github_routes);
 app.use(mode_routes);
 app.use(meta_routes);
+app.use(lesson_routes);
 
 app.post('/switch_memory_repo', async (req, res) => {
   const { type, path, userId } = req.body;
@@ -188,6 +190,9 @@ app.get('/docs', (req, res) => {
         "POST /github/repository",
         "POST /github/file",
         "GET /api/meta",
+        "POST /lesson/log",
+        "GET /lesson/today",
+        "GET /lesson/statuses",
         "POST /chat/setup",
         "GET /profile",
         "GET /debug/index",
@@ -227,6 +232,36 @@ app.get('/docs', (req, res) => {
           }
         },
         docs: 'Подробности: docs/memory-api.md#get-apimeta'
+      },
+      lessons: {
+        log: {
+          endpoint: 'POST /lesson/log',
+          description: 'Создаёт или обновляет запись о ходе урока в data/lessons.json с проверкой полей и блокировкой файла.',
+          body: {
+            lesson_id: 'Строка-идентификатор урока (обязательно).',
+            date: 'Полный ISO UTC штамп (пример: 2024-05-01T00:00:00.000Z).',
+            status: 'Статус из списка: planned, in_progress, done, skipped, failed.',
+            score: 'Число от 0 до 1 (точность выполнения).',
+            notes: 'Необязательная строка с заметками.'
+          },
+          response: { ok: true },
+          docs: 'Подробности: docs/lesson-logs.md#post-lessonlog'
+        },
+        today: {
+          endpoint: 'GET /lesson/today',
+          description: 'Возвращает записи за текущую UTC-дату с опциональной фильтрацией по статусу.',
+          params: {
+            status: 'Необязательный статус из перечисления planned, in_progress, done, skipped, failed.'
+          },
+          response: { ok: true, items: '[...]' },
+          docs: 'Подробности: docs/lesson-logs.md#get-lessontoday'
+        },
+        statuses: {
+          endpoint: 'GET /lesson/statuses',
+          description: 'Служебный список допустимых статусов для валидации на клиенте.',
+          response: { ok: true, statuses: '[...]' },
+          docs: 'Подробности: docs/lesson-logs.md#get-lessonstatuses'
+        }
       }
   });
 });
