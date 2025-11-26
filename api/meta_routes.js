@@ -1,5 +1,5 @@
 const express = require('express');
-const fs = require('fs');
+const fs = require('fs/promises');
 const path = require('path');
 
 const router = express.Router();
@@ -9,23 +9,43 @@ const META_INDEX_PATH = path.join(META_DIR, 'meta_index.json');
 const DEFAULT_PAGE_SIZE = 50;
 const MAX_PAGE_SIZE = 200;
 
-function ensureMetaIndex() {
-  if (!fs.existsSync(META_DIR)) {
-    fs.mkdirSync(META_DIR, { recursive: true });
-  }
-  if (!fs.existsSync(META_INDEX_PATH)) {
-    fs.writeFileSync(META_INDEX_PATH, '[]', 'utf-8');
+let metaIndexCache = null;
+
+async function ensureMetaIndex() {
+  await fs.mkdir(META_DIR, { recursive: true });
+  try {
+    await fs.access(META_INDEX_PATH);
+  } catch (err) {
+    if (err && err.code !== 'ENOENT') {
+      err.status = 500;
+      throw err;
+    }
+    await fs.writeFile(META_INDEX_PATH, '[]', 'utf-8');
   }
 }
 
-function readMetaIndex() {
-  ensureMetaIndex();
-  const raw = fs.readFileSync(META_INDEX_PATH, 'utf-8');
+async function readMetaIndex() {
+  await ensureMetaIndex();
+  let stats;
+  try {
+    stats = await fs.stat(META_INDEX_PATH);
+  } catch (err) {
+    const error = new Error(`Не удалось прочитать meta_index.json: ${err.message}`);
+    error.status = 500;
+    throw error;
+  }
+
+  if (metaIndexCache && metaIndexCache.mtimeMs === stats.mtimeMs) {
+    return metaIndexCache.data;
+  }
+
+  const raw = await fs.readFile(META_INDEX_PATH, 'utf-8');
   try {
     const data = JSON.parse(raw);
     if (!Array.isArray(data)) {
       throw new Error('meta_index.json должен содержать массив объектов метаданных');
     }
+    metaIndexCache = { data, mtimeMs: stats.mtimeMs };
     return data;
   } catch (err) {
     const error = new Error(`meta_index.json поврежден: ${err.message}`);
@@ -117,7 +137,7 @@ function sortEntries(entries, sortBy, order) {
   });
 }
 
-router.get('/api/meta', (req, res) => {
+router.get('/api/meta', async (req, res) => {
   const { date, tags, authors, page = '1', limit = DEFAULT_PAGE_SIZE, sort = 'date', order = 'desc' } = req.query;
 
   const dateVerdict = validateIsoDate(date);
@@ -144,7 +164,7 @@ router.get('/api/meta', (req, res) => {
 
   let metaIndex;
   try {
-    metaIndex = readMetaIndex();
+    metaIndex = await readMetaIndex();
   } catch (err) {
     const statusCode = err.status || 500;
     return res.status(statusCode).json({ ok: false, error: err.message });
