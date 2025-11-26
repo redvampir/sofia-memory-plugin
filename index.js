@@ -21,6 +21,7 @@ function allow_cors(req, res, next) {
 const memory_routes = require("./api/memory_routes");
 const github_routes = require("./api/github_routes");
 const mode_routes = require("./api/mode_routes");
+const meta_routes = require('./api/meta_routes');
 const { listMemoryFiles } = require("./logic/memory_operations");
 const memoryRoutesV2 = require('./api/memory_v2');
 const versioning = require('./versioning');
@@ -59,6 +60,7 @@ app.use(memory_routes);
 app.use(memoryRoutesV2);
 app.use(github_routes);
 app.use(mode_routes);
+app.use(meta_routes);
 
 app.post('/switch_memory_repo', async (req, res) => {
   const { type, path, userId } = req.body;
@@ -184,7 +186,8 @@ app.get('/docs', (req, res) => {
       "POST /updateIndex",
       "POST /github/repos",
       "POST /github/repository",
-      "POST /github/file",
+        "POST /github/file",
+        "GET /api/meta",
         "POST /chat/setup",
         "GET /profile",
         "GET /debug/index",
