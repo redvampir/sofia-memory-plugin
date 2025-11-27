@@ -23,6 +23,7 @@ const github_routes = require("./api/github_routes");
 const mode_routes = require("./api/mode_routes");
 const meta_routes = require('./api/meta_routes');
 const lesson_routes = require('./api/lesson_routes');
+const visual_routes = require('./api/visual_routes');
 const { listMemoryFiles } = require("./logic/memory_operations");
 const memoryRoutesV2 = require('./api/memory_v2');
 const versioning = require('./versioning');
@@ -63,6 +64,7 @@ app.use(github_routes);
 app.use(mode_routes);
 app.use(meta_routes);
 app.use(lesson_routes);
+app.use(visual_routes);
 
 app.post('/switch_memory_repo', async (req, res) => {
   const { type, path, userId } = req.body;
