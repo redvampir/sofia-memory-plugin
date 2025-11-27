@@ -31,6 +31,7 @@ const { load_memory_to_context, load_context_from_index } = require('../src/memo
 const logger = require('../utils/logger');
 const { restoreContext } = require('../utils/restore_context');
 const { resolveUserId, getDefaultUserId } = require('../utils/default_user');
+const { Octokit } = require('@octokit/rest');
 const LOCAL_GITHUB_TOKEN = process.env.GITHUB_TOKEN || '';
 const ALLOW_INSECURE_LOCAL = process.env.ALLOW_INSECURE_LOCAL === '1';
 const index_tree = require('../tools/index_tree');
@@ -58,6 +59,12 @@ function shorten(value) {
   return value.length > limit ? `${value.slice(0, limit)}... (truncated)` : value;
 }
 
+function normalizeRepo(repo) {
+  if (!repo) return repo;
+  const match = repo.match(/github\.com[:\/](.+?)(?:\.git)?$/);
+  return match ? match[1] : repo;
+}
+
 function sanitizeBody(body) {
   if (!body || typeof body !== 'object') return body;
   const safe = {};
@@ -78,6 +85,55 @@ function sanitizeBody(body) {
     }
   }
   return safe;
+}
+
+function parseRangeParam(raw) {
+  if (raw === undefined || raw === null || raw === '') return { ok: true, range: null };
+  if (typeof raw !== 'string') {
+    return { ok: false, message: 'range должен быть строкой формата start:bytes' };
+  }
+  const match = raw.trim().match(/^(\d+):(\d+)$/);
+  if (!match) {
+    return { ok: false, message: 'Неверный формат range. Используйте start:bytes' };
+  }
+  const start = Number.parseInt(match[1], 10);
+  const bytes = Number.parseInt(match[2], 10);
+  if (Number.isNaN(start) || Number.isNaN(bytes)) {
+    return { ok: false, message: 'Неверный формат range: требуется start:bytes' };
+  }
+  if (start < 0) {
+    return { ok: false, message: 'Начало диапазона должно быть >= 0' };
+  }
+  if (bytes <= 0) {
+    return { ok: false, message: 'Размер диапазона должен быть больше 0' };
+  }
+  return { ok: true, range: { start, bytes, end: start + bytes - 1 } };
+}
+
+function isBinaryExtension(filename = '') {
+  const ext = path.extname(filename).toLowerCase();
+  const binaryExts = new Set(['.png', '.jpg', '.jpeg', '.gif', '.svg', '.bmp', '.ico', '.pdf', '.zip']);
+  return binaryExts.has(ext);
+}
+
+function decodeContent(buffer, filename) {
+  if (!Buffer.isBuffer(buffer)) {
+    return { content: '', encoding: 'utf-8' };
+  }
+  const preferBase64 = isBinaryExtension(filename);
+  const utf8String = buffer.toString('utf-8');
+  const utf8IsSafe = Buffer.compare(Buffer.from(utf8String, 'utf-8'), buffer) === 0;
+
+  if (!preferBase64 && utf8IsSafe) {
+    return { content: utf8String, encoding: 'utf-8' };
+  }
+  if (!utf8IsSafe && buffer.includes(0)) {
+    return { content: buffer.toString('base64'), encoding: 'base64' };
+  }
+  if (preferBase64) {
+    return { content: buffer.toString('base64'), encoding: 'base64' };
+  }
+  return { content: utf8String, encoding: 'utf-8' };
 }
 
 function summarizePayload(payload) {
@@ -214,6 +270,99 @@ async function check_context_for_user(user_id) {
   const context = get_context_for_user(user_id);
   if (!context) {
     await restore_user_context(user_id);
+  }
+}
+
+async function readLocalFileChunk(filePath, range) {
+  const stats = await fs.promises.stat(filePath);
+  const size = stats.size;
+  if (size === 0) {
+    if (range) {
+      const err = new Error('Диапазон выходит за пределы файла');
+      err.status = 416;
+      throw err;
+    }
+    return { buffer: Buffer.alloc(0), size, chunkStart: 0, chunkEnd: -1 };
+  }
+  const chunkStart = range ? range.start : 0;
+  if (chunkStart >= size && size > 0) {
+    const err = new Error('Диапазон выходит за пределы файла');
+    err.status = 416;
+    throw err;
+  }
+  const chunkEnd = size === 0 ? -1 : range ? Math.min(range.end, size - 1) : size - 1;
+  const stream = fs.createReadStream(filePath, {
+    start: chunkStart,
+    end: chunkEnd,
+  });
+
+  const chunks = [];
+  for await (const chunk of stream) {
+    chunks.push(chunk);
+  }
+  const buffer = chunks.length ? Buffer.concat(chunks) : Buffer.alloc(0);
+  return { buffer, size, chunkStart, chunkEnd };
+}
+
+async function readGithubFileChunk(token, repo, normalizedFilename, range) {
+  const normalizedRepo = normalizeRepo(repo);
+  const [owner, repoName] = (normalizedRepo || '').split('/');
+  const octokit = new Octokit({ auth: token, userAgent: 'sofia-memory-plugin' });
+
+  const headers = { Accept: 'application/vnd.github.raw' };
+  if (range) headers.Range = `bytes=${range.start}-${range.end}`;
+
+  try {
+    const response = await octokit.request('GET /repos/{owner}/{repo}/contents/{path}', {
+      owner,
+      repo: repoName,
+      path: normalizedFilename,
+      headers,
+    });
+    const rawData = response.data || '';
+    const buffer = Buffer.isBuffer(rawData) ? rawData : Buffer.from(rawData);
+    const rangeHeader = response.headers['content-range'];
+    const lengthHeader = Number.parseInt(response.headers['content-length'] || '0', 10);
+    let size = Number.isFinite(lengthHeader) && range ? null : buffer.length;
+    let chunkStart = range ? range.start : 0;
+    let chunkEnd = range ? range.start + buffer.length - 1 : buffer.length - 1;
+
+    if (rangeHeader) {
+      const match = rangeHeader.match(/bytes\s+(\d+)-(\d+)\/(\d+)/);
+      if (match) {
+        chunkStart = Number.parseInt(match[1], 10);
+        chunkEnd = Number.parseInt(match[2], 10);
+        size = Number.parseInt(match[3], 10);
+      }
+    }
+
+    if (size === null || Number.isNaN(size)) {
+      try {
+        const meta = await octokit.repos.getContent({ owner, repo: repoName, path: normalizedFilename });
+        size = meta && meta.data && Number.isFinite(meta.data.size) ? meta.data.size : buffer.length;
+      } catch (metaError) {
+        logger.warn('[readGithubFileChunk] Не удалось получить размер файла', metaError.message);
+        size = buffer.length;
+      }
+    }
+
+    if (range && size === 0) {
+      const err = new Error('Диапазон выходит за пределы файла');
+      err.status = 416;
+      throw err;
+    }
+    if (range && size > 0 && range.start >= size) {
+      const err = new Error('Диапазон выходит за пределы файла');
+      err.status = 416;
+      throw err;
+    }
+
+    return { buffer, size, chunkStart, chunkEnd };
+  } catch (e) {
+    if (e.status === 416) {
+      e.message = e.message || 'Диапазон выходит за пределы файла';
+    }
+    throw e;
   }
 }
 
@@ -461,51 +610,104 @@ async function readMemory(req, res) {
   logRequest(req);
   const respond = createResponder(req, res);
 
-  const { repo, filename, userId } = normalizeMemoryBody(req.body);
+  const { repo, filename, userId, range: rangeRaw } = normalizeMemoryBody(req.body);
   const token = await extractToken(req);
   const { repo: effectiveRepo, token: effectiveToken } = await getRepoInfo(filename, userId, repo, token);
 
   const normalizedFilename = normalize_memory_path(filename);
   const filePath = path.join(__dirname, '..', normalizedFilename);
   const isJson = normalizedFilename.endsWith('.json');
+  const rangeResult = parseRangeParam(rangeRaw);
+
+  if (!rangeResult.ok) {
+    return respond(false, rangeResult.message, 400);
+  }
+
+  const range = rangeResult.range;
 
   if (effectiveRepo) {
-    if (!effectiveToken) return respond(false, 'Отсутствует GitHub token');
+    if (!effectiveToken) return respond(false, 'Отсутствует GitHub token', 401);
     try {
-      const content = await github.readFile(effectiveToken, effectiveRepo, normalizedFilename);
-      if (isJson) {
+      const { buffer, size, chunkStart, chunkEnd } = await readGithubFileChunk(
+        effectiveToken,
+        effectiveRepo,
+        normalizedFilename,
+        range
+      );
+      const { content, encoding } = decodeContent(buffer, normalizedFilename);
+      let json = null;
+      if (isJson && encoding === 'utf-8') {
         try {
-          const json = JSON.parse(content);
-          return respond(true, { content, json });
+          json = JSON.parse(content);
         } catch (e) {
           logger.error('[readMemory parse json remote]', e.stack || e.message);
           logError('readMemory parse json', e);
           return respond(false, 'Не удалось разобрать JSON');
         }
       }
-      return respond(true, { content });
+      const truncated = size > 0 ? chunkEnd < size - 1 : false;
+      return respond(true, {
+        status: 'success',
+        file: normalizedFilename,
+        size,
+        chunkStart,
+        chunkEnd,
+        truncated,
+        content,
+        encoding,
+        ...(json !== null ? { json } : {}),
+      });
     } catch (e) {
       logger.error('[readMemory remote]', e.stack || e.message);
-      const unavailable = e.status === 503 ? 503 : 200;
+      const code = e.status || (e.message && /range/i.test(e.message) ? 416 : 200);
+      const unavailable = code === 503 ? 503 : code;
       return respond(false, { error: e.message, details: e.githubMessage }, unavailable);
     }
   }
 
   if (!fs.existsSync(filePath)) {
-    return respond(true, null);
+    return respond(true, {
+      status: 'not_found',
+      file: normalizedFilename,
+      size: 0,
+      chunkStart: 0,
+      chunkEnd: -1,
+      truncated: false,
+      content: null,
+      encoding: 'utf-8',
+    });
   }
-  const content = fs.readFileSync(filePath, 'utf-8');
-  if (isJson) {
-    try {
-      const json = JSON.parse(content);
-      return respond(true, { content, json });
-    } catch (e) {
-      logger.error('[readMemory parse json local]', e.stack || e.message);
-      logError('readMemory parse json', e);
-      return respond(false, 'Не удалось разобрать JSON');
+
+  try {
+    const { buffer, size, chunkStart, chunkEnd } = await readLocalFileChunk(filePath, range);
+    const { content, encoding } = decodeContent(buffer, normalizedFilename);
+    let json = null;
+    if (isJson && encoding === 'utf-8') {
+      try {
+        json = JSON.parse(content);
+      } catch (e) {
+        logger.error('[readMemory parse json local]', e.stack || e.message);
+        logError('readMemory parse json', e);
+        return respond(false, 'Не удалось разобрать JSON');
+      }
     }
+    const truncated = size > 0 ? chunkEnd < size - 1 : false;
+    return respond(true, {
+      status: 'success',
+      file: normalizedFilename,
+      size,
+      chunkStart,
+      chunkEnd,
+      truncated,
+      content,
+      encoding,
+      ...(json !== null ? { json } : {}),
+    });
+  } catch (e) {
+    logger.error('[readMemory local]', e.stack || e.message);
+    const code = e.status === 416 ? 416 : 500;
+    return respond(false, e.message || 'Не удалось прочитать файл', code);
   }
-  return respond(true, { content });
 }
 
 async function readFileRoute(req, res) {
@@ -528,6 +730,7 @@ function readMemoryGET(req, res) {
     userId: req.query.userId,
     token: req.query.token,
     limit: req.query.limit,
+    range: req.query.range,
   };
   return readMemory(req, res);
 }

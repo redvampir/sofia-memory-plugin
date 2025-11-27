@@ -121,7 +121,7 @@ paths:
   /api/memory/read:
     post:
       summary: Чтение памяти пользователя
-      description: Возвращает содержимое файла памяти. Для JSON-файлов параллельно отдаётся распарсенный объект. Если локальный файл отсутствует, возвращает успешный ответ с `data: null`.
+      description: Возвращает содержимое файла памяти. Для JSON-файлов параллельно отдаётся распарсенный объект. Если локальный файл отсутствует, возвращает успешный ответ с `data: { status: "not_found" }`. Поддерживается частичное чтение по диапазону `range=start:bytes`.
       operationId: readMemory
       requestBody:
         required: true
@@ -142,7 +142,13 @@ paths:
                   description: Версия запрашиваемого объекта.
                 data:
                   type: object
-                  description: Дополнительные параметры запроса чтения.
+                  description: Дополнительные параметры запроса чтения. Поддерживает диапазон `range` в формате `start:bytes`.
+                  properties:
+                    includeMeta:
+                      type: boolean
+                    range:
+                      type: string
+                      description: "Чтение части файла: start:bytes, start >= 0, bytes > 0"
                 repo:
                   type: string
                   description: Полный URL GitHub-репозитория для чтения.
@@ -171,10 +177,32 @@ paths:
                   ok:
                     type: boolean
                     description: Признак успешного выполнения операции.
-                  data:
-                    type: object
-                    nullable: true
-                    description: Прочитанные данные или null, если запись не найдена.
+              data:
+                type: object
+                nullable: true
+                description: Прочитанные данные или null, если запись не найдена.
+                properties:
+                  status:
+                    type: string
+                  file:
+                    type: string
+                  size:
+                    type: integer
+                  chunkStart:
+                    type: integer
+                  chunkEnd:
+                    type: integer
+                  truncated:
+                    type: boolean
+                  encoding:
+                    type: string
+                    enum: [utf-8, base64]
+                  content:
+                    type: string
+                  json:
+                    oneOf:
+                      - type: object
+                      - type: 'null'
                   error:
                     type: string
                     description: Описание ошибки, если операция завершилась неуспешно.
@@ -188,15 +216,41 @@ paths:
                   value:
                     ok: true
                     data:
+                      status: success
+                      file: memory/profile/user.json
+                      size: 1280
+                      chunkStart: 0
+                      chunkEnd: 1279
+                      truncated: false
+                      encoding: utf-8
                       content: "{\"name\":\"Sofia\",\"role\":\"assistant\"}"
                       json:
                         name: Sofia
                         role: assistant
+                ranged:
+                  summary: Частичное чтение
+                  value:
+                    ok: true
+                    data:
+                      status: success
+                      file: memory/profile/user.json
+                      size: 2048
+                      chunkStart: 0
+                      chunkEnd: 511
+                      truncated: true
+                      encoding: base64
+                      content: "ZmlsZSBwcmVmaXg..."
                 missing:
                   summary: Запись отсутствует
                   value:
                     ok: true
-                    data: null
+                    data:
+                      status: not_found
+                      file: memory/profile/user.json
+                      size: 0
+                      chunkStart: 0
+                      chunkEnd: -1
+                      truncated: false
                     error: null
                     details: null
         '503':
