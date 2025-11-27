@@ -44,7 +44,7 @@ curl http://localhost:10000/ping
 - `POST /api/memory/read` — прочитать объект памяти `{ id, userId }`.
 - `GET /api/system/status` — статус сервиса и текущего режима.
 
-Примеры запросов и сценарии см. в `docs/` и `tests/` (`tests/runAll.js`).
+Примеры запросов и сценарии см. в `docs/` и `tests/` (`tests/runAll.js`). Дополнительные предложения по улучшению API сведены в `docs/предложения-улучшения.md`.
 
 ## Работа с GitHub
 
