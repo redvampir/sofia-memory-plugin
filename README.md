@@ -44,6 +44,18 @@ curl http://localhost:10000/ping
 - `POST /api/memory/read` — прочитать объект памяти `{ id, userId }`.
 - `GET /api/system/status` — статус сервиса и текущего режима.
 
+`/api/memory/read` поддерживает частичное чтение через параметр `range=start:bytes` (в теле запроса или как query-параметр). В ответе
+возвращаются метаданные: `status`, `file`, `size`, `chunkStart`, `chunkEnd`, `truncated`, `encoding`, `content` и, для JSON-файлов,
+`json`.
+
+Пример частичного чтения первых 512 байт:
+
+```bash
+curl -X POST http://localhost:10000/api/memory/read \
+  -H "Content-Type: application/json" \
+  -d '{"filename":"memory/profile/user.json","range":"0:512"}'
+```
+
 Примеры запросов и сценарии см. в `docs/` и `tests/` (`tests/runAll.js`). Дополнительные предложения по улучшению API сведены в `docs/предложения-улучшения.md`.
 
 ## Работа с GitHub
