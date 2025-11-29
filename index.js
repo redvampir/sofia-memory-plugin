@@ -28,6 +28,7 @@ const { listMemoryFiles } = require("./logic/memory_operations");
 const memoryRoutesV2 = require('./api/memory_v2');
 const versioning = require('./versioning');
 const { getMemoryModeSync } = require('./utils/memory_mode');
+const { legacyDeprecationMiddleware } = require('./utils/legacy_endpoints');
 
 const app = express();
 try {
@@ -58,6 +59,7 @@ app.get('/.well-known/ai-plugin.json', (_req, res) => {
   res.sendFile(path.join(__dirname, 'ai-plugin.json'));
 });
 app.use(bodyParser.json());
+app.use(legacyDeprecationMiddleware());
 app.use(memoryRoutes);
 app.use(memoryRoutesV2);
 app.use(githubRoutes);
