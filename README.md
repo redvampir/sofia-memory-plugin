@@ -108,6 +108,13 @@ GitHub Actions (`.github/workflows/ci.yml`) выполняют:
 - `npm test`
 - Интеграционные запросы `/ping`, `/api/memory/save`, `/api/memory/read`, `/api/system/status` с мокнутым GitHub.
 
+## Нейминг и автоматическое переименование
+
+- Используем `camelCase` для функций и переменных, избегаем кириллических идентификаторов и `snake_case`.
+- Отчёт по текущим нарушениям: `node scripts/renameToCamelCase.js --report docs/naming_scan.md --limit 150` (по умолчанию сканируются `src/`, `api/`, `tools/`, `logic/`, `memory/`).
+- Массовая замена по карте: подготовьте `mapping.json` вида `{ "old_name": "newName" }` и запустите `node scripts/renameToCamelCase.js --mapping mapping.json --apply`.
+- Дополнительные исключения можно передать через `--exclude custom_exclude.json`; встроенный список покрывает переменные окружения, так что лишние значения не переименуются.
+
 ## Скрипты npm
 
 - `npm start` — запуск сервера (PORT по умолчанию 10000).

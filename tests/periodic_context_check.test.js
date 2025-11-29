@@ -36,7 +36,7 @@ const originalSetInterval = global.setInterval;
     restore_utils.restoreContext = async (id) => { called = id === userId; };
     const router = require('../api/memory_routes');
 
-    await router._check_context_for_user(userId);
+    await router._checkContextForUser(userId);
 
     assert.ok(called, 'restoreContext should be called when context missing');
     console.log('periodic context check test passed');

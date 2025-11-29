@@ -2,7 +2,7 @@ process.env.NO_GIT = "true";
 const fs = require('fs');
 const path = require('path');
 const assert = require('assert');
-const { auto_recover_context, load_memory_to_context, setMemoryRepo } = require('../src/memory');
+const { autoRecoverContext, load_memory_to_context, setMemoryRepo } = require('../src/memory');
 const { contextFilename } = require('../logic/memory_operations');
 
 async function run() {
@@ -12,7 +12,7 @@ async function run() {
   const data = ['---','context_priority: high','---','Temp'].join('\n');
   fs.writeFileSync(abs, data);
 
-  const res = await auto_recover_context();
+  const res = await autoRecoverContext();
   assert.ok(res && res.files.includes(rel));
   assert.ok(fs.readFileSync(contextFilename(), 'utf-8').includes('Temp'));
 

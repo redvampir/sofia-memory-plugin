@@ -1,7 +1,7 @@
 const fs = require('fs');
 const axios = require('axios');
-const memory_config = require('../tools/memory_config');
-const token_store = require('../tools/token_store');
+const memoryConfig = require('../tools/memory_config');
+const tokenStore = require('../tools/token_store');
 const { contextFilename } = require('../logic/memory_operations');
 const logger = require('./logger');
 
@@ -12,7 +12,7 @@ const BATCH_DELAY_MS = 1000;
 const DEFAULT_CONTEXT_FILE = 'memory/context/autocontext-index.md';
 const PORT = process.env.PORT || 10000;
 
-function context_exists() {
+function contextExists() {
   try {
     const data = fs.readFileSync(contextFilename(), 'utf-8');
     return data.trim().length > 0;
@@ -21,17 +21,17 @@ function context_exists() {
   }
 }
 
-async function restore_context(user_id) {
+async function restoreContext(userId) {
   try {
-    const repo = await memory_config.getRepoUrl(user_id);
-    const token = await token_store.getToken(user_id);
+    const repo = await memoryConfig.getRepoUrl(userId);
+    const token = await tokenStore.getToken(userId);
     const headers = token ? { Authorization: `token ${token}` } : {};
     await axios.post(
       `http://localhost:${PORT}/loadMemoryToContext`,
-      { filename: DEFAULT_CONTEXT_FILE, repo, userId: user_id },
+      { filename: DEFAULT_CONTEXT_FILE, repo, userId },
       { headers }
     );
-    logger.info('[context_checker] context restored', { user: user_id });
+    logger.info('[context_checker] context restored', { user: userId });
   } catch (e) {
     logger.error('[context_checker] restore failed', e.message);
   }
@@ -39,12 +39,12 @@ async function restore_context(user_id) {
 
 const lastChecked = {};
 
-function should_check(id) {
+function shouldCheck(id) {
   const last = lastChecked[id] || 0;
   return Date.now() - last > CACHE_TTL_MS;
 }
 
-function mark_checked(id) {
+function markChecked(id) {
   lastChecked[id] = Date.now();
 }
 
@@ -52,16 +52,16 @@ async function delay(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-async function check_context() {
-  if (context_exists()) return;
-  const users = await memory_config.getAllUsers();
+async function checkContext() {
+  if (contextExists()) return;
+  const users = await memoryConfig.getAllUsers();
   if (!users.length) users.push(null);
   for (let i = 0; i < users.length; i += BATCH_SIZE) {
     const batch = users.slice(i, i + BATCH_SIZE);
     for (const id of batch) {
-      if (!should_check(id)) continue;
-      await restore_context(id);
-      mark_checked(id);
+      if (!shouldCheck(id)) continue;
+      await restoreContext(id);
+      markChecked(id);
     }
     if (i + BATCH_SIZE < users.length) {
       await delay(BATCH_DELAY_MS);
@@ -69,8 +69,8 @@ async function check_context() {
   }
 }
 
-function start_context_checker() {
-  setInterval(check_context, CHECK_INTERVAL_MS);
+function startContextChecker() {
+  setInterval(checkContext, CHECK_INTERVAL_MS);
 }
 
-module.exports = { start_context_checker, check_context };
+module.exports = { startContextChecker, checkContext };

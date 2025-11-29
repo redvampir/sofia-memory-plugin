@@ -525,7 +525,7 @@ async function load_context_from_index(index_path, repo, token) {
   return { files: loaded, content: full.trim() };
 }
 
-async function auto_recover_context() {
+async function autoRecoverContext() {
   const targets = new Set();
   const scan = async dir => {
     try {
@@ -593,7 +593,7 @@ async function auto_recover_context() {
       full += `${c}\n`;
       loaded.push(p);
     } catch (e) {
-      logger.error('[auto_recover_context] failed', { path: p, error: e.message });
+      logger.error('[autoRecoverContext] failed', { path: p, error: e.message });
     }
   }
   if (!loaded.length) return null;
@@ -631,7 +631,7 @@ module.exports = {
   saveReferenceAnswer,
   split_memory_file,
   register_user_prompt: context_state.register_user_prompt,
-  auto_recover_context,
+  autoRecoverContext,
   load_memory_to_context,
   load_context_from_index,
   checkAndRestoreContext,
