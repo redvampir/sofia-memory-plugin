@@ -217,3 +217,94 @@ paths:
           description: Отсутствует или неверный GitHub-токен при работе с удалённым репозиторием.
         '404':
           description: Репозиторий или удалённый файл не найдены.
+  /api/readMeta:
+    get:
+      summary: Получение метаданных файла памяти
+      description: Возвращает размер, дату изменения, превью первых байт и информацию о JSON-структуре (если применимо). Поддерживает локальные файлы и GitHub-репозитории.
+      operationId: readMeta
+      parameters:
+        - in: query
+          name: filename
+          required: true
+          description: Путь файла относительно корня (можно также передать как `fileName`).
+          schema:
+            type: string
+            example: memory/profile/user.json
+        - in: query
+          name: fileName
+          required: false
+          description: Альтернативное имя параметра `filename`.
+          schema:
+            type: string
+        - in: query
+          name: repo
+          required: false
+          description: |
+            URL или `owner/repo` GitHub-репозитория. Можно указать ветку или commit через `owner/repo#ref`.
+            Если не указан, читается локальный файл.
+          schema:
+            type: string
+            example: https://github.com/example/memory-repo
+        - in: query
+          name: ref
+          required: false
+          description: Ветка или commit для GitHub-запроса.
+          schema:
+            type: string
+            example: main
+        - in: query
+          name: userId
+          required: false
+          description: Идентификатор пользователя (используется для поиска сохранённого токена).
+          schema:
+            type: string
+            example: sofia
+        - in: query
+          name: token
+          required: false
+          description: GitHub-токен (если не передан через заголовок Authorization и требуется GitHub-доступ).
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Метаданные файла.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  file:
+                    type: string
+                  size:
+                    type: integer
+                    description: Размер файла в байтах.
+                  modifiedAt:
+                    type: string
+                    nullable: true
+                    description: Дата последнего изменения (ISO 8601) при наличии.
+                  keysCount:
+                    type: integer
+                    nullable: true
+                    description: Количество корневых ключей (для JSON-объектов) или элементов массива.
+                  isJSON:
+                    type: boolean
+                  preview:
+                    type: string
+                    description: Превью первых 1–2 КБ контента.
+              example:
+                status: ok
+                file: memory/profile/user.json
+                size: 20480
+                modifiedAt: '2024-03-01T12:00:00Z'
+                keysCount: 5
+                isJSON: true
+                preview: '{"name":"Sofia","role":"assistant"...}'
+        '400':
+          description: Ошибка валидации входных параметров.
+        '401':
+          description: Требуется авторизация для обращения к GitHub.
+        '404':
+          description: Файл не найден.
