@@ -40,6 +40,334 @@ paths:
           description: Неверный запрос (например, некорректный HTTP-метод).
         '503':
           description: Сервис временно недоступен.
+  /save:
+    post:
+      summary: "[DEPRECATED] Сохранение файлов"
+      description: "Устаревший маршрут. Используйте POST /api/files/save."
+      deprecated: true
+      operationId: legacySave
+      responses:
+        '200':
+          description: Эндпоинт устарел и возвращает рекомендации по миграции.
+          headers:
+            X-Deprecated-Endpoint:
+              description: Признак устаревшего маршрута (всегда true для легаси-путей).
+              schema:
+                type: string
+                example: "true"
+          content:
+            application/json:
+              schema: &deprecatedResponse
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                    description: Исходный статус операции (если выполнена).
+                  message:
+                    type: string
+                    description: Рекомендация по миграции на новый путь.
+                  deprecated:
+                    type: boolean
+                    description: Флаг устаревшего эндпоинта.
+                  deprecatedMessage:
+                    type: string
+                    description: Сообщение о планируемом удалении.
+                  recommendedEndpoint:
+                    type: string
+                    description: Новый путь API, на который стоит перейти.
+              example:
+                ok: true
+                message: "Эндпоинт /save устарел и будет удалён в версии 5.0.0. Используйте /api/files/save."
+                deprecated: true
+                deprecatedMessage: "Эндпоинт /save устарел и будет удалён в версии 5.0.0. Используйте /api/files/save."
+                recommendedEndpoint: "/api/files/save"
+  /read:
+    post:
+      summary: "[DEPRECATED] Чтение файлов"
+      description: "Устаревший маршрут. Используйте POST /api/files/read."
+      deprecated: true
+      operationId: legacyRead
+      responses:
+        '200':
+          description: Эндпоинт устарел и возвращает рекомендации по миграции.
+          headers:
+            X-Deprecated-Endpoint:
+              description: Признак устаревшего маршрута (всегда true для легаси-путей).
+              schema:
+                type: string
+                example: "true"
+          content:
+            application/json:
+              schema: *deprecatedResponse
+              example:
+                ok: true
+                message: "Эндпоинт /read устарел и будет удалён в версии 5.0.0. Используйте /api/files/read."
+                deprecated: true
+                deprecatedMessage: "Эндпоинт /read устарел и будет удалён в версии 5.0.0. Используйте /api/files/read."
+                recommendedEndpoint: "/api/files/read"
+  /readFile:
+    post:
+      summary: "[DEPRECATED] Чтение файла"
+      description: "Устаревший маршрут. Используйте POST /api/files/read."
+      deprecated: true
+      operationId: legacyReadFile
+      responses:
+        '200':
+          description: Эндпоинт устарел и возвращает рекомендации по миграции.
+          headers:
+            X-Deprecated-Endpoint:
+              description: Признак устаревшего маршрута (всегда true для легаси-путей).
+              schema:
+                type: string
+                example: "true"
+          content:
+            application/json:
+              schema: *deprecatedResponse
+              example:
+                ok: true
+                message: "Эндпоинт /readFile устарел и будет удалён в версии 5.0.0. Используйте /api/files/read."
+                deprecated: true
+                deprecatedMessage: "Эндпоинт /readFile устарел и будет удалён в версии 5.0.0. Используйте /api/files/read."
+                recommendedEndpoint: "/api/files/read"
+  /saveMemory:
+    post:
+      summary: "[DEPRECATED] Сохранение памяти"
+      description: "Устаревший маршрут. Используйте POST /api/memory/save."
+      deprecated: true
+      operationId: legacySaveMemory
+      responses:
+        '200':
+          description: Эндпоинт устарел и возвращает рекомендации по миграции.
+          headers:
+            X-Deprecated-Endpoint:
+              description: Признак устаревшего маршрута (всегда true для легаси-путей).
+              schema:
+                type: string
+                example: "true"
+          content:
+            application/json:
+              schema: *deprecatedResponse
+              example:
+                ok: true
+                message: "Эндпоинт /saveMemory устарел и будет удалён в версии 5.0.0. Используйте /api/memory/save."
+                deprecated: true
+                deprecatedMessage: "Эндпоинт /saveMemory устарел и будет удалён в версии 5.0.0. Используйте /api/memory/save."
+                recommendedEndpoint: "/api/memory/save"
+  /readMemory:
+    post:
+      summary: "[DEPRECATED] Чтение памяти"
+      description: "Устаревший маршрут. Используйте POST /api/memory/read."
+      deprecated: true
+      operationId: legacyReadMemory
+      responses:
+        '200':
+          description: Эндпоинт устарел и возвращает рекомендации по миграции.
+          headers:
+            X-Deprecated-Endpoint:
+              description: Признак устаревшего маршрута (всегда true для легаси-путей).
+              schema:
+                type: string
+                example: "true"
+          content:
+            application/json:
+              schema: *deprecatedResponse
+              example:
+                ok: true
+                message: "Эндпоинт /readMemory устарел и будет удалён в версии 5.0.0. Используйте /api/memory/read."
+                deprecated: true
+                deprecatedMessage: "Эндпоинт /readMemory устарел и будет удалён в версии 5.0.0. Используйте /api/memory/read."
+                recommendedEndpoint: "/api/memory/read"
+  /memory:
+    get:
+      summary: "[DEPRECATED] Чтение памяти (GET)"
+      description: "Устаревший маршрут. Используйте GET /api/memory/read."
+      deprecated: true
+      operationId: legacyMemoryGet
+      responses:
+        '200':
+          description: Эндпоинт устарел и возвращает рекомендации по миграции.
+          headers:
+            X-Deprecated-Endpoint:
+              description: Признак устаревшего маршрута (всегда true для легаси-путей).
+              schema:
+                type: string
+                example: "true"
+          content:
+            application/json:
+              schema: *deprecatedResponse
+              example:
+                ok: true
+                message: "Эндпоинт /memory устарел и будет удалён в версии 5.0.0. Используйте /api/memory/read."
+                deprecated: true
+                deprecatedMessage: "Эндпоинт /memory устарел и будет удалён в версии 5.0.0. Используйте /api/memory/read."
+                recommendedEndpoint: "/api/memory/read"
+  /saveMemoryWithIndex:
+    post:
+      summary: "[DEPRECATED] Сохранение памяти с обновлением индекса"
+      description: "Устаревший маршрут. Используйте POST /api/memory/save-with-index."
+      deprecated: true
+      operationId: legacySaveMemoryWithIndex
+      responses:
+        '200':
+          description: Эндпоинт устарел и возвращает рекомендации по миграции.
+          headers:
+            X-Deprecated-Endpoint:
+              description: Признак устаревшего маршрута (всегда true для легаси-путей).
+              schema:
+                type: string
+                example: "true"
+          content:
+            application/json:
+              schema: *deprecatedResponse
+              example:
+                ok: true
+                message: "Эндпоинт /saveMemoryWithIndex устарел и будет удалён в версии 5.0.0. Используйте /api/memory/save-with-index."
+                deprecated: true
+                deprecatedMessage: "Эндпоинт /saveMemoryWithIndex устарел и будет удалён в версии 5.0.0. Используйте /api/memory/save-with-index."
+                recommendedEndpoint: "/api/memory/save-with-index"
+  /loadMemoryToContext:
+    post:
+      summary: "[DEPRECATED] Загрузка памяти в контекст"
+      description: "Устаревший маршрут. Используйте POST /api/memory/load-to-context."
+      deprecated: true
+      operationId: legacyLoadMemoryToContext
+      responses:
+        '200':
+          description: Эндпоинт устарел и возвращает рекомендации по миграции.
+          headers:
+            X-Deprecated-Endpoint:
+              description: Признак устаревшего маршрута (всегда true для легаси-путей).
+              schema:
+                type: string
+                example: "true"
+          content:
+            application/json:
+              schema: *deprecatedResponse
+              example:
+                ok: true
+                message: "Эндпоинт /loadMemoryToContext устарел и будет удалён в версии 5.0.0. Используйте /api/memory/load-to-context."
+                deprecated: true
+                deprecatedMessage: "Эндпоинт /loadMemoryToContext устарел и будет удалён в версии 5.0.0. Используйте /api/memory/load-to-context."
+                recommendedEndpoint: "/api/memory/load-to-context"
+  /loadContextFromIndex:
+    post:
+      summary: "[DEPRECATED] Загрузка контекста из индекса"
+      description: "Устаревший маршрут. Используйте POST /api/memory/load-from-index."
+      deprecated: true
+      operationId: legacyLoadContextFromIndex
+      responses:
+        '200':
+          description: Эндпоинт устарел и возвращает рекомендации по миграции.
+          headers:
+            X-Deprecated-Endpoint:
+              description: Признак устаревшего маршрута (всегда true для легаси-путей).
+              schema:
+                type: string
+                example: "true"
+          content:
+            application/json:
+              schema: *deprecatedResponse
+              example:
+                ok: true
+                message: "Эндпоинт /loadContextFromIndex устарел и будет удалён в версии 5.0.0. Используйте /api/memory/load-from-index."
+                deprecated: true
+                deprecatedMessage: "Эндпоинт /loadContextFromIndex устарел и будет удалён в версии 5.0.0. Используйте /api/memory/load-from-index."
+                recommendedEndpoint: "/api/memory/load-from-index"
+  /saveLessonPlan:
+    post:
+      summary: "[DEPRECATED] Сохранение плана урока"
+      description: "Устаревший маршрут. Используйте POST /api/lessons/save-plan."
+      deprecated: true
+      operationId: legacySaveLessonPlan
+      responses:
+        '200':
+          description: Эндпоинт устарел и возвращает рекомендации по миграции.
+          headers:
+            X-Deprecated-Endpoint:
+              description: Признак устаревшего маршрута (всегда true для легаси-путей).
+              schema:
+                type: string
+                example: "true"
+          content:
+            application/json:
+              schema: *deprecatedResponse
+              example:
+                ok: true
+                message: "Эндпоинт /saveLessonPlan устарел и будет удалён в версии 5.0.0. Используйте /api/lessons/save-plan."
+                deprecated: true
+                deprecatedMessage: "Эндпоинт /saveLessonPlan устарел и будет удалён в версии 5.0.0. Используйте /api/lessons/save-plan."
+                recommendedEndpoint: "/api/lessons/save-plan"
+  /setMemoryRepo:
+    post:
+      summary: "[DEPRECATED] Настройка репозитория памяти"
+      description: "Устаревший маршрут. Используйте POST /api/system/switch_repo."
+      deprecated: true
+      operationId: legacySetMemoryRepo
+      responses:
+        '200':
+          description: Эндпоинт устарел и возвращает рекомендации по миграции.
+          headers:
+            X-Deprecated-Endpoint:
+              description: Признак устаревшего маршрута (всегда true для легаси-путей).
+              schema:
+                type: string
+                example: "true"
+          content:
+            application/json:
+              schema: *deprecatedResponse
+              example:
+                ok: true
+                message: "Эндпоинт /setMemoryRepo устарел и будет удалён в версии 5.0.0. Используйте /api/system/switch_repo."
+                deprecated: true
+                deprecatedMessage: "Эндпоинт /setMemoryRepo устарел и будет удалён в версии 5.0.0. Используйте /api/system/switch_repo."
+                recommendedEndpoint: "/api/system/switch_repo"
+  /status:
+    get:
+      summary: "[DEPRECATED] Состояние системы"
+      description: "Устаревший маршрут. Используйте GET /api/system/status."
+      deprecated: true
+      operationId: legacyStatusGet
+      responses:
+        '200':
+          description: Эндпоинт устарел и возвращает рекомендации по миграции.
+          headers:
+            X-Deprecated-Endpoint:
+              description: Признак устаревшего маршрута (всегда true для легаси-путей).
+              schema:
+                type: string
+                example: "true"
+          content:
+            application/json:
+              schema: *deprecatedResponse
+              example:
+                ok: true
+                message: "Эндпоинт /status устарел и будет удалён в версии 5.0.0. Используйте /api/system/status."
+                deprecated: true
+                deprecatedMessage: "Эндпоинт /status устарел и будет удалён в версии 5.0.0. Используйте /api/system/status."
+                recommendedEndpoint: "/api/system/status"
+    post:
+      summary: "[DEPRECATED] Состояние системы"
+      description: "Устаревший маршрут. Используйте POST /api/system/status."
+      deprecated: true
+      operationId: legacyStatusPost
+      responses:
+        '200':
+          description: Эндпоинт устарел и возвращает рекомендации по миграции.
+          headers:
+            X-Deprecated-Endpoint:
+              description: Признак устаревшего маршрута (всегда true для легаси-путей).
+              schema:
+                type: string
+                example: "true"
+          content:
+            application/json:
+              schema: *deprecatedResponse
+              example:
+                ok: true
+                message: "Эндпоинт /status устарел и будет удалён в версии 5.0.0. Используйте /api/system/status."
+                deprecated: true
+                deprecatedMessage: "Эндпоинт /status устарел и будет удалён в версии 5.0.0. Используйте /api/system/status."
+                recommendedEndpoint: "/api/system/status"
   /api/memory/save:
     post:
       summary: Сохранение памяти пользователя
@@ -103,7 +431,10 @@ paths:
   /api/memory/read:
     post:
       summary: Чтение памяти пользователя
-      description: Возвращает содержимое файла памяти. Для JSON-файлов параллельно отдаётся распарсенный объект. Если локальный файл отсутствует, возвращает успешный ответ с `data: { status: "not_found" }`. Поддерживается частичное чтение по диапазону `range=start:bytes`.
+      description: |-
+        Возвращает содержимое файла памяти. Для JSON-файлов параллельно отдаётся распарсенный объект.
+        Если локальный файл отсутствует, возвращает успешный ответ с `data: { status: "not_found" }`.
+        Поддерживается частичное чтение по диапазону `range=start:bytes`.
       operationId: readMemory
       requestBody:
         required: true
