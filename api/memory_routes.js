@@ -23,7 +23,7 @@ const token_store = require('../tools/token_store');
 const { setMemoryMode, getMemoryMode } = require('../utils/memory_mode');
 const { generateTitleFromPath, inferTypeFromPath, normalize_memory_path, ensure_dir } = require('../tools/file_utils');
 const { parseMarkdownStructure, mergeMarkdownTrees, serializeMarkdownTree } = require('../logic/markdown_merge_engine');
-const { getRepoInfo, extractToken, categorizeMemoryFile, logDebug } = require('../tools/memory_helpers');
+const { getRepoInfo, extractToken, categorizeMemoryFile, logDebug, splitRepoAndRef } = require('../tools/memory_helpers');
 const { logError } = require('../tools/error_handler');
 const { readMarkdownFile } = require('../src/memory');
 const { saveReferenceAnswer } = require('../src/memory');
@@ -225,6 +225,128 @@ function countTopLevelKeysFromPreview(preview) {
   }
 
   return keysCount || null;
+}
+
+function encodePathForRaw(pathname) {
+  return pathname
+    .split('/')
+    .map(segment => encodeURIComponent(segment))
+    .join('/');
+}
+
+async function resolveDefaultBranch(octokit, owner, repoName) {
+  const cached = getCachedDefaultBranch(owner, repoName);
+  if (cached) return cached;
+
+  try {
+    const { data } = await octokit.repos.get({ owner, repo: repoName });
+    const branch = data?.default_branch || 'main';
+    setCachedDefaultBranch(owner, repoName, branch);
+    return branch;
+  } catch (e) {
+    logger.debug('[defaultBranch]', e.message);
+    return 'main';
+  }
+}
+
+async function fetchGithubMetaAndPreview({
+  octokit,
+  owner,
+  repoName,
+  normalizedFilename,
+  previewLimit,
+  ref,
+}) {
+  const cached = getCachedMeta(owner, repoName, normalizedFilename, ref);
+  if (cached && cached.previewBuffer) {
+    return cached;
+  }
+
+  const effectiveRef = ref || (await resolveDefaultBranch(octokit, owner, repoName));
+  const rawPath = encodePathForRaw(normalizedFilename);
+  const rawUrl = `https://raw.githubusercontent.com/${owner}/${repoName}/${effectiveRef}/${rawPath}`;
+
+  let size = null;
+  let modifiedAt = null;
+  let previewBuffer = null;
+
+  try {
+    const headResponse = await octokit.request(`HEAD ${rawUrl}`);
+    const lenHeader = Number.parseInt(headResponse.headers['content-length'] || '', 10);
+    if (Number.isFinite(lenHeader)) size = lenHeader;
+    if (headResponse.headers['last-modified']) {
+      modifiedAt = headResponse.headers['last-modified'];
+    }
+  } catch (e) {
+    logger.debug('[readMeta github head]', e.message);
+  }
+
+  try {
+    const response = await octokit.request(`GET ${rawUrl}`, {
+      headers: { Range: `bytes=0-${previewLimit - 1}` },
+    });
+
+    const buffer = Buffer.isBuffer(response.data) ? response.data : Buffer.from(response.data || '');
+    previewBuffer = buffer;
+
+    const rangeHeader = response.headers['content-range'];
+    const lengthHeader = Number.parseInt(response.headers['content-length'] || '', 10);
+
+    if (rangeHeader) {
+      const match = rangeHeader.match(/\/(\d+)$/);
+      if (match) size = Number.parseInt(match[1], 10);
+    }
+    if (!Number.isFinite(size) && Number.isFinite(lengthHeader) && lengthHeader > 0) {
+      size = lengthHeader;
+    }
+
+    if (!modifiedAt && response.headers['last-modified']) {
+      modifiedAt = response.headers['last-modified'];
+    }
+  } catch (e) {
+    logger.debug('[readMeta github range]', e.message);
+  }
+
+  if (!previewBuffer) {
+    try {
+      const meta = await octokit.repos.getContent({
+        owner,
+        repo: repoName,
+        path: normalizedFilename,
+        ref: effectiveRef,
+      });
+
+      if (meta?.data?.type && meta.data.type !== 'file') {
+        throw new Error('Указанный путь не является файлом');
+      }
+
+      if (!Number.isFinite(size) && typeof meta?.data?.size === 'number') {
+        size = meta.data.size;
+      }
+
+      if (meta?.data?.content) {
+        const encoding = meta.data.encoding || 'base64';
+        const decoded = Buffer.from(meta.data.content, encoding);
+        previewBuffer = decoded.slice(0, previewLimit);
+        if (!Number.isFinite(size)) size = decoded.length;
+      }
+    } catch (metaError) {
+      logger.debug('[readMeta github meta]', metaError.message);
+    }
+  }
+
+  if (!previewBuffer) {
+    throw new Error('Не удалось получить содержимое файла');
+  }
+
+  const cachedMeta = setCachedMeta(owner, repoName, normalizedFilename, ref || effectiveRef, {
+    size: Number.isFinite(size) ? size : previewBuffer.length,
+    modifiedAt,
+    previewBuffer,
+    ref: ref || effectiveRef,
+  });
+
+  return cachedMeta;
 }
 
 function analyzeJsonPreview(preview) {
@@ -1069,7 +1191,9 @@ async function readMeta(req, res) {
   }
 
   const normalizedRepo = normalizeRepo(rawRepo);
-  if (!normalizedRepo || !normalizedRepo.includes('/')) {
+  const { repo: repoWithoutRef, ref: repoFromParam } = splitRepoAndRef(normalizedRepo || '');
+
+  if (!repoWithoutRef || !repoWithoutRef.includes('/')) {
     return res.status(400).json({ status: 'error', message: 'Некорректный параметр repo' });
   }
 
@@ -1077,7 +1201,7 @@ async function readMeta(req, res) {
     return res.status(401).json({ status: 'error', message: 'Требуется GitHub token' });
   }
 
-  const [owner, ...rest] = normalizedRepo.split('/');
+  const [owner, ...rest] = repoWithoutRef.split('/');
   const repoName = rest.join('/');
   if (!owner || !repoName) {
     return res.status(400).json({ status: 'error', message: 'Некорректный формат repo, ожидается owner/repo' });
@@ -1085,49 +1209,23 @@ async function readMeta(req, res) {
 
   const octokit = new Octokit({ auth: token });
   try {
-    const response = await octokit.request('GET /repos/{owner}/{repo}/contents/{path}', {
+    const { previewBuffer, size, modifiedAt: remoteModifiedAt } = await fetchGithubMetaAndPreview({
+      octokit,
       owner,
-      repo: repoName,
-      path: normalizedFilename,
-      ref,
-      headers: {
-        Accept: 'application/vnd.github.v3.raw',
-        Range: `bytes=0-${previewLimit - 1}`,
-      },
+      repoName,
+      normalizedFilename,
+      previewLimit,
+      ref: ref || repoFromParam,
     });
 
-    const rawData = response.data || '';
-    const buffer = Buffer.isBuffer(rawData) ? rawData : Buffer.from(rawData);
-    const rangeHeader = response.headers['content-range'];
-    const lengthHeader = Number.parseInt(response.headers['content-length'] || '0', 10);
-    let size = null;
-    if (rangeHeader) {
-      const match = rangeHeader.match(/\/(\d+)$/);
-      if (match) size = Number.parseInt(match[1], 10);
-    }
-    if (!Number.isFinite(size) && Number.isFinite(lengthHeader) && lengthHeader > 0) {
-      size = lengthHeader;
-    }
-    if (!Number.isFinite(size)) {
-      try {
-        const meta = await octokit.repos.getContent({ owner, repo: repoName, path: normalizedFilename, ref });
-        if (meta?.data?.size !== undefined) {
-          size = meta.data.size;
-        }
-      } catch (metaError) {
-        logger.debug('[readMeta github meta fallback]', metaError.message);
-      }
-    }
-
-    const modifiedAt = response.headers['last-modified'] || null;
-    const preview = buffer.toString('utf-8');
+    const preview = previewBuffer.toString('utf-8');
     const { isJSON, keysCount } = analyzeJsonPreview(preview);
 
     return res.json({
       status: 'ok',
       file: normalizedFilename,
-      size: Number.isFinite(size) ? size : buffer.length,
-      modifiedAt,
+      size,
+      modifiedAt: remoteModifiedAt,
       keysCount,
       isJSON,
       preview,

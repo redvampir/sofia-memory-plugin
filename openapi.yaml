@@ -280,7 +280,9 @@ paths:
         - in: query
           name: repo
           required: false
-          description: URL или `owner/repo` GitHub-репозитория. Если не указан, читается локальный файл.
+          description: |
+            URL или `owner/repo` GitHub-репозитория. Можно указать ветку или commit через `owner/repo#ref`.
+            Если не указан, читается локальный файл.
           schema:
             type: string
             example: https://github.com/example/memory-repo
