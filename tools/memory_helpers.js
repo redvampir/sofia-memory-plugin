@@ -17,17 +17,28 @@ function logDebug(...args) {
   if (DEBUG) console.log(...args);
 }
 
-async function getRepoInfo(relPath, userId, repoOverride, tokenOverride) {
+function splitRepoAndRef(rawRepo) {
+  if (!rawRepo) return { repo: rawRepo, ref: null };
+  const match = `${rawRepo}`.match(/^(.*?)(?:[#@]([^#@]+))?$/);
+  if (!match) return { repo: rawRepo, ref: null };
+  const repo = match[1];
+  const ref = match[2] ? match[2].trim() || null : null;
+  return { repo, ref };
+}
+
+async function getRepoInfo(relPath, userId, repoOverride, tokenOverride, refOverride) {
   const normalized = normalize_memory_path(relPath);
   const resolvedUserId = resolveUserId(userId);
   const cfg = rootConfig.loadConfig();
   let repo = repoOverride || null;
   let token = tokenOverride || null;
+  let ref = refOverride || null;
 
   if (cfg) {
     const usePlugin = normalized.startsWith('memory/instructions/');
     const info = usePlugin ? cfg.pluginRepo || {} : cfg.studentRepo || {};
     if (!repo) repo = info.repo || null;
+    if (!ref) ref = info.ref || null;
     if (!token) token = info.token || null;
     if (DEBUG)
       console.log(`[repoSelect] ${usePlugin ? 'plugin' : 'student'} -> ${repo}`);
@@ -42,7 +53,11 @@ async function getRepoInfo(relPath, userId, repoOverride, tokenOverride) {
     token = DEFAULT_MEMORY_TOKEN;
   }
 
-  return { repo, token };
+  const parsed = splitRepoAndRef(repo);
+  const effectiveRepo = parsed.repo;
+  const effectiveRef = ref || parsed.ref || null;
+
+  return { repo: effectiveRepo, token, ref: effectiveRef };
 }
 
 async function extractToken(req) {
@@ -95,4 +110,5 @@ module.exports = {
   categorizeMemoryFile,
   logDebug,
   processMemoryFiles,
+  splitRepoAndRef,
 };

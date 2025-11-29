@@ -32,9 +32,14 @@ const logger = require('../utils/logger');
 const { restoreContext } = require('../utils/restore_context');
 const { resolveUserId, getDefaultUserId } = require('../utils/default_user');
 const { Octokit } = require('@octokit/rest');
+const { decodeContent } = require('../tools/content_utils');
 const LOCAL_GITHUB_TOKEN = process.env.GITHUB_TOKEN || '';
 const ALLOW_INSECURE_LOCAL = process.env.ALLOW_INSECURE_LOCAL === '1';
 const index_tree = require('../tools/index_tree');
+
+const remoteMetadataCache = new Map();
+const defaultBranchCache = new Map();
+const METADATA_TTL_MS = 5 * 60 * 1000;
 
 function maskValue(value) {
   if (!value) return undefined;
@@ -110,30 +115,40 @@ function parseRangeParam(raw) {
   return { ok: true, range: { start, bytes, end: start + bytes - 1 } };
 }
 
-function isBinaryExtension(filename = '') {
-  const ext = path.extname(filename).toLowerCase();
-  const binaryExts = new Set(['.png', '.jpg', '.jpeg', '.gif', '.svg', '.bmp', '.ico', '.pdf', '.zip']);
-  return binaryExts.has(ext);
+function getCacheKey(owner, repoName, filename, ref) {
+  return `${owner}/${repoName}:${filename || ''}@${ref || ''}`;
 }
 
-function decodeContent(buffer, filename) {
-  if (!Buffer.isBuffer(buffer)) {
-    return { content: '', encoding: 'utf-8' };
+function getCachedMeta(owner, repoName, filename, ref) {
+  const key = getCacheKey(owner, repoName, filename, ref);
+  const entry = remoteMetadataCache.get(key);
+  if (!entry) return null;
+  if (Date.now() - entry.fetchedAt > METADATA_TTL_MS) {
+    remoteMetadataCache.delete(key);
+    return null;
   }
-  const preferBase64 = isBinaryExtension(filename);
-  const utf8String = buffer.toString('utf-8');
-  const utf8IsSafe = Buffer.compare(Buffer.from(utf8String, 'utf-8'), buffer) === 0;
+  return entry;
+}
 
-  if (!preferBase64 && utf8IsSafe) {
-    return { content: utf8String, encoding: 'utf-8' };
+function setCachedMeta(owner, repoName, filename, ref, meta) {
+  const key = getCacheKey(owner, repoName, filename, ref);
+  remoteMetadataCache.set(key, { ...meta, fetchedAt: Date.now() });
+}
+
+function getCachedDefaultBranch(owner, repoName) {
+  const key = `${owner}/${repoName}`;
+  const entry = defaultBranchCache.get(key);
+  if (!entry) return null;
+  if (Date.now() - entry.fetchedAt > METADATA_TTL_MS) {
+    defaultBranchCache.delete(key);
+    return null;
   }
-  if (!utf8IsSafe && buffer.includes(0)) {
-    return { content: buffer.toString('base64'), encoding: 'base64' };
-  }
-  if (preferBase64) {
-    return { content: buffer.toString('base64'), encoding: 'base64' };
-  }
-  return { content: utf8String, encoding: 'utf-8' };
+  return entry.branch;
+}
+
+function setCachedDefaultBranch(owner, repoName, branch) {
+  const key = `${owner}/${repoName}`;
+  defaultBranchCache.set(key, { branch, fetchedAt: Date.now() });
 }
 
 function summarizePayload(payload) {
@@ -304,10 +319,61 @@ async function readLocalFileChunk(filePath, range) {
   return { buffer, size, chunkStart, chunkEnd };
 }
 
-async function readGithubFileChunk(token, repo, normalizedFilename, range) {
+async function resolveGithubRef(octokit, owner, repoName, providedRef) {
+  if (providedRef) return providedRef;
+  const cached = getCachedDefaultBranch(owner, repoName);
+  if (cached) return cached;
+  try {
+    const repoInfo = await octokit.repos.get({ owner, repo: repoName });
+    const branch = repoInfo?.data?.default_branch;
+    if (branch) {
+      setCachedDefaultBranch(owner, repoName, branch);
+      return branch;
+    }
+  } catch (e) {
+    logger.warn('[resolveGithubRef] Не удалось получить default branch', e.message);
+  }
+  return undefined;
+}
+
+async function fetchGithubMetadata(octokit, owner, repoName, normalizedFilename, ref) {
+  const cached = getCachedMeta(owner, repoName, normalizedFilename, ref);
+  if (cached) return cached;
+  try {
+    const meta = await octokit.repos.getContent({ owner, repo: repoName, path: normalizedFilename, ref });
+    const size = meta?.data?.size;
+    const etag = meta?.headers?.etag || null;
+    if (Number.isFinite(size)) {
+      const result = { size, etag, ref: meta?.data?.sha || ref || null };
+      setCachedMeta(owner, repoName, normalizedFilename, ref, result);
+      return result;
+    }
+  } catch (e) {
+    logger.warn('[fetchGithubMetadata] Не удалось получить метаданные', e.message);
+  }
+  return null;
+}
+
+async function readGithubFileChunk(token, repo, normalizedFilename, range, ref) {
   const normalizedRepo = normalizeRepo(repo);
   const [owner, repoName] = (normalizedRepo || '').split('/');
   const octokit = new Octokit({ auth: token, userAgent: 'sofia-memory-plugin' });
+
+  const effectiveRef = await resolveGithubRef(octokit, owner, repoName, ref);
+  const meta = await fetchGithubMetadata(octokit, owner, repoName, normalizedFilename, effectiveRef);
+
+  if (range && meta && Number.isFinite(meta.size) && meta.size >= 0) {
+    if (meta.size === 0) {
+      const err = new Error('Диапазон выходит за пределы файла');
+      err.status = 416;
+      throw err;
+    }
+    if (range.start >= meta.size) {
+      const err = new Error('Диапазон выходит за пределы файла');
+      err.status = 416;
+      throw err;
+    }
+  }
 
   const headers = { Accept: 'application/vnd.github.raw' };
   if (range) headers.Range = `bytes=${range.start}-${range.end}`;
@@ -317,13 +383,15 @@ async function readGithubFileChunk(token, repo, normalizedFilename, range) {
       owner,
       repo: repoName,
       path: normalizedFilename,
+      ref: effectiveRef,
       headers,
     });
     const rawData = response.data || '';
     const buffer = Buffer.isBuffer(rawData) ? rawData : Buffer.from(rawData);
     const rangeHeader = response.headers['content-range'];
     const lengthHeader = Number.parseInt(response.headers['content-length'] || '0', 10);
-    let size = Number.isFinite(lengthHeader) && range ? null : buffer.length;
+    const cachedSize = meta?.size;
+    let size = Number.isFinite(lengthHeader) && range ? cachedSize ?? null : cachedSize ?? buffer.length;
     let chunkStart = range ? range.start : 0;
     let chunkEnd = range ? range.start + buffer.length - 1 : buffer.length - 1;
 
@@ -337,13 +405,7 @@ async function readGithubFileChunk(token, repo, normalizedFilename, range) {
     }
 
     if (size === null || Number.isNaN(size)) {
-      try {
-        const meta = await octokit.repos.getContent({ owner, repo: repoName, path: normalizedFilename });
-        size = meta && meta.data && Number.isFinite(meta.data.size) ? meta.data.size : buffer.length;
-      } catch (metaError) {
-        logger.warn('[readGithubFileChunk] Не удалось получить размер файла', metaError.message);
-        size = buffer.length;
-      }
+      size = buffer.length;
     }
 
     if (range && size === 0) {
@@ -355,6 +417,16 @@ async function readGithubFileChunk(token, repo, normalizedFilename, range) {
       const err = new Error('Диапазон выходит за пределы файла');
       err.status = 416;
       throw err;
+    }
+
+    if (range && !rangeHeader && buffer.length > range.bytes) {
+      const sliceEnd = Math.min(range.bytes, buffer.length);
+      const sliced = buffer.subarray(0, sliceEnd);
+      return { buffer: sliced, size, chunkStart, chunkEnd: chunkStart + sliced.length - 1 };
+    }
+
+    if (meta?.etag) {
+      setCachedMeta(owner, repoName, normalizedFilename, effectiveRef, meta);
     }
 
     return { buffer, size, chunkStart, chunkEnd };
@@ -610,9 +682,16 @@ async function readMemory(req, res) {
   logRequest(req);
   const respond = createResponder(req, res);
 
-  const { repo, filename, userId, range: rangeRaw } = normalizeMemoryBody(req.body);
+  const { repo, filename, userId, range: rangeRaw, ref } = normalizeMemoryBody(req.body);
   const token = await extractToken(req);
-  const { repo: effectiveRepo, token: effectiveToken } = await getRepoInfo(filename, userId, repo, token);
+  const { repo: effectiveRepo, token: effectiveToken, ref: defaultRef } = await getRepoInfo(
+    filename,
+    userId,
+    repo,
+    token,
+    ref
+  );
+  const effectiveRef = ref || defaultRef || undefined;
 
   const normalizedFilename = normalize_memory_path(filename);
   const filePath = path.join(__dirname, '..', normalizedFilename);
@@ -632,7 +711,8 @@ async function readMemory(req, res) {
         effectiveToken,
         effectiveRepo,
         normalizedFilename,
-        range
+        range,
+        effectiveRef
       );
       const { content, encoding } = decodeContent(buffer, normalizedFilename);
       let json = null;
@@ -656,6 +736,7 @@ async function readMemory(req, res) {
         content,
         encoding,
         ...(json !== null ? { json } : {}),
+        ...(effectiveRef ? { ref: effectiveRef } : {}),
       });
     } catch (e) {
       logger.error('[readMemory remote]', e.stack || e.message);

@@ -123,6 +123,9 @@ paths:
                   type: string
                   format: uri
                   description: URL GitHub-репозитория для чтения (опционально).
+                ref:
+                  type: string
+                  description: Ветка/commit для GitHub-запроса (можно указать также как `repo#branch`).
                 token:
                   type: string
                   description: GitHub-токен для чтения (опционально, может быть передан в заголовке Authorization).

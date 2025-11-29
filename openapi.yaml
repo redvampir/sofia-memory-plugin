@@ -152,6 +152,9 @@ paths:
                 repo:
                   type: string
                   description: Полный URL GitHub-репозитория для чтения.
+                ref:
+                  type: string
+                  description: Ветка/commit для GitHub-запроса (может быть также задано в repo как `url#branch`).
                 userId:
                   type: string
                   description: Идентификатор пользователя, для которого читается память.
