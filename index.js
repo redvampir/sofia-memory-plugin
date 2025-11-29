@@ -5,11 +5,11 @@ const path = require('path');
 const fs = require('fs');
 const bodyParser = require('body-parser');
 const config = require('./config');
-const { setMemoryRepo, auto_recover_context, switchMemoryRepo } = require('./src/memory');
-const { start_context_checker } = require('./utils/context_checker');
+const { setMemoryRepo, autoRecoverContext, switchMemoryRepo } = require('./src/memory');
+const { startContextChecker } = require('./utils/context_checker');
 
 // Мидлвар для разрешения CORS без внешних зависимостей
-function allow_cors(req, res, next) {
+function allowCors(req, res, next) {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
   if (req.method === 'OPTIONS') {
@@ -18,12 +18,12 @@ function allow_cors(req, res, next) {
   }
   next();
 }
-const memory_routes = require("./api/memory_routes");
-const github_routes = require("./api/github_routes");
-const mode_routes = require("./api/mode_routes");
-const meta_routes = require('./api/meta_routes');
-const lesson_routes = require('./api/lesson_routes');
-const visual_routes = require('./api/visual_routes');
+const memoryRoutes = require("./api/memory_routes");
+const githubRoutes = require("./api/github_routes");
+const modeRoutes = require("./api/mode_routes");
+const metaRoutes = require('./api/meta_routes');
+const lessonRoutes = require('./api/lesson_routes');
+const visualRoutes = require('./api/visual_routes');
 const { listMemoryFiles } = require("./logic/memory_operations");
 const memoryRoutesV2 = require('./api/memory_v2');
 const versioning = require('./versioning');
@@ -39,10 +39,10 @@ try {
 } catch (e) {
   console.error('[INIT] failed to set memory repo', e.message);
 }
-auto_recover_context().catch(e =>
+autoRecoverContext().catch(e =>
   console.error('[INIT] auto recover failed', e.message)
 );
-app.use(allow_cors);
+app.use(allowCors);
 app.use(express.static(path.join(__dirname, 'assets')));
 // Serve plugin descriptors from repository root
 app.get('/openapi.yaml', (_req, res) => {
@@ -58,13 +58,13 @@ app.get('/.well-known/ai-plugin.json', (_req, res) => {
   res.sendFile(path.join(__dirname, 'ai-plugin.json'));
 });
 app.use(bodyParser.json());
-app.use(memory_routes);
+app.use(memoryRoutes);
 app.use(memoryRoutesV2);
-app.use(github_routes);
-app.use(mode_routes);
-app.use(meta_routes);
-app.use(lesson_routes);
-app.use(visual_routes);
+app.use(githubRoutes);
+app.use(modeRoutes);
+app.use(metaRoutes);
+app.use(lessonRoutes);
+app.use(visualRoutes);
 
 app.post('/switch_memory_repo', async (req, res) => {
   const { type, path, userId } = req.body;
@@ -149,7 +149,7 @@ if (process.env.NODE_ENV !== 'production' || debugAdminToken) {
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
   console.log(`[START] Sofia Plugin is running on port ${PORT}`);
-  start_context_checker();
+  startContextChecker();
 });
 
 // Проверка доступности сервера
