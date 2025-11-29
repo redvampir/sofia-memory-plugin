@@ -39,7 +39,8 @@ const index_tree = require('../tools/index_tree');
 
 const remoteMetadataCache = new Map();
 const defaultBranchCache = new Map();
-const METADATA_TTL_MS = 5 * 60 * 1000;
+const TTL_FROM_ENV = Number.parseInt(process.env.MEMORY_METADATA_TTL_MS || '', 10);
+const METADATA_TTL_MS = Number.isFinite(TTL_FROM_ENV) && TTL_FROM_ENV > 0 ? TTL_FROM_ENV : 5 * 60 * 1000;
 
 function maskValue(value) {
   if (!value) return undefined;
@@ -132,7 +133,13 @@ function getCachedMeta(owner, repoName, filename, ref) {
 
 function setCachedMeta(owner, repoName, filename, ref, meta) {
   const key = getCacheKey(owner, repoName, filename, ref);
-  remoteMetadataCache.set(key, { ...meta, fetchedAt: Date.now() });
+  const prev = remoteMetadataCache.get(key) || {};
+  const merged = { ...prev, ...meta, fetchedAt: Date.now() };
+  if (meta && meta.encoding === undefined && prev && prev.encoding !== undefined) {
+    merged.encoding = prev.encoding;
+  }
+  remoteMetadataCache.set(key, merged);
+  return merged;
 }
 
 function getCachedDefaultBranch(owner, repoName) {
@@ -149,6 +156,11 @@ function getCachedDefaultBranch(owner, repoName) {
 function setCachedDefaultBranch(owner, repoName, branch) {
   const key = `${owner}/${repoName}`;
   defaultBranchCache.set(key, { branch, fetchedAt: Date.now() });
+}
+
+function updateCachedEncoding(owner, repoName, filename, ref, encoding, meta = {}) {
+  if (!encoding) return;
+  setCachedMeta(owner, repoName, filename, ref, { ...meta, encoding });
 }
 
 function summarizePayload(payload) {
@@ -429,7 +441,16 @@ async function readGithubFileChunk(token, repo, normalizedFilename, range, ref) 
       setCachedMeta(owner, repoName, normalizedFilename, effectiveRef, meta);
     }
 
-    return { buffer, size, chunkStart, chunkEnd };
+    return {
+      buffer,
+      size,
+      chunkStart,
+      chunkEnd,
+      owner,
+      repoName,
+      ref: effectiveRef,
+      meta,
+    };
   } catch (e) {
     if (e.status === 416) {
       e.message = e.message || 'Диапазон выходит за пределы файла';
@@ -707,14 +728,27 @@ async function readMemory(req, res) {
   if (effectiveRepo) {
     if (!effectiveToken) return respond(false, 'Отсутствует GitHub token', 401);
     try {
-      const { buffer, size, chunkStart, chunkEnd } = await readGithubFileChunk(
-        effectiveToken,
-        effectiveRepo,
-        normalizedFilename,
-        range,
-        effectiveRef
-      );
-      const { content, encoding } = decodeContent(buffer, normalizedFilename);
+      const { buffer, size, chunkStart, chunkEnd, owner, repoName, ref: appliedRef, meta } =
+        await readGithubFileChunk(
+          effectiveToken,
+          effectiveRepo,
+          normalizedFilename,
+          range,
+          effectiveRef
+        );
+      const hintEncoding = meta?.encoding;
+      let decoded;
+      if (hintEncoding === 'base64') {
+        decoded = { content: buffer.toString('base64'), encoding: 'base64' };
+      } else if (hintEncoding === 'utf-8') {
+        decoded = { content: buffer.toString('utf-8'), encoding: 'utf-8' };
+      } else {
+        decoded = decodeContent(buffer, normalizedFilename);
+      }
+      const { content, encoding } = decoded;
+      if (owner && repoName && encoding) {
+        updateCachedEncoding(owner, repoName, normalizedFilename, appliedRef, encoding, meta || {});
+      }
       let json = null;
       if (isJson && encoding === 'utf-8') {
         try {
@@ -736,7 +770,7 @@ async function readMemory(req, res) {
         content,
         encoding,
         ...(json !== null ? { json } : {}),
-        ...(effectiveRef ? { ref: effectiveRef } : {}),
+        ...(appliedRef ? { ref: appliedRef } : effectiveRef ? { ref: effectiveRef } : {}),
       });
     } catch (e) {
       logger.error('[readMemory remote]', e.stack || e.message);
