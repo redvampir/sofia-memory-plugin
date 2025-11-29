@@ -30,12 +30,14 @@ curl http://localhost:10000/ping
 
 - `config/config.json` — базовые параметры (режим памяти, пути, GitHub‑репозиторий).
 - Переменные окружения:
-  - `MODE`: `local` (файлы) или `github` (через GitHub API).
-  - `TOKEN_SECRET`: обязательный ключ шифрования/подписи токенов.
-  - `GITHUB_API_URL`: кастомный URL GitHub API для моков (по умолчанию api.github.com).
-  - `GITHUB_TOKEN`: PAT для режима `github`.
-  - `LOCAL_MEMORY_PATH`: путь для локального режима (по умолчанию `./local_memory`).
-  - `PORT`: порт HTTP (по умолчанию 10000).
+- `MODE`: `local` (файлы) или `github` (через GitHub API).
+- `TOKEN_SECRET`: обязательный ключ шифрования/подписи токенов.
+- `GITHUB_API_URL`: кастомный URL GitHub API для моков (по умолчанию api.github.com).
+- `GITHUB_TOKEN`: PAT для режима `github`.
+- `LOCAL_MEMORY_PATH`: путь для локального режима (по умолчанию `./local_memory`).
+- `PORT`: порт HTTP (по умолчанию 10000).
+- `MEMORY_METADATA_TTL_MS`: TTL кеша метаданных GitHub (размер, ETag, ветка по умолчанию, определённая кодировка);
+  по умолчанию 300000 мс (5 минут).
 
 ## Быстрый обзор API
 
@@ -43,6 +45,20 @@ curl http://localhost:10000/ping
 - `POST /api/memory/save` — сохранить объект памяти `{ id, data, userId }`.
 - `POST /api/memory/read` — прочитать объект памяти `{ id, userId }`.
 - `GET /api/system/status` — статус сервиса и текущего режима.
+
+`/api/memory/read` поддерживает частичное чтение через параметр `range=start:bytes` (в теле запроса или как query-параметр). В ответе
+возвращаются метаданные: `status`, `file`, `size`, `chunkStart`, `chunkEnd`, `truncated`, `encoding`, `content` и, для JSON-файлов,
+`json`. Для GitHub-запросов можно указать ветку/коммит через параметр `ref` (или добавить `#branch` к URL репозитория); при его
+отсутствии ветка определяется автоматически по default branch репозитория и кешируется вместе с размером файла. Определённая
+кодировка/бинарность также кешируется (с TTL), чтобы повторные диапазонные запросы не анализировали содержимое заново.
+
+Пример частичного чтения первых 512 байт:
+
+```bash
+curl -X POST http://localhost:10000/api/memory/read \
+  -H "Content-Type: application/json" \
+  -d '{"filename":"memory/profile/user.json","range":"0:512"}'
+```
 
 Примеры запросов и сценарии см. в `docs/` и `tests/` (`tests/runAll.js`). Дополнительные предложения по улучшению API сведены в `docs/предложения-улучшения.md`.
 
