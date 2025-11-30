@@ -62,6 +62,10 @@ curl -X POST http://localhost:10000/api/memory/read \
 
 Примеры запросов и сценарии см. в `docs/` и `tests/` (`tests/runAll.js`). Дополнительные предложения по улучшению API сведены в `docs/предложения-улучшения.md`.
 
+Дополнительные материалы по зеркальным нейронам и расширению пайплайна:
+- `docs/mirror-neurons.md` — обзор архитектуры и алгоритмов Style/Structure/Emotion нейронов.
+- `docs/custom-neuron-tutorial.md` — пошаговый гайд по созданию и подключению собственного нейрона.
+
 ## Работа с GitHub
 
 ```bash
