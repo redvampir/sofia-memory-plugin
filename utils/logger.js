@@ -1,4 +1,5 @@
 const fs = require('fs');
+const { redact } = require('./logRedactor');
 
 const levels = {
   error: 0,
@@ -43,9 +44,20 @@ function log(level, msg, data) {
   const normalizedLevel = normalizeLevel(level);
   if (!shouldLog(normalizedLevel)) return;
 
-  const base = `[${timestamp()}] ${normalizedLevel} ${msg}`;
-  const line =
-    data !== undefined ? `${base} ${typeof data === 'string' ? data : JSON.stringify(data)}` : base;
+  const safeMessage = redact(msg);
+  const safeData = data !== undefined ? redact(data) : undefined;
+  const base = `[${timestamp()}] ${normalizedLevel} ${safeMessage}`;
+  let serializedData = '';
+
+  if (safeData !== undefined) {
+    try {
+      serializedData = typeof safeData === 'string' ? safeData : JSON.stringify(safeData);
+    } catch (e) {
+      serializedData = '[unserializable data]';
+    }
+  }
+
+  const line = serializedData ? `${base} ${serializedData}` : base;
   if (stream) {
     stream.write(line + '\n');
   } else {
