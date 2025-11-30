@@ -3,6 +3,7 @@ const fs = require('fs');
 const fsp = fs.promises;
 const path = require('path');
 const crypto = require('crypto');
+const { Mutex } = require('async-mutex');
 
 const SECRET = process.env.TOKEN_SECRET;
 
@@ -40,6 +41,7 @@ function decryptToken(data) {
 const cacheDir = path.join(__dirname, '.cache');
 const tokensDir = path.join(cacheDir, 'tokens');
 const tokenCache = {};
+const storeMutex = new Mutex();
 
 async function ensure_dir() {
   try {
@@ -55,27 +57,34 @@ async function loadToken(userId) {
   if (Object.prototype.hasOwnProperty.call(tokenCache, userId)) {
     return tokenCache[userId];
   }
-  const file = tokenPath(userId);
-  try {
-    const data = await fsp.readFile(file, 'utf-8');
-    const decrypted = decryptToken(data.trim());
-    tokenCache[userId] = decrypted || data.trim() || null;
-  } catch {
-    tokenCache[userId] = null;
-  }
-  return tokenCache[userId];
+  return storeMutex.runExclusive(async () => {
+    if (Object.prototype.hasOwnProperty.call(tokenCache, userId)) {
+      return tokenCache[userId];
+    }
+    const file = tokenPath(userId);
+    try {
+      const data = await fsp.readFile(file, 'utf-8');
+      const decrypted = decryptToken(data.trim());
+      tokenCache[userId] = decrypted || data.trim() || null;
+    } catch {
+      tokenCache[userId] = null;
+    }
+    return tokenCache[userId];
+  });
 }
 
 async function saveToken(userId, token) {
   await ensure_dir();
   const file = tokenPath(userId);
   try {
-    if (token) {
-      const encrypted = encryptToken(token);
-      await fsp.writeFile(file, encrypted, 'utf-8');
-    } else {
-      await fsp.unlink(file).catch(() => {});
-    }
+    await storeMutex.runExclusive(async () => {
+      if (token) {
+        const encrypted = encryptToken(token);
+        await fsp.writeFile(file, encrypted, 'utf-8');
+      } else {
+        await fsp.unlink(file).catch(() => {});
+      }
+    });
   } catch (e) {
     console.error(`[tokenStore] failed to save token for ${userId}`, e.message);
   }

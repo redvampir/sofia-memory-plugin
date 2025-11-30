@@ -3,6 +3,7 @@ require('dotenv').config();
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
+const systemRoutes = require('./api/system');
 
 const app = express();
 
@@ -27,6 +28,8 @@ app.use((req, res, next) => {
 app.get('/api/ping', (_req, res) => {
   res.json({ ok: true, message: 'pong' });
 });
+
+app.use(systemRoutes);
 
 // === Маршрут saveMemory ===
 app.post('/api/saveMemory', (req, res) => {

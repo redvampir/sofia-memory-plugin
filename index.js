@@ -24,6 +24,7 @@ const modeRoutes = require("./api/mode_routes");
 const metaRoutes = require('./api/meta_routes');
 const lessonRoutes = require('./api/lesson_routes');
 const visualRoutes = require('./api/visual_routes');
+const systemRoutes = require('./api/system');
 const { listMemoryFiles } = require("./logic/memory_operations");
 const memoryRoutesV2 = require('./api/memory_v2');
 const versioning = require('./versioning');
@@ -67,6 +68,7 @@ app.use(modeRoutes);
 app.use(metaRoutes);
 app.use(lessonRoutes);
 app.use(visualRoutes);
+app.use(systemRoutes);
 
 app.post('/switch_memory_repo', async (req, res) => {
   const { type, path, userId } = req.body;
