@@ -3,8 +3,9 @@ const { redact } = require('./logRedactor');
 
 const levels = {
   error: 0,
-  info: 1,
-  debug: 2,
+  warn: 1,
+  info: 2,
+  debug: 3,
 };
 
 let currentLevel = (process.env.LOG_LEVEL || 'info').toLowerCase();
@@ -37,7 +38,7 @@ function shouldLog(level) {
 
 function normalizeLevel(level) {
   const normalized = (level || 'INFO').toUpperCase();
-  return ['ERROR', 'INFO', 'DEBUG'].includes(normalized) ? normalized : 'INFO';
+  return ['ERROR', 'WARN', 'INFO', 'DEBUG'].includes(normalized) ? normalized : 'INFO';
 }
 
 function log(level, msg, data) {
@@ -63,6 +64,8 @@ function log(level, msg, data) {
   } else {
     if (normalizedLevel === 'ERROR') {
       console.error(line);
+    } else if (normalizedLevel === 'WARN') {
+      console.warn(line);
     } else {
       console.log(line);
     }
@@ -75,6 +78,7 @@ module.exports = {
     currentLevel = (level || '').toLowerCase();
   },
   info: (msg, data) => log('INFO', msg, data),
+  warn: (msg, data) => log('WARN', msg, data),
   debug: (msg, data) => log('DEBUG', msg, data),
   error: (msg, data) => log('ERROR', msg, data),
 };
