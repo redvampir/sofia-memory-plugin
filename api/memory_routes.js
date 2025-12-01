@@ -1249,12 +1249,17 @@ async function readMeta(req, res) {
       const previewBuffer = await readLocalPreview(filePath, previewLimit);
       const preview = previewBuffer.toString('utf-8');
       const { isJSON, keysCount } = analyzeJsonPreview(preview);
+      const splitMeta = await loadMemorySplitIndex(normalizedFilename);
 
       return res.json({
         status: 'ok',
         file: normalizedFilename,
         size: stats.size,
         modifiedAt: stats.mtime.toISOString(),
+        createdAt: stats.birthtime ? new Date(stats.birthtime).toISOString() : undefined,
+        ...(splitMeta?.parts?.length
+          ? { parts: splitMeta.parts.length, partSize: splitMeta.partSize }
+          : {}),
         keysCount,
         isJSON,
         preview,
@@ -1295,12 +1300,17 @@ async function readMeta(req, res) {
 
     const preview = previewBuffer.toString('utf-8');
     const { isJSON, keysCount } = analyzeJsonPreview(preview);
+    const splitMeta = await loadMemorySplitIndex(normalizedFilename, {
+      repo: `${owner}/${repoName}`,
+      token,
+    });
 
     return res.json({
       status: 'ok',
       file: normalizedFilename,
       size,
       modifiedAt: remoteModifiedAt,
+      ...(splitMeta?.parts?.length ? { parts: splitMeta.parts.length, partSize: splitMeta.partSize } : {}),
       keysCount,
       isJSON,
       preview,

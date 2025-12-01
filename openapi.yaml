@@ -390,6 +390,16 @@ paths:
                 content:
                   type: string
                   description: Сохраняемый текст или JSON.
+                maxFileSize:
+                  type: integer
+                  description: >-
+                    Максимальный размер одной части в байтах. Если контент больше и `autoSplit=true`,
+                    файл автоматически разобьётся на части указанного размера.
+                autoSplit:
+                  type: boolean
+                  description: >-
+                    Признак авторазбиения файла на части при превышении `maxFileSize`.
+                    При `false` возвращается ошибка `FileTooLargeError` (413).
                 repo:
                   type: string
                   format: uri
@@ -403,6 +413,8 @@ paths:
             example:
               filename: memory/profile/user.json
               content: '{"name":"Sofia","role":"assistant"}'
+              maxFileSize: 10240
+              autoSplit: true
               repo: https://github.com/example/memory-repo
       responses:
         '200':
@@ -418,12 +430,28 @@ paths:
                     type: string
                   filePath:
                     type: string
+                  parts:
+                    type: array
+                    description: Список созданных частей (если файл разбит).
+                    items:
+                      type: string
+                  partSize:
+                    type: integer
+                    description: Размер одной части в байтах, если применялось разбиение.
               example:
                 status: success
                 action: saveMemory
                 filePath: memory/profile/user.json
+                parts:
+                  - memory/profile/user_part1.json
+                  - memory/profile/user_part2.json
+                partSize: 10240
         '400':
           description: Неверные входные данные (например, отсутствуют обязательные поля).
+        '413':
+          description: >-
+            Файл превышает допустимый размер и не может быть сохранён без разбиения
+            (ошибка `FileTooLargeError`).
         '401':
           description: Отсутствует или неверный GitHub-токен при работе с удалённым репозиторием.
         '404':
@@ -450,6 +478,12 @@ paths:
                 range:
                   type: string
                   description: "Диапазон байт в формате start:bytes (start >= 0, bytes > 0). Возвращает часть файла."
+                offset:
+                  type: integer
+                  description: Смещение в байтах от начала файла (альтернатива range.start).
+                limit:
+                  type: integer
+                  description: Количество байт для чтения (ограничено сервером). Используется с `offset`.
                 repo:
                   type: string
                   format: uri
@@ -487,6 +521,12 @@ paths:
                         type: integer
                       truncated:
                         type: boolean
+                      offset:
+                        type: integer
+                        description: Смещение, с которого начиналось чтение.
+                      limit:
+                        type: integer
+                        description: Итоговое количество возвращённых байт.
                       encoding:
                         type: string
                         enum: [utf-8, base64]
@@ -498,6 +538,15 @@ paths:
                         oneOf:
                           - type: object
                           - type: 'null'
+                      part:
+                        type: integer
+                        description: Номер части, если файл разбит.
+                      parts:
+                        type: integer
+                        description: Количество частей при разбиении.
+                      ref:
+                        type: string
+                        description: Ветка/commit, из которой выполнялось чтение (для GitHub).
                   - type: object
                     properties:
                       ok:
@@ -517,6 +566,10 @@ paths:
                     chunkStart: 0
                     chunkEnd: 1279
                     truncated: false
+                    offset: 0
+                    limit: 1280
+                    part: 1
+                    parts: 1
                     encoding: utf-8
                     content: '{"name":"Sofia","role":"assistant"}'
                     json:
@@ -530,9 +583,14 @@ paths:
                     size: 10240
                     chunkStart: 0
                     chunkEnd: 511
+                    offset: 0
+                    limit: 512
                     truncated: true
+                    part: 1
+                    parts: 3
                     encoding: base64
                     content: "ZmlsZSBwcmVmaXg..."
+                    ref: main
                 missing:
                   summary: Локальный файл отсутствует
                   value:
@@ -544,10 +602,16 @@ paths:
                       chunkStart: 0
                       chunkEnd: -1
                       truncated: false
+                      offset: 0
+                      limit: 0
+                      part: 1
+                      parts: 1
         '401':
           description: Отсутствует или неверный GitHub-токен при работе с удалённым репозиторием.
         '404':
           description: Репозиторий или удалённый файл не найдены.
+        '416':
+          description: Запрошенный диапазон выходит за пределы файла.
   /api/readMeta:
     get:
       summary: Получение метаданных файла памяти
@@ -612,6 +676,18 @@ paths:
                   size:
                     type: integer
                     description: Размер файла в байтах.
+                  parts:
+                    type: integer
+                    nullable: true
+                    description: Количество частей, если файл был автоматически разбит.
+                  partSize:
+                    type: integer
+                    nullable: true
+                    description: Размер одной части в байтах при наличии разбиения.
+                  createdAt:
+                    type: string
+                    nullable: true
+                    description: Дата создания файла (ISO 8601), если доступна.
                   modifiedAt:
                     type: string
                     nullable: true
@@ -629,6 +705,9 @@ paths:
                 status: ok
                 file: memory/profile/user.json
                 size: 20480
+                parts: 3
+                partSize: 10240
+                createdAt: '2024-02-25T12:00:00Z'
                 modifiedAt: '2024-03-01T12:00:00Z'
                 keysCount: 5
                 isJSON: true
