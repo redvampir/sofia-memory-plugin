@@ -23,6 +23,16 @@ const { parseFrontMatter } = require('../utils/markdown_utils');
 const { appendSummaryLog } = require('../versioning');
 const { isLocalMode, resolvePath, baseDir } = require('../utils/memory_mode');
 const { requestToAgent } = require('../src/memory_plugin');
+const logger = require('../utils/logger');
+
+const ENV_MAX_READ = Number.parseInt(process.env.MAX_READ_CHUNK || '', 10);
+const DEFAULT_MAX_READ_CHUNK = Number.isFinite(ENV_MAX_READ) && ENV_MAX_READ > 0 ? ENV_MAX_READ : 64 * 1024;
+
+function clampReadLimit(limit, maxLimit = DEFAULT_MAX_READ_CHUNK) {
+  const safeMax = Number.isFinite(maxLimit) && maxLimit > 0 ? maxLimit : DEFAULT_MAX_READ_CHUNK;
+  const normalized = Number.isFinite(limit) && limit > 0 ? limit : safeMax;
+  return Math.min(normalized, safeMax);
+}
 
 class StorageLimitError extends Error {
   constructor(code, message, details = {}) {
@@ -415,6 +425,10 @@ function buildPartFilename(filePath, index) {
   return path.join(dir, `${name}_part${index}${ext}`);
 }
 
+function normalizePosix(value) {
+  return value.replace(/\\/g, '/');
+}
+
 function splitBufferToParts(buffer, partSize) {
   const parts = [];
   let offset = 0;
@@ -426,6 +440,112 @@ function splitBufferToParts(buffer, partSize) {
     index += 1;
   }
   return parts;
+}
+
+async function loadMemorySplitIndex(normalizedFilename, { repo, token } = {}) {
+  const dir = path.posix.dirname(normalizedFilename);
+  const indexRel = path.posix.join(dir, 'memory_index.json');
+  const original = normalizePosix(normalizedFilename);
+  try {
+    const raw = repo && token
+      ? await github.readFile(token, repo, indexRel)
+      : await fsp.readFile(path.join(__dirname, '..', indexRel), 'utf-8');
+    const data = JSON.parse(raw);
+    if (!Array.isArray(data)) return null;
+    return data.find(entry => normalizePosix(entry.originalFile || '') === original) || null;
+  } catch (e) {
+    logger.debug('[loadMemorySplitIndex] метаданные недоступны', e.message);
+    return null;
+  }
+}
+
+function calculatePartWindow(meta, offset, limit) {
+  const totalSize = Number.isFinite(meta?.size) ? meta.size : null;
+  if (!Array.isArray(meta?.parts) || !meta.parts.length) {
+    return {
+      target: meta?.originalFile,
+      part: 1,
+      parts: 1,
+      range: { start: offset, end: offset + limit - 1 },
+      totalSize,
+      originalStart: offset,
+    };
+  }
+
+  const partSize = Number.isFinite(meta.partSize) && meta.partSize > 0 ? meta.partSize : null;
+  if (totalSize !== null && offset >= totalSize) {
+    const err = new Error('Диапазон выходит за пределы файла');
+    err.status = 416;
+    throw err;
+  }
+
+  const parts = meta.parts.map(p => normalizePosix(p));
+  const idx = Math.min(
+    partSize ? Math.floor(offset / partSize) : Math.floor((offset / Math.max(totalSize || offset + 1, 1)) * parts.length),
+    parts.length - 1
+  );
+  const partStart = partSize ? idx * partSize : Math.floor((totalSize || 0) / parts.length) * idx;
+  const partEnd = totalSize !== null ? Math.min(totalSize - 1, partStart + (partSize || limit) - 1) : partStart + limit - 1;
+  const innerOffset = offset - partStart;
+  const bytes = Math.max(1, Math.min(limit, partEnd - offset + 1));
+
+  return {
+    target: parts[idx],
+    part: idx + 1,
+    parts: parts.length,
+    range: { start: innerOffset, end: innerOffset + bytes - 1 },
+    totalSize,
+    originalStart: offset,
+    originalEnd: offset + bytes - 1,
+  };
+}
+
+async function resolveMemoryReadTarget({
+  normalizedFilename,
+  offset = 0,
+  limit,
+  repo,
+  token,
+  maxLimit = DEFAULT_MAX_READ_CHUNK,
+}) {
+  if (!Number.isFinite(offset) || offset < 0) {
+    const err = new Error('offset должен быть неотрицательным числом');
+    err.status = 400;
+    throw err;
+  }
+  if (!Number.isFinite(limit) || limit <= 0) {
+    const err = new Error('limit должен быть положительным числом');
+    err.status = 400;
+    throw err;
+  }
+
+  const boundedLimit = clampReadLimit(limit, maxLimit);
+
+  const meta = await loadMemorySplitIndex(normalizedFilename, { repo, token });
+  const selected = calculatePartWindow(meta || { originalFile: normalizedFilename }, offset, boundedLimit);
+
+  if (!repo) {
+    const absTarget = path.join(__dirname, '..', selected.target);
+    const exists = await fsp
+      .access(absTarget)
+      .then(() => true)
+      .catch(() => false);
+    if (!exists) {
+      const err = new Error('Часть файла не найдена');
+      err.status = 404;
+      throw err;
+    }
+    const stats = await fsp.stat(absTarget).catch(() => null);
+    const totalSize = Number.isFinite(selected.totalSize) ? selected.totalSize : stats?.size ?? null;
+    if (totalSize !== null && offset >= totalSize) {
+      const err = new Error('Диапазон выходит за пределы файла');
+      err.status = 416;
+      throw err;
+    }
+    return { ...selected, totalSize };
+  }
+
+  return selected;
 }
 
 async function removeFromMemoryIndex(indexPath, originalFile, repo, token) {
@@ -1222,5 +1342,7 @@ module.exports = {
   safeUpdateIndexEntry,
   readIndexSafe,
   saveContentWithSplitting,
+  resolveMemoryReadTarget,
+  loadMemorySplitIndex,
   StorageLimitError,
 };
