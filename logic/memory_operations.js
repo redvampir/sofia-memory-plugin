@@ -24,6 +24,15 @@ const { appendSummaryLog } = require('../versioning');
 const { isLocalMode, resolvePath, baseDir } = require('../utils/memory_mode');
 const { requestToAgent } = require('../src/memory_plugin');
 
+class StorageLimitError extends Error {
+  constructor(code, message, details = {}) {
+    super(message);
+    this.name = 'StorageLimitError';
+    this.code = code;
+    this.details = details;
+  }
+}
+
 function contextFilename(userId = 'default') {
   return isLocalMode(userId)
     ? path.join(baseDir(userId), 'memory', 'context.md')
@@ -339,6 +348,256 @@ async function writeFileSafe(filePath, data, force = false) {
     console.error(`[writeFileSafe] Error writing ${filePath}`, e.message);
     throw e;
   }
+}
+
+function escapeRegExp(str) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+async function calculateDirectorySize(dir) {
+  let total = 0;
+  const entries = await fsp.readdir(dir, { withFileTypes: true });
+  for (const entry of entries) {
+    const fullPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      total += await calculateDirectorySize(fullPath);
+    } else if (entry.isFile()) {
+      const stat = await fsp.stat(fullPath);
+      total += stat.size;
+    }
+  }
+  return total;
+}
+
+async function removeLocalFiles(paths) {
+  for (const p of paths) {
+    try {
+      await fsp.unlink(p);
+    } catch (e) {
+      if (e.code !== 'ENOENT') {
+        throw e;
+      }
+    }
+  }
+}
+
+async function collectExistingTargets(dir, baseName) {
+  const parsed = path.parse(baseName);
+  const partPattern = new RegExp(`^${escapeRegExp(parsed.name)}_part\\d+${escapeRegExp(parsed.ext)}$`, 'i');
+  const entries = await fsp.readdir(dir, { withFileTypes: true });
+  const targets = [];
+
+  for (const entry of entries) {
+    if (!entry.isFile()) continue;
+    if (entry.name === baseName || partPattern.test(entry.name)) {
+      targets.push(path.join(dir, entry.name));
+    }
+  }
+
+  return targets;
+}
+
+async function measurePathsSize(paths) {
+  let total = 0;
+  for (const p of paths) {
+    try {
+      const stat = await fsp.stat(p);
+      total += stat.size;
+    } catch {
+      // ignore missing files
+    }
+  }
+  return total;
+}
+
+function buildPartFilename(filePath, index) {
+  const { dir, name, ext } = path.parse(filePath);
+  return path.join(dir, `${name}_part${index}${ext}`);
+}
+
+function splitBufferToParts(buffer, partSize) {
+  const parts = [];
+  let offset = 0;
+  let index = 1;
+  while (offset < buffer.length) {
+    const chunk = buffer.slice(offset, offset + partSize);
+    parts.push({ index, size: chunk.length, buffer: chunk });
+    offset += partSize;
+    index += 1;
+  }
+  return parts;
+}
+
+async function removeFromMemoryIndex(indexPath, originalFile, repo, token) {
+  ensure_dir(indexPath);
+  const relIndex = path.relative(path.join(__dirname, '..'), indexPath).replace(/\\/g, '/');
+
+  let indexData = [];
+  try {
+    const raw = await fsp.readFile(indexPath, 'utf-8');
+    indexData = JSON.parse(raw);
+    if (!Array.isArray(indexData)) {
+      indexData = [];
+    }
+  } catch {
+    // ignore missing or invalid file
+  }
+
+  const updated = indexData.filter(entry => entry && entry.originalFile !== originalFile);
+  if (updated.length === indexData.length) return;
+
+  const serialized = JSON.stringify(updated, null, 2);
+  await writeFileSafe(indexPath, serialized, true);
+
+  if (repo && token) {
+    await github.writeFileSafe(token, repo, relIndex, serialized, 'update memory_index.json');
+  }
+}
+
+async function updateMemoryIndex({
+  indexPath,
+  originalFile,
+  parts,
+  size,
+  partSize,
+  created,
+  repo,
+  token,
+}) {
+  ensure_dir(indexPath);
+  const relIndex = path.relative(path.join(__dirname, '..'), indexPath).replace(/\\/g, '/');
+
+  let indexData = [];
+  try {
+    const raw = await fsp.readFile(indexPath, 'utf-8');
+    indexData = JSON.parse(raw);
+    if (!Array.isArray(indexData)) {
+      indexData = [];
+    }
+  } catch {
+    // ignore missing or invalid file
+  }
+
+  const existingIdx = indexData.findIndex(entry => entry && entry.originalFile === originalFile);
+  const payload = { originalFile, parts, size, partSize, created };
+  if (existingIdx >= 0) {
+    indexData[existingIdx] = { ...indexData[existingIdx], ...payload };
+  } else {
+    indexData.push(payload);
+  }
+
+  const serialized = JSON.stringify(indexData, null, 2);
+  await writeFileSafe(indexPath, serialized, true);
+
+  if (repo && token) {
+    await github.writeFileSafe(token, repo, relIndex, serialized, 'update memory_index.json');
+  }
+}
+
+async function saveContentWithSplitting({
+  filePath,
+  content,
+  maxFileSize,
+  autoSplit,
+  repo,
+  token,
+  maxTotalFile,
+  maxParts,
+}) {
+  const buffer = Buffer.from(String(content));
+  const size = buffer.byteLength;
+  const limit = Number.isFinite(maxFileSize) && maxFileSize > 0 ? maxFileSize : null;
+  const partsLimit = Number.isFinite(maxParts) && maxParts > 0 ? maxParts : null;
+  const totalLimit = Number.isFinite(maxTotalFile) && maxTotalFile > 0 ? maxTotalFile : null;
+
+  ensure_dir(filePath);
+  const dir = path.dirname(filePath);
+  const baseName = path.basename(filePath);
+  const relFile = path.relative(path.join(__dirname, '..'), filePath).replace(/\\/g, '/');
+  const indexPath = path.join(dir, 'memory_index.json');
+
+  const existingTargets = await collectExistingTargets(dir, baseName);
+  const existingSize = await measurePathsSize(existingTargets);
+  const dirSize = await calculateDirectorySize(dir).catch(() => 0);
+
+  const projectedSize = dirSize - existingSize + size;
+  if (totalLimit && projectedSize > totalLimit) {
+    throw new StorageLimitError('TotalLimitExceeded', 'Превышен общий лимит хранилища', {
+      maxTotalFile: totalLimit,
+      projectedSize,
+    });
+  }
+
+  if (!limit || size <= limit) {
+    await writeFileSafe(filePath, content);
+    if (repo && token) {
+      await github.writeFileSafe(token, repo, relFile, content, `update ${baseName}`);
+    }
+    const staleTargets = existingTargets.filter(p => path.resolve(p) !== path.resolve(filePath));
+    await removeLocalFiles(staleTargets);
+    await removeFromMemoryIndex(indexPath, relFile, repo, token);
+    return { savedPath: relFile, size, parts: [] };
+  }
+
+  if (!autoSplit) {
+    throw new StorageLimitError('FileTooLargeError', 'Размер файла превышает допустимый лимит', {
+      size,
+      maxFileSize: limit,
+    });
+  }
+
+  const partSize = limit;
+  const parts = splitBufferToParts(buffer, partSize);
+  if (partsLimit && parts.length > partsLimit) {
+    throw new StorageLimitError('PartsLimitExceeded', 'Превышено количество создаваемых частей', {
+      maxParts: partsLimit,
+      parts: parts.length,
+    });
+  }
+
+  const partsTotal = parts.reduce((acc, part) => acc + part.size, 0);
+  const projectedWithParts = dirSize - existingSize + partsTotal;
+  if (totalLimit && projectedWithParts > totalLimit) {
+    throw new StorageLimitError('TotalLimitExceeded', 'Превышен общий лимит хранилища', {
+      maxTotalFile: totalLimit,
+      projectedSize: projectedWithParts,
+    });
+  }
+
+  const partPaths = [];
+  const absPartPaths = [];
+  for (const part of parts) {
+    const partPath = buildPartFilename(filePath, part.index);
+    const relPart = path.relative(path.join(__dirname, '..'), partPath).replace(/\\/g, '/');
+    await writeFileSafe(partPath, part.buffer.toString('utf-8'));
+    if (repo && token) {
+      await github.writeFileSafe(
+        token,
+        repo,
+        relPart,
+        part.buffer.toString('utf-8'),
+        `update ${path.basename(partPath)}`
+      );
+    }
+    partPaths.push(relPart);
+    absPartPaths.push(path.resolve(partPath));
+  }
+
+  const staleTargets = existingTargets.filter(p => !absPartPaths.includes(path.resolve(p)));
+  await removeLocalFiles(staleTargets);
+
+  await updateMemoryIndex({
+    indexPath,
+    originalFile: relFile,
+    parts: partPaths,
+    size,
+    partSize,
+    created: new Date().toISOString(),
+    repo,
+    token,
+  });
+
+  return { savedPath: relFile, size, parts: partPaths, partSize };
 }
 
 
@@ -962,4 +1221,6 @@ module.exports = {
   sanitizeIndex,
   safeUpdateIndexEntry,
   readIndexSafe,
+  saveContentWithSplitting,
+  StorageLimitError,
 };
