@@ -16,6 +16,8 @@ const {
   contextFilename,
   planFilename,
   indexFilename,
+  saveContentWithSplitting,
+  StorageLimitError,
 } = require('../logic/memory_operations');
 const index_manager = require('../logic/index_manager');
 const memory_config = require('../tools/memory_config');
@@ -733,7 +735,16 @@ async function saveMemory(req, res) {
   logRequest(req);
   const respond = createResponder(req, res);
 
-  const { repo, filename, content, userId } = normalizeMemoryBody(req.body);
+  const {
+    repo,
+    filename,
+    content,
+    userId,
+    maxFileSize,
+    autoSplit,
+    maxTotalFile,
+    maxParts,
+  } = normalizeMemoryBody(req.body);
   const token = await extractToken(req);
   const { repo: effectiveRepo, token: effectiveToken } = await getRepoInfo(filename, userId, repo, token);
 
@@ -818,6 +829,7 @@ async function saveMemory(req, res) {
   }
 
   let handledAsJson = false;
+  let saveResult = null;
   if (isJson) {
     try {
       const data = typeof finalContent === 'string' ? JSON.parse(finalContent) : finalContent;
@@ -837,14 +849,9 @@ async function saveMemory(req, res) {
   }
 
   if (!handledAsJson) {
-    try {
-      await writeFileSafe(filePath, finalContent);
-    } catch (e) {
-      logger.error('[saveMemory writeFileSafe]', e.stack || e.message);
-      const unavailable = e.status === 503 ? 503 : 200;
-      return respond(false, { error: e.message, details: e.githubMessage }, unavailable);
-    }
-
+    const sizeLimit = Number.parseInt(maxFileSize, 10);
+    const totalLimit = Number.parseInt(maxTotalFile, 10);
+    const partsLimit = Number.parseInt(maxParts, 10);
     if (needsGithub) {
       const access = checkAccess(normalizedFilename, 'write');
       if (!access.allowed) {
@@ -852,20 +859,28 @@ async function saveMemory(req, res) {
         logger.error('[saveMemory access denied]', access.message);
         return respond(false, access.message);
       }
-      try {
-        await github.writeFileSafe(
-          effectiveToken,
-          effectiveRepo,
-          normalizedFilename,
-          finalContent,
-          `update ${filename}`
-        );
-      } catch (e) {
-        logError('GitHub write', e);
-        logger.error('[saveMemory github write]', e.stack || e.message);
-        const unavailable = e.status === 503 ? 503 : 200;
-        return respond(false, { error: e.message, details: e.githubMessage }, unavailable);
+    }
+
+    try {
+      saveResult = await saveContentWithSplitting({
+        filePath,
+        content: finalContent,
+        maxFileSize: Number.isFinite(sizeLimit) ? sizeLimit : undefined,
+        autoSplit: Boolean(autoSplit),
+        repo: effectiveRepo,
+        token: effectiveToken,
+        maxTotalFile: Number.isFinite(totalLimit) ? totalLimit : undefined,
+        maxParts: Number.isFinite(partsLimit) ? partsLimit : undefined,
+      });
+    } catch (e) {
+      if (e instanceof StorageLimitError) {
+        logger.warn('[saveMemory limits]', e.code, e.details);
+        const statusCode = e.code === 'FileTooLargeError' ? 413 : 400;
+        return respond(false, { error: e.code, details: e.details }, statusCode);
       }
+      logger.error('[saveMemory saveContentWithSplitting]', e.stack || e.message);
+      const unavailable = e.status === 503 ? 503 : 200;
+      return respond(false, { error: e.message, details: e.githubMessage }, unavailable);
     }
   }
 
@@ -905,7 +920,11 @@ async function saveMemory(req, res) {
     }
   }
 
-  return respond(true, { action: 'saveMemory', filePath: normalizedFilename });
+  return respond(true, {
+    action: 'saveMemory',
+    filePath: normalizedFilename,
+    ...(saveResult?.parts?.length ? { parts: saveResult.parts, partSize: saveResult.partSize } : {}),
+  });
 }
 
 async function saveAnswer(req, res) {
