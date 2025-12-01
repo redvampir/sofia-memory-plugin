@@ -369,6 +369,18 @@ async function calculateDirectorySize(dir) {
   return total;
 }
 
+async function removeLocalFiles(paths) {
+  for (const p of paths) {
+    try {
+      await fsp.unlink(p);
+    } catch (e) {
+      if (e.code !== 'ENOENT') {
+        throw e;
+      }
+    }
+  }
+}
+
 async function collectExistingTargets(dir, baseName) {
   const parsed = path.parse(baseName);
   const partPattern = new RegExp(`^${escapeRegExp(parsed.name)}_part\\d+${escapeRegExp(parsed.ext)}$`, 'i');
@@ -414,6 +426,32 @@ function splitBufferToParts(buffer, partSize) {
     index += 1;
   }
   return parts;
+}
+
+async function removeFromMemoryIndex(indexPath, originalFile, repo, token) {
+  ensure_dir(indexPath);
+  const relIndex = path.relative(path.join(__dirname, '..'), indexPath).replace(/\\/g, '/');
+
+  let indexData = [];
+  try {
+    const raw = await fsp.readFile(indexPath, 'utf-8');
+    indexData = JSON.parse(raw);
+    if (!Array.isArray(indexData)) {
+      indexData = [];
+    }
+  } catch {
+    // ignore missing or invalid file
+  }
+
+  const updated = indexData.filter(entry => entry && entry.originalFile !== originalFile);
+  if (updated.length === indexData.length) return;
+
+  const serialized = JSON.stringify(updated, null, 2);
+  await writeFileSafe(indexPath, serialized, true);
+
+  if (repo && token) {
+    await github.writeFileSafe(token, repo, relIndex, serialized, 'update memory_index.json');
+  }
 }
 
 async function updateMemoryIndex({
@@ -476,6 +514,7 @@ async function saveContentWithSplitting({
   const dir = path.dirname(filePath);
   const baseName = path.basename(filePath);
   const relFile = path.relative(path.join(__dirname, '..'), filePath).replace(/\\/g, '/');
+  const indexPath = path.join(dir, 'memory_index.json');
 
   const existingTargets = await collectExistingTargets(dir, baseName);
   const existingSize = await measurePathsSize(existingTargets);
@@ -494,6 +533,9 @@ async function saveContentWithSplitting({
     if (repo && token) {
       await github.writeFileSafe(token, repo, relFile, content, `update ${baseName}`);
     }
+    const staleTargets = existingTargets.filter(p => path.resolve(p) !== path.resolve(filePath));
+    await removeLocalFiles(staleTargets);
+    await removeFromMemoryIndex(indexPath, relFile, repo, token);
     return { savedPath: relFile, size, parts: [] };
   }
 
@@ -523,6 +565,7 @@ async function saveContentWithSplitting({
   }
 
   const partPaths = [];
+  const absPartPaths = [];
   for (const part of parts) {
     const partPath = buildPartFilename(filePath, part.index);
     const relPart = path.relative(path.join(__dirname, '..'), partPath).replace(/\\/g, '/');
@@ -537,9 +580,12 @@ async function saveContentWithSplitting({
       );
     }
     partPaths.push(relPart);
+    absPartPaths.push(path.resolve(partPath));
   }
 
-  const indexPath = path.join(dir, 'memory_index.json');
+  const staleTargets = existingTargets.filter(p => !absPartPaths.includes(path.resolve(p)));
+  await removeLocalFiles(staleTargets);
+
   await updateMemoryIndex({
     indexPath,
     originalFile: relFile,
