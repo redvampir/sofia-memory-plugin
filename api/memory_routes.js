@@ -18,6 +18,8 @@ const {
   indexFilename,
   saveContentWithSplitting,
   StorageLimitError,
+  resolveMemoryReadTarget,
+  loadMemorySplitIndex,
 } = require('../logic/memory_operations');
 const index_manager = require('../logic/index_manager');
 const memory_config = require('../tools/memory_config');
@@ -40,6 +42,8 @@ const ALLOW_INSECURE_LOCAL = process.env.ALLOW_INSECURE_LOCAL === '1';
 const index_tree = require('../tools/index_tree');
 
 const PREVIEW_LIMIT_BYTES = 2048;
+const ENV_MAX_READ = Number.parseInt(process.env.MAX_READ_CHUNK || '', 10);
+const MAX_READ_CHUNK = Number.isFinite(ENV_MAX_READ) && ENV_MAX_READ > 0 ? ENV_MAX_READ : 64 * 1024;
 
 const remoteMetadataCache = new Map();
 const defaultBranchCache = new Map();
@@ -947,7 +951,8 @@ async function readMemory(req, res) {
   logRequest(req);
   const respond = createResponder(req, res);
 
-  const { repo, filename, userId, range: rangeRaw, ref } = normalizeMemoryBody(req.body);
+  const { repo, filename, userId, range: rangeRaw, ref, offset: offsetRaw, limit: limitRaw } =
+    normalizeMemoryBody(req.body);
   const token = await extractToken(req);
   const { repo: effectiveRepo, token: effectiveToken, ref: defaultRef } = await getRepoInfo(
     filename,
@@ -968,16 +973,28 @@ async function readMemory(req, res) {
   }
 
   const range = rangeResult.range;
+  const offset = Number.isFinite(Number.parseInt(offsetRaw, 10)) ? Number.parseInt(offsetRaw, 10) : 0;
+  const limitCandidate = Number.parseInt(limitRaw, 10);
+  const limit = Number.isFinite(limitCandidate) && limitCandidate > 0 ? limitCandidate : MAX_READ_CHUNK;
+  const effectiveOffset = range ? range.start : offset;
+  const effectiveLimit = range ? range.bytes : limit;
 
   if (effectiveRepo) {
     if (!effectiveToken) return respond(false, 'Отсутствует GitHub token', 401);
     try {
+      const selection = await resolveMemoryReadTarget({
+        normalizedFilename,
+        offset: effectiveOffset,
+        limit: effectiveLimit,
+        repo: effectiveRepo,
+        token: effectiveToken,
+      });
       const { buffer, size, chunkStart, chunkEnd, owner, repoName, ref: appliedRef, meta } =
         await readGithubFileChunk(
           effectiveToken,
           effectiveRepo,
-          normalizedFilename,
-          range,
+          selection.target,
+          selection.range,
           effectiveRef
         );
       const hintEncoding = meta?.encoding;
@@ -1003,14 +1020,22 @@ async function readMemory(req, res) {
           return respond(false, 'Не удалось разобрать JSON');
         }
       }
-      const truncated = size > 0 ? chunkEnd < size - 1 : false;
+      const totalSize = Number.isFinite(selection.totalSize) ? selection.totalSize : size;
+      const effectiveEnd = selection.originalEnd ?? chunkEnd;
+      const truncated = totalSize > 0 ? effectiveEnd < totalSize - 1 : false;
+      const responseStart = selection.originalStart ?? chunkStart;
+      const responseEnd = selection.originalEnd ?? chunkEnd;
       return respond(true, {
         status: 'success',
         file: normalizedFilename,
-        size,
-        chunkStart,
-        chunkEnd,
+        size: totalSize,
+        chunkStart: responseStart,
+        chunkEnd: responseEnd,
         truncated,
+        offset: effectiveOffset,
+        limit: effectiveLimit,
+        part: selection.part,
+        parts: selection.parts,
         content,
         encoding,
         ...(json !== null ? { json } : {}),
@@ -1038,8 +1063,14 @@ async function readMemory(req, res) {
   }
 
   try {
-    const { buffer, size, chunkStart, chunkEnd } = await readLocalFileChunk(filePath, range);
-    const { content, encoding } = decodeContent(buffer, normalizedFilename);
+    const selection = await resolveMemoryReadTarget({
+      normalizedFilename,
+      offset: effectiveOffset,
+      limit: effectiveLimit,
+    });
+    const targetPath = selection.target ? path.join(__dirname, '..', selection.target) : filePath;
+    const { buffer, size, chunkStart, chunkEnd } = await readLocalFileChunk(targetPath, selection.range);
+    const { content, encoding } = decodeContent(buffer, selection.target || normalizedFilename);
     let json = null;
     if (isJson && encoding === 'utf-8') {
       try {
@@ -1050,21 +1081,27 @@ async function readMemory(req, res) {
         return respond(false, 'Не удалось разобрать JSON');
       }
     }
-    const truncated = size > 0 ? chunkEnd < size - 1 : false;
+    const totalSize = Number.isFinite(selection.totalSize) ? selection.totalSize : size;
+    const effectiveEnd = selection.originalEnd ?? chunkEnd;
+    const truncated = totalSize > 0 ? effectiveEnd < totalSize - 1 : false;
     return respond(true, {
       status: 'success',
       file: normalizedFilename,
-      size,
-      chunkStart,
-      chunkEnd,
+      size: totalSize,
+      chunkStart: selection.originalStart ?? chunkStart,
+      chunkEnd: selection.originalEnd ?? chunkEnd,
       truncated,
+      offset: effectiveOffset,
+      limit: effectiveLimit,
+      part: selection.part,
+      parts: selection.parts,
       content,
       encoding,
       ...(json !== null ? { json } : {}),
     });
   } catch (e) {
     logger.error('[readMemory local]', e.stack || e.message);
-    const code = e.status === 416 ? 416 : 500;
+    const code = e.status || (e.message && /диапазон/i.test(e.message) ? 416 : 500);
     return respond(false, e.message || 'Не удалось прочитать файл', code);
   }
 }
@@ -1089,6 +1126,7 @@ function readMemoryGET(req, res) {
     userId: req.query.userId,
     token: req.query.token,
     limit: req.query.limit,
+    offset: req.query.offset,
     range: req.query.range,
   };
   return readMemory(req, res);
