@@ -130,6 +130,12 @@ function parseRangeParam(raw) {
   return { ok: true, range: { start, bytes, end: start + bytes - 1 } };
 }
 
+function normalizeTimestamp(value) {
+  if (!value) return undefined;
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(date.getTime()) ? undefined : date.toISOString();
+}
+
 function getCacheKey(owner, repoName, filename, ref) {
   return `${owner}/${repoName}:${filename || ''}@${ref || ''}`;
 }
@@ -351,9 +357,11 @@ async function fetchGithubMetaAndPreview({
     throw new Error('Не удалось получить содержимое файла');
   }
 
+  const normalizedModifiedAt = normalizeTimestamp(modifiedAt);
+
   const cachedMeta = setCachedMeta(owner, repoName, normalizedFilename, ref || effectiveRef, {
     size: Number.isFinite(size) ? size : previewBuffer.length,
-    modifiedAt,
+    modifiedAt: normalizedModifiedAt,
     previewBuffer,
     ref: ref || effectiveRef,
   });
@@ -1143,6 +1151,7 @@ function readMemoryGET(req, res) {
     filename: req.query.filename,
     userId: req.query.userId,
     token: req.query.token,
+    ref: req.query.ref,
     limit: req.query.limit,
     offset: req.query.offset,
     range: req.query.range,
