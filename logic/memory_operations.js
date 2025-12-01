@@ -25,6 +25,15 @@ const { isLocalMode, resolvePath, baseDir } = require('../utils/memory_mode');
 const { requestToAgent } = require('../src/memory_plugin');
 const logger = require('../utils/logger');
 
+const ENV_MAX_READ = Number.parseInt(process.env.MAX_READ_CHUNK || '', 10);
+const DEFAULT_MAX_READ_CHUNK = Number.isFinite(ENV_MAX_READ) && ENV_MAX_READ > 0 ? ENV_MAX_READ : 64 * 1024;
+
+function clampReadLimit(limit, maxLimit = DEFAULT_MAX_READ_CHUNK) {
+  const safeMax = Number.isFinite(maxLimit) && maxLimit > 0 ? maxLimit : DEFAULT_MAX_READ_CHUNK;
+  const normalized = Number.isFinite(limit) && limit > 0 ? limit : safeMax;
+  return Math.min(normalized, safeMax);
+}
+
 class StorageLimitError extends Error {
   constructor(code, message, details = {}) {
     super(message);
@@ -491,7 +500,14 @@ function calculatePartWindow(meta, offset, limit) {
   };
 }
 
-async function resolveMemoryReadTarget({ normalizedFilename, offset = 0, limit, repo, token }) {
+async function resolveMemoryReadTarget({
+  normalizedFilename,
+  offset = 0,
+  limit,
+  repo,
+  token,
+  maxLimit = DEFAULT_MAX_READ_CHUNK,
+}) {
   if (!Number.isFinite(offset) || offset < 0) {
     const err = new Error('offset должен быть неотрицательным числом');
     err.status = 400;
@@ -503,8 +519,10 @@ async function resolveMemoryReadTarget({ normalizedFilename, offset = 0, limit, 
     throw err;
   }
 
+  const boundedLimit = clampReadLimit(limit, maxLimit);
+
   const meta = await loadMemorySplitIndex(normalizedFilename, { repo, token });
-  const selected = calculatePartWindow(meta || { originalFile: normalizedFilename }, offset, limit);
+  const selected = calculatePartWindow(meta || { originalFile: normalizedFilename }, offset, boundedLimit);
 
   if (!repo) {
     const absTarget = path.join(__dirname, '..', selected.target);

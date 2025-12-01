@@ -49,6 +49,21 @@ async function run() {
     fullBuffer,
   });
 
+  const rawRel = 'memory/tmp_read/large_raw.txt';
+  const rawNormalized = normalize_memory_path(rawRel);
+  const largeContent = 'x'.repeat(70 * 1024);
+  const rawAbs = path.join(__dirname, '..', rawNormalized);
+  fs.writeFileSync(rawAbs, largeContent);
+  const largeSelection = await resolveMemoryReadTarget({
+    normalizedFilename: rawNormalized,
+    offset: 0,
+    limit: 200 * 1024,
+  });
+  const bytes = (largeSelection.originalEnd ?? largeSelection.range.end) -
+    (largeSelection.originalStart ?? largeSelection.range.start) +
+    1;
+  assert.strictEqual(bytes, 64 * 1024, 'limit должен ограничиваться MAX_READ_CHUNK');
+
   const selection = await resolveMemoryReadTarget({ normalizedFilename: normalized, offset: 0, limit: 32 });
   const brokenPath = path.join(__dirname, '..', selection.target);
   fs.unlinkSync(brokenPath);

@@ -45,6 +45,12 @@ const PREVIEW_LIMIT_BYTES = 2048;
 const ENV_MAX_READ = Number.parseInt(process.env.MAX_READ_CHUNK || '', 10);
 const MAX_READ_CHUNK = Number.isFinite(ENV_MAX_READ) && ENV_MAX_READ > 0 ? ENV_MAX_READ : 64 * 1024;
 
+function normalizeLimit(limitCandidate) {
+  const parsed = Number.parseInt(limitCandidate, 10);
+  const normalized = Number.isFinite(parsed) && parsed > 0 ? parsed : MAX_READ_CHUNK;
+  return Math.min(normalized, MAX_READ_CHUNK);
+}
+
 const remoteMetadataCache = new Map();
 const defaultBranchCache = new Map();
 const TTL_FROM_ENV = Number.parseInt(process.env.MEMORY_METADATA_TTL_MS || '', 10);
@@ -974,10 +980,10 @@ async function readMemory(req, res) {
 
   const range = rangeResult.range;
   const offset = Number.isFinite(Number.parseInt(offsetRaw, 10)) ? Number.parseInt(offsetRaw, 10) : 0;
-  const limitCandidate = Number.parseInt(limitRaw, 10);
-  const limit = Number.isFinite(limitCandidate) && limitCandidate > 0 ? limitCandidate : MAX_READ_CHUNK;
+  const limit = normalizeLimit(limitRaw);
   const effectiveOffset = range ? range.start : offset;
   const effectiveLimit = range ? range.bytes : limit;
+  const maxLimitForRequest = range ? Number.POSITIVE_INFINITY : MAX_READ_CHUNK;
 
   if (effectiveRepo) {
     if (!effectiveToken) return respond(false, 'Отсутствует GitHub token', 401);
@@ -988,6 +994,7 @@ async function readMemory(req, res) {
         limit: effectiveLimit,
         repo: effectiveRepo,
         token: effectiveToken,
+        maxLimit: maxLimitForRequest,
       });
       const { buffer, size, chunkStart, chunkEnd, owner, repoName, ref: appliedRef, meta } =
         await readGithubFileChunk(
@@ -1025,6 +1032,9 @@ async function readMemory(req, res) {
       const truncated = totalSize > 0 ? effectiveEnd < totalSize - 1 : false;
       const responseStart = selection.originalStart ?? chunkStart;
       const responseEnd = selection.originalEnd ?? chunkEnd;
+      const appliedLimit =
+        (selection.originalEnd ?? selection.range.end) - (selection.originalStart ?? selection.range.start) + 1;
+
       return respond(true, {
         status: 'success',
         file: normalizedFilename,
@@ -1033,7 +1043,7 @@ async function readMemory(req, res) {
         chunkEnd: responseEnd,
         truncated,
         offset: effectiveOffset,
-        limit: effectiveLimit,
+        limit: appliedLimit,
         part: selection.part,
         parts: selection.parts,
         content,
@@ -1057,6 +1067,10 @@ async function readMemory(req, res) {
       chunkStart: 0,
       chunkEnd: -1,
       truncated: false,
+      offset: effectiveOffset,
+      limit: 0,
+      part: 1,
+      parts: 1,
       content: null,
       encoding: 'utf-8',
     });
@@ -1067,6 +1081,7 @@ async function readMemory(req, res) {
       normalizedFilename,
       offset: effectiveOffset,
       limit: effectiveLimit,
+      maxLimit: maxLimitForRequest,
     });
     const targetPath = selection.target ? path.join(__dirname, '..', selection.target) : filePath;
     const { buffer, size, chunkStart, chunkEnd } = await readLocalFileChunk(targetPath, selection.range);
@@ -1084,6 +1099,9 @@ async function readMemory(req, res) {
     const totalSize = Number.isFinite(selection.totalSize) ? selection.totalSize : size;
     const effectiveEnd = selection.originalEnd ?? chunkEnd;
     const truncated = totalSize > 0 ? effectiveEnd < totalSize - 1 : false;
+    const appliedLimit =
+      (selection.originalEnd ?? selection.range.end) - (selection.originalStart ?? selection.range.start) + 1;
+
     return respond(true, {
       status: 'success',
       file: normalizedFilename,
@@ -1092,7 +1110,7 @@ async function readMemory(req, res) {
       chunkEnd: selection.originalEnd ?? chunkEnd,
       truncated,
       offset: effectiveOffset,
-      limit: effectiveLimit,
+      limit: appliedLimit,
       part: selection.part,
       parts: selection.parts,
       content,
