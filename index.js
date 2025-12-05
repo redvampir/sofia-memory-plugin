@@ -46,6 +46,7 @@ autoRecoverContext().catch(e =>
 );
 app.use(allowCors);
 app.use(express.static(path.join(__dirname, 'assets')));
+app.use(express.static(path.join(__dirname, 'assets/visual')));
 // Serve plugin descriptors from repository root
 app.get('/openapi.yaml', (_req, res) => {
   res.sendFile(path.join(__dirname, 'openapi.yaml'));
@@ -69,6 +70,33 @@ app.use(metaRoutes);
 app.use(lessonRoutes);
 app.use(visualRoutes);
 app.use(systemRoutes);
+
+app.get('/visual', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'assets/visual/index.html'));
+});
+
+app.get('/visual/files', (_req, res) => {
+  const base = path.join(__dirname, 'memory');
+  function walk(dir, root = dir) {
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
+    let results = [];
+    for (const entry of entries) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        results = results.concat(walk(full, root));
+      } else {
+        results.push(path.relative(root, full));
+      }
+    }
+    return results;
+  }
+  try {
+    const files = walk(base);
+    res.json(files);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
 
 app.post('/switch_memory_repo', async (req, res) => {
   const { type, path, userId } = req.body;
