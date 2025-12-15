@@ -21,6 +21,7 @@ const encodePath = (fileName) =>
 const githubHeaders = () => ({
   Authorization: `token ${process.env.GITHUB_TOKEN}`,
   Accept: 'application/vnd.github.v3+json',
+  'Content-Type': 'application/json; charset=utf-8',
 });
 
 function missingTokenResponse() {

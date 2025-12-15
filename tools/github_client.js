@@ -5,8 +5,11 @@ const axios = require('axios');
 const { logError } = require('./error_handler');
 const logger = require('../utils/logger');
 
-// Заголовок User-Agent для GitHub API
-const DEFAULT_HEADERS = { 'User-Agent': 'sofia-memory-plugin' };
+// Заголовки для GitHub API - явно указываем charset для корректной работы с UTF-8
+const DEFAULT_HEADERS = {
+  'User-Agent': 'sofia-memory-plugin',
+  'Content-Type': 'application/json; charset=utf-8'
+};
 
 function encodePath(p) {
   return p.split('/').map(encodeURIComponent).join('/');

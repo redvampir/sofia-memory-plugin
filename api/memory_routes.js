@@ -771,23 +771,23 @@ async function saveMemory(req, res) {
   }
 
   if (!filename || content === undefined) {
-    return respond(false, '?? ??????? ???????????? ?????: id/filename ??? data/content.');
+    return respond(false, 'Не указаны обязательные поля: id/filename или data/content.');
   }
 
   const needsGithub = Boolean(effectiveRepo);
   if (needsGithub) {
     if (!effectiveToken) {
-      return respond(false, '??????????? GitHub token');
+      return respond(false, 'Отсутствует GitHub token');
     }
     try {
       const check = await github.validateToken(effectiveToken);
       if (!check.valid) {
-        return respond(false, '???????????? GitHub token');
+        return respond(false, 'Некорректный GitHub token');
       }
     } catch (e) {
       logger.error('[saveMemory validateToken]', e.stack || e.message);
       logError('validateToken', e);
-      return respond(false, '???????????? GitHub token');
+      return respond(false, 'Некорректный GitHub token');
     }
     try {
       const { exists, status } = await github.repoExistsSafe(
@@ -796,19 +796,19 @@ async function saveMemory(req, res) {
       );
       if (!exists) {
         if (status === 401) {
-          return respond(false, '???????????? GitHub token');
+          return respond(false, 'Некорректный GitHub token');
         }
         if (status === 403) {
-          return respond(false, '?????? ???????? ? ???????????.');
+          return respond(false, 'Доступ запрещён к репозиторию.');
         }
         const unavailable = status === 503 ? 503 : 200;
-        return respond(false, '??????????? ??????????.', unavailable);
+        return respond(false, 'Репозиторий недоступен.', unavailable);
       }
     } catch (e) {
       logger.error('[saveMemory repoExistsSafe]', e.stack || e.message);
       logError('repoExists', e);
       const unavailable = e.status === 503 ? 503 : 200;
-      return respond(false, '??????????? ??????????.', unavailable);
+      return respond(false, 'Репозиторий недоступен.', unavailable);
     }
   }
 
