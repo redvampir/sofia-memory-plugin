@@ -44,6 +44,13 @@ const branchIndexSchema = {
 };
 
 const ajv = new Ajv({ allErrors: true });
+// Support schemas that use the non-standard "uint32" format.
+// Ajv does not provide this format out of the box, so we add a validator
+// that checks for unsigned 32-bit integers.
+ajv.addFormat('uint32', {
+  type: 'number',
+  validate: (num) => Number.isInteger(num) && num >= 0 && num <= 0xFFFFFFFF,
+});
 const validateRootIndex = ajv.compile(rootIndexSchema);
 const validateBranchIndex = ajv.compile(branchIndexSchema);
 
